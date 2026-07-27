@@ -73,10 +73,10 @@ export const ProductsModule: React.FC = () => {
         title="Довідник продуктів харчування та норм відходів"
       />
 
-      <div className="flex-1 flex overflow-hidden p-3 gap-3">
+      <div className="flex-1 flex flex-col md:flex-row overflow-y-auto md:overflow-hidden p-3 gap-3">
         {/* Categories Sidebar */}
-        <div className="w-64 card-glass flex flex-col overflow-hidden">
-          <div className="p-2.5 bg-slate-200/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-semibold text-xs text-slate-700 dark:text-slate-200 flex items-center space-x-1.5">
+        <div className="w-full md:w-64 card-glass flex flex-col shrink-0 max-md:max-h-48 overflow-y-auto">
+          <div className="p-2.5 bg-slate-200/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-semibold text-xs text-slate-700 dark:text-slate-200 flex items-center space-x-1.5 sticky top-0 bg-white dark:bg-slate-900 z-10">
             <Layers className="w-3.5 h-3.5 text-blue-500" />
             <span>Групи продуктів</span>
           </div>
@@ -109,7 +109,7 @@ export const ProductsModule: React.FC = () => {
         </div>
 
         {/* Products Table */}
-        <div className="flex-1 card-glass flex flex-col overflow-hidden">
+        <div className="flex-1 w-full min-w-0 card-glass flex flex-col overflow-hidden min-h-[300px]">
           <div className="p-2.5 bg-slate-200/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-semibold text-xs text-slate-700 dark:text-slate-200">
             Список продуктів ({filteredProducts.length})
           </div>

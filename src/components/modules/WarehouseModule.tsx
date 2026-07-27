@@ -378,7 +378,7 @@ export const WarehouseModule: React.FC = () => {
       </div>
 
       {/* Sub Tabs & Search */}
-      <div className="p-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between no-print">
+      <div className="p-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between no-print overflow-x-auto">
         <div className="flex space-x-2">
           <button
             onClick={() => setActiveSubTab('stock')}

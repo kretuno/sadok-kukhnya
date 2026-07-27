@@ -15,7 +15,8 @@
 
 @layer base {
   html, body {
-    @apply bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased select-none overflow-hidden transition-colors duration-200;
+    @apply bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased transition-colors duration-200;
+    -webkit-overflow-scrolling: touch;
   }
 }
 

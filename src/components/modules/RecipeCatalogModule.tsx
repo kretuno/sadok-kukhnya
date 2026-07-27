@@ -98,10 +98,10 @@ export const RecipeCatalogModule: React.FC = () => {
         title="Технологічні карти страв та рецептура"
       />
 
-      <div className="flex-1 flex overflow-hidden p-3 gap-3">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden p-3 gap-3">
         {/* Left Sidebar: Categories */}
-        <div className="w-64 card-glass flex flex-col overflow-hidden">
-          <div className="p-2.5 bg-slate-200/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-semibold text-xs text-slate-700 dark:text-slate-200 flex items-center space-x-1.5">
+        <div className="w-full lg:w-64 card-glass flex flex-col shrink-0 max-lg:max-h-48 overflow-y-auto">
+          <div className="p-2.5 bg-slate-200/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-semibold text-xs text-slate-700 dark:text-slate-200 flex items-center space-x-1.5 sticky top-0 bg-white dark:bg-slate-900 z-10">
             <Layers className="w-3.5 h-3.5 text-blue-500" />
             <span>Категорії страв</span>
           </div>
@@ -132,12 +132,12 @@ export const RecipeCatalogModule: React.FC = () => {
         </div>
 
         {/* Center: Dishes Grid */}
-        <div className="flex-1 card-glass flex flex-col overflow-hidden">
+        <div className="flex-1 w-full min-w-0 card-glass flex flex-col overflow-hidden min-h-[300px]">
           <div className="p-2.5 bg-slate-200/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-semibold text-xs text-slate-700 dark:text-slate-200">
             Список страв ({filteredDishes.length})
           </div>
-          <div className="flex-1 overflow-auto">
-            <table className="table-grid">
+          <div className="flex-1 overflow-x-auto overflow-y-auto">
+            <table className="table-grid min-w-[500px]">
               <thead>
                 <tr>
                   <th className="w-12">Код</th>
@@ -178,7 +178,7 @@ export const RecipeCatalogModule: React.FC = () => {
         </div>
 
         {/* Right: Recipe Ingredients */}
-        <div className="w-96 card-glass flex flex-col overflow-hidden">
+        <div className="w-full lg:w-96 card-glass flex flex-col shrink-0 min-h-[250px] overflow-hidden">
           <div className="p-2.5 bg-slate-200/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
               {selectedDish ? `Склад: ${selectedDish.NAME}` : 'Оберіть страву'}
