@@ -3,7 +3,8 @@ import {
   Product, ProductCategory, Dish, DishCategory,
   RecipeComponent, EaterCategory, MenuHeader,
   InvoiceHeader, StockBatch, Institution, SupplierFirm,
-  ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage, PropertyItem
+  ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage, PropertyItem,
+  SadokGroup, SadokEmployee, SadokChild
 } from '../types';
 
 // -----------------------------------------------------------------
@@ -782,6 +783,121 @@ export function deletePropertyItem(id: number): PropertyItem[] {
   localStorage.setItem('sadok_property_items', JSON.stringify(updated));
   return updated;
 }
+
+// -----------------------------------------------------------------
+// SHARED CADRES & GROUPS & CHILDREN STORE
+// -----------------------------------------------------------------
+const INITIAL_GROUPS: SadokGroup[] = [
+  { ID: 1, NAME: 'Група «Сонечко»', AGE_CATEGORY: 'Ясла (1-3 роки)', ROOM_NUMBER: '101', TEACHER_NAME: 'Коваль Олена Іванівна', CHILDREN_COUNT: 25 },
+  { ID: 2, NAME: 'Група «Казка»', AGE_CATEGORY: 'Молодша (3-4 роки)', ROOM_NUMBER: '102', TEACHER_NAME: 'Ткаченко Марія Василівна', CHILDREN_COUNT: 30 },
+  { ID: 3, NAME: 'Група «Ясочка»', AGE_CATEGORY: 'Середня (4-5 років)', ROOM_NUMBER: '103', TEACHER_NAME: 'Лисенко Ірина Петрівна', CHILDREN_COUNT: 28 },
+  { ID: 4, NAME: 'Група «Барвінок»', AGE_CATEGORY: 'Старша (5-7 років)', ROOM_NUMBER: '104', TEACHER_NAME: 'Петренко Олексій Сергійович', CHILDREN_COUNT: 26 },
+  { ID: 5, NAME: 'Музична зала', AGE_CATEGORY: 'Спеціалізоване приміщення', ROOM_NUMBER: '201', TEACHER_NAME: 'Мельник Тетяна Григорівна', CHILDREN_COUNT: 0 },
+  { ID: 6, NAME: 'Харчоблок', AGE_CATEGORY: 'Виробниче приміщення', ROOM_NUMBER: '100', TEACHER_NAME: 'Петренко Світлана Миколаївна', CHILDREN_COUNT: 0 },
+  { ID: 7, NAME: 'Методичний кабінет', AGE_CATEGORY: 'Адміністрація', ROOM_NUMBER: '202', TEACHER_NAME: 'Суміна Наталія Євгенівна', CHILDREN_COUNT: 0 },
+  { ID: 8, NAME: 'Територія ДНЗ', AGE_CATEGORY: 'Благоустрій', ROOM_NUMBER: 'Двір', TEACHER_NAME: 'Сидоренко Василь Петрович', CHILDREN_COUNT: 0 }
+];
+
+const INITIAL_EMPLOYEES: SadokEmployee[] = [
+  { ID: 1, FULL_NAME: 'Павлухіна Наталія Георгіївна', POSITION: 'Директор ЗДО', PHONE: '(098) 816-05-37', IS_MVO: true, GROUP_NAME: 'Методичний кабінет' },
+  { ID: 2, FULL_NAME: 'Суміна Наталія Євгенівна', POSITION: 'Методист / Вихователь-методист', PHONE: '(063) 127-26-43', IS_MVO: true, GROUP_NAME: 'Методичний кабінет' },
+  { ID: 3, FULL_NAME: 'Коваль Олена Іванівна', POSITION: 'Вихователь', PHONE: '(097) 123-45-67', IS_MVO: false, GROUP_NAME: 'Група «Сонечко»' },
+  { ID: 4, FULL_NAME: 'Ткаченко Марія Василівна', POSITION: 'Вихователь', PHONE: '(050) 234-56-78', IS_MVO: false, GROUP_NAME: 'Група «Казка»' },
+  { ID: 5, FULL_NAME: 'Лисенко Ірина Петрівна', POSITION: 'Вихователь', PHONE: '(067) 345-67-89', IS_MVO: false, GROUP_NAME: 'Група «Ясочка»' },
+  { ID: 6, FULL_NAME: 'Петренко Олексій Сергійович', POSITION: 'Вихователь / Фізінструктор', PHONE: '(093) 456-78-90', IS_MVO: false, GROUP_NAME: 'Група «Барвінок»' },
+  { ID: 7, FULL_NAME: 'Петренко Світлана Миколаївна', POSITION: 'Шеф-кухар харчоблоку', PHONE: '(098) 567-89-01', IS_MVO: true, GROUP_NAME: 'Харчоблок' },
+  { ID: 8, FULL_NAME: 'Мельник Тетяна Григорівна', POSITION: 'Музичний керівник', PHONE: '(066) 678-90-12', IS_MVO: false, GROUP_NAME: 'Музична зала' },
+  { ID: 9, FULL_NAME: 'Сидоренко Василь Петрович', POSITION: 'Завідувач господарства (Завгосп)', PHONE: '(097) 789-01-23', IS_MVO: true, GROUP_NAME: 'Територія ДНЗ' }
+];
+
+const INITIAL_CHILDREN: SadokChild[] = [
+  { ID: 1, FULL_NAME: 'Іваненко Артем Олександрович', BIRTH_DATE: '2023-04-12', GROUP_NAME: 'Група «Сонечко»', PARENT_NAME: 'Іваненко О. В.', PARENT_PHONE: '(097) 111-22-33', STATUS: 'Навчається' },
+  { ID: 2, FULL_NAME: 'Коваленко Софія Дмитрівна', BIRTH_DATE: '2022-08-19', GROUP_NAME: 'Група «Казка»', PARENT_NAME: 'Коваленко О. М.', PARENT_PHONE: '(067) 222-33-44', STATUS: 'Навчається' },
+  { ID: 3, FULL_NAME: 'Шевченко Максим Ігорович', BIRTH_DATE: '2021-02-05', GROUP_NAME: 'Група «Ясочка»', PARENT_NAME: 'Шевченко Т. П.', PARENT_PHONE: '(050) 333-44-55', STATUS: 'Навчається' },
+  { ID: 4, FULL_NAME: 'Мельник Аліна Романівна', BIRTH_DATE: '2020-11-30', GROUP_NAME: 'Група «Барвінок»', PARENT_NAME: 'Мельник Н. В.', PARENT_PHONE: '(063) 444-55-66', STATUS: 'Навчається' }
+];
+
+export function getGroups(): SadokGroup[] {
+  const saved = localStorage.getItem('sadok_groups');
+  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+  localStorage.setItem('sadok_groups', JSON.stringify(INITIAL_GROUPS));
+  return INITIAL_GROUPS;
+}
+
+export function saveGroup(group: Partial<SadokGroup> & { NAME: string }): SadokGroup[] {
+  const current = getGroups();
+  let updated: SadokGroup[];
+  if (group.ID) {
+    updated = current.map(g => g.ID === group.ID ? { ...g, ...group } as SadokGroup : g);
+  } else {
+    const newId = current.length > 0 ? Math.max(...current.map(g => g.ID)) + 1 : 1;
+    updated = [{ ID: newId, NAME: group.NAME, AGE_CATEGORY: group.AGE_CATEGORY || 'Молодша', ROOM_NUMBER: group.ROOM_NUMBER || '', TEACHER_NAME: group.TEACHER_NAME || '', CHILDREN_COUNT: group.CHILDREN_COUNT || 0 }, ...current];
+  }
+  localStorage.setItem('sadok_groups', JSON.stringify(updated));
+  return updated;
+}
+
+export function deleteGroup(id: number): SadokGroup[] {
+  const current = getGroups();
+  const updated = current.filter(g => g.ID !== id);
+  localStorage.setItem('sadok_groups', JSON.stringify(updated));
+  return updated;
+}
+
+export function getEmployees(): SadokEmployee[] {
+  const saved = localStorage.getItem('sadok_employees');
+  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+  localStorage.setItem('sadok_employees', JSON.stringify(INITIAL_EMPLOYEES));
+  return INITIAL_EMPLOYEES;
+}
+
+export function saveEmployee(emp: Partial<SadokEmployee> & { FULL_NAME: string }): SadokEmployee[] {
+  const current = getEmployees();
+  let updated: SadokEmployee[];
+  if (emp.ID) {
+    updated = current.map(e => e.ID === emp.ID ? { ...e, ...emp } as SadokEmployee : e);
+  } else {
+    const newId = current.length > 0 ? Math.max(...current.map(e => e.ID)) + 1 : 1;
+    updated = [{ ID: newId, FULL_NAME: emp.FULL_NAME, POSITION: emp.POSITION || 'Вихователь', PHONE: emp.PHONE || '', IS_MVO: Boolean(emp.IS_MVO), GROUP_NAME: emp.GROUP_NAME || '', NOTES: emp.NOTES || '' }, ...current];
+  }
+  localStorage.setItem('sadok_employees', JSON.stringify(updated));
+  return updated;
+}
+
+export function deleteEmployee(id: number): SadokEmployee[] {
+  const current = getEmployees();
+  const updated = current.filter(e => e.ID !== id);
+  localStorage.setItem('sadok_employees', JSON.stringify(updated));
+  return updated;
+}
+
+export function getChildren(): SadokChild[] {
+  const saved = localStorage.getItem('sadok_children');
+  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+  localStorage.setItem('sadok_children', JSON.stringify(INITIAL_CHILDREN));
+  return INITIAL_CHILDREN;
+}
+
+export function saveChild(child: Partial<SadokChild> & { FULL_NAME: string }): SadokChild[] {
+  const current = getChildren();
+  let updated: SadokChild[];
+  if (child.ID) {
+    updated = current.map(c => c.ID === child.ID ? { ...c, ...child } as SadokChild : c);
+  } else {
+    const newId = current.length > 0 ? Math.max(...current.map(c => c.ID)) + 1 : 1;
+    updated = [{ ID: newId, FULL_NAME: child.FULL_NAME, BIRTH_DATE: child.BIRTH_DATE || '2022-01-01', GROUP_NAME: child.GROUP_NAME || 'Група «Сонечко»', PARENT_NAME: child.PARENT_NAME || '', PARENT_PHONE: child.PARENT_PHONE || '', STATUS: child.STATUS || 'Навчається', HEALTH_NOTES: child.HEALTH_NOTES || '', PSYCHOLOGY_NOTES: child.PSYCHOLOGY_NOTES || '' }, ...current];
+  }
+  localStorage.setItem('sadok_children', JSON.stringify(updated));
+  return updated;
+}
+
+export function deleteChild(id: number): SadokChild[] {
+  const current = getChildren();
+  const updated = current.filter(c => c.ID !== id);
+  localStorage.setItem('sadok_children', JSON.stringify(updated));
+  return updated;
+}
+
 
 
 

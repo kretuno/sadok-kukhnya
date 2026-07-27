@@ -87,19 +87,19 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
       ]
     },
     {
-      id: 'employees',
+      id: 'cadres',
       name: 'SADOK',
-      subtitle: 'Співробітники',
+      subtitle: 'Кадри та Вихованці',
       badgeLetter: 'S',
       gradient: 'from-indigo-600 to-purple-700 shadow-indigo-500/30',
       icon: Users,
-      status: 'in_dev',
-      description: 'Кадровий облік педагогічного та технічного персоналу, графіки чергувань, атестації та облік робочого часу.',
+      status: 'active',
+      description: 'Довідники груп, приміщень, кадровий склад (МВО) та списки вихованців, пов\'язані з Майно та Психолог.',
       features: [
-        'Особові справи вихователів та працівників',
-        'Табель обліку робочого часу (Форма П-5)',
-        'Графіки проходження курсової перепідготовки та атестації',
-        'Облік медоглядів та допусків персоналу'
+        'Структура груп ДНЗ, приміщення та вікові категорії',
+        'Персональний кадровий облік та закріплення МВО',
+        'Реєстр вихованців (дітей) з прив\'язкою до груп',
+        'Автоматична інтеграція з SADOK Майно та Психолог'
       ]
     },
     {
@@ -170,7 +170,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
               <div className="text-xs font-black text-white">Універсальний онлайн-комплекс</div>
               <div className="text-[10px] font-bold text-emerald-300 dark:text-emerald-400 flex items-center space-x-1 mt-0.5">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Версія системи v1.0.22</span>
+                <span>Версія системи v1.0.23</span>
               </div>
             </div>
           </div>

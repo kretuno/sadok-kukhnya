@@ -15,7 +15,8 @@ import {
   Building2,
   HelpCircle,
   Sparkles,
-  LayoutGrid
+  LayoutGrid,
+  Users
 } from 'lucide-react';
 
 interface HeaderNavbarProps {
@@ -35,8 +36,9 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
   fontScale,
   setFontScale
 }) => {
-  // Determine if active module is Property or Kitchen
   const isPropertyContext = activeTab === 'property';
+  const isCadresContext = activeTab === 'cadres';
+  const isPortalContext = activeTab === 'portal';
 
   const kitchenNavItems = [
     { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
@@ -57,22 +59,45 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
     { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
   ];
 
-  const navItems = isPropertyContext ? propertyNavItems : kitchenNavItems;
+  const cadresNavItems = [
+    { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
+    { id: 'cadres', label: 'Кадри та Вихованці', icon: Users, hotkey: 'F10' },
+    { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
+    { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
+  ];
+
+  const portalNavItems = [
+    { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
+    { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
+    { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
+  ];
+
+  const navItems = isPropertyContext 
+    ? propertyNavItems 
+    : (isCadresContext 
+      ? cadresNavItems 
+      : (isPortalContext ? portalNavItems : kitchenNavItems));
 
   return (
     <header className="bg-slate-800 text-white dark:bg-slate-900 border-b border-slate-700 shadow-md no-print">
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6">
-          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.22' : 'v1.0.22'} />
+          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.23' : (isCadresContext ? 'Кадри v1.0.23' : 'v1.0.23')} />
           <nav className="flex space-x-4 text-slate-300">
             <button onClick={() => setActiveTab('portal')} className="text-amber-400 font-extrabold hover:text-amber-300 transition flex items-center space-x-1"><span>🏠 Головне меню</span></button>
-            {isPropertyContext ? (
+            {isPropertyContext && (
               <>
                 <button onClick={() => setActiveTab('property')} className="hover:text-white transition font-bold text-amber-300">Реєстр майна</button>
                 <button onClick={() => window.print()} className="hover:text-white transition">Інвентаризаційний опис</button>
               </>
-            ) : (
+            )}
+            {isCadresContext && (
+              <>
+                <button onClick={() => setActiveTab('cadres')} className="hover:text-white transition font-bold text-amber-300">Кадри та Вихованці</button>
+              </>
+            )}
+            {!isPropertyContext && !isCadresContext && !isPortalContext && (
               <>
                 <button onClick={() => setActiveTab('menu_planner')} className="hover:text-white transition">Файл</button>
                 <button onClick={() => setActiveTab('products')} className="hover:text-white transition">Довідники</button>

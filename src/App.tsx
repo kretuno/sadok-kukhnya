@@ -13,6 +13,7 @@ import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 
 import { PortalHubModule } from './components/modules/PortalHubModule';
 import { PropertyManagementModule } from './components/modules/PropertyManagementModule';
+import { StructureRegistryModule } from './components/modules/StructureRegistryModule';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('portal');
@@ -56,6 +57,7 @@ export function App() {
       else if (e.key === 'F7') { e.preventDefault(); setActiveTab('reports'); }
       else if (e.key === 'F8') { e.preventDefault(); setActiveTab('property'); }
       else if (e.key === 'F9') { e.preventDefault(); setActiveTab('settings'); }
+      else if (e.key === 'F10') { e.preventDefault(); setActiveTab('cadres'); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -106,6 +108,7 @@ export function App() {
             {activeTab === 'portal' && <PortalHubModule onSelectModule={(tab) => setActiveTab(tab)} />}
             {activeTab === 'menu_planner' && <MenuPlannerModule />}
             {activeTab === 'property' && <PropertyManagementModule />}
+            {activeTab === 'cadres' && <StructureRegistryModule />}
             {activeTab === 'recipes' && <RecipeCatalogModule />}
             {activeTab === 'products' && <ProductsModule />}
             {activeTab === 'sanpin' && <SanpinNormsModule />}

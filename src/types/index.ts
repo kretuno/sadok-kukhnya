@@ -163,3 +163,35 @@ export interface PropertyItem {
   NOTES?: string;
 }
 
+export interface SadokGroup {
+  ID: number;
+  NAME: string;
+  AGE_CATEGORY: string;
+  ROOM_NUMBER?: string;
+  TEACHER_NAME?: string;
+  CHILDREN_COUNT: number;
+}
+
+export interface SadokEmployee {
+  ID: number;
+  FULL_NAME: string;
+  POSITION: string;
+  PHONE?: string;
+  IS_MVO: boolean;
+  GROUP_NAME?: string;
+  NOTES?: string;
+}
+
+export interface SadokChild {
+  ID: number;
+  FULL_NAME: string;
+  BIRTH_DATE: string;
+  GROUP_NAME: string;
+  PARENT_NAME?: string;
+  PARENT_PHONE?: string;
+  STATUS: 'Навчається' | 'Випускник' | 'Тимчасово відсутній';
+  HEALTH_NOTES?: string;
+  PSYCHOLOGY_NOTES?: string;
+}
+
+

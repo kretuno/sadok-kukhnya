@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PropertyItem, PropertyLocationDistribution } from '../../types';
-import { getPropertyItems, savePropertyItem, deletePropertyItem } from '../../services/db';
+import { getPropertyItems, savePropertyItem, deletePropertyItem, getGroups, getEmployees } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
 import { 
@@ -73,6 +73,9 @@ export const PropertyManagementModule: React.FC = () => {
     { id: 'loc-1', locationName: 'Група «Сонечко»', responsiblePerson: 'Завгосп', quantity: 1 }
   ]);
 
+  const [availableGroups, setAvailableGroups] = useState<string[]>([]);
+  const [availableEmployees, setAvailableEmployees] = useState<string[]>([]);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -80,13 +83,18 @@ export const PropertyManagementModule: React.FC = () => {
   const loadData = () => {
     const list = getPropertyItems();
     setItems(list);
+    const gList = getGroups().map(g => g.NAME);
+    const eList = getEmployees().map(e => `${e.FULL_NAME} (${e.POSITION})`);
+    setAvailableGroups(gList);
+    setAvailableEmployees(eList);
   };
 
   // Get distinct location names for filter dropdown
   const allLocations = Array.from(
-    new Set(
-      items.flatMap(item => (item.LOCATIONS || []).map(l => l.locationName))
-    )
+    new Set([
+      ...availableGroups,
+      ...items.flatMap(item => (item.LOCATIONS || []).map(l => l.locationName))
+    ])
   ).filter(Boolean);
 
   const handleOpenAddModal = () => {
@@ -638,20 +646,28 @@ export const PropertyManagementModule: React.FC = () => {
                         <input
                           type="text"
                           required
-                          placeholder="Локація (напр: Група «Сонечко», Харчоблок)"
+                          list="groups-list"
+                          placeholder="Локація / Група ДНЗ"
                           value={loc.locationName}
                           onChange={(e) => handleLocationChange(loc.id, 'locationName', e.target.value)}
                           className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-800 dark:text-slate-100"
                         />
+                        <datalist id="groups-list">
+                          {availableGroups.map((g, i) => <option key={i} value={g} />)}
+                        </datalist>
                       </div>
                       <div className="flex-1">
                         <input
                           type="text"
-                          placeholder="МВО / Відповідальний (напр: Коваль О. І.)"
+                          list="employees-list"
+                          placeholder="МВО / Відповідальний"
                           value={loc.responsiblePerson}
                           onChange={(e) => handleLocationChange(loc.id, 'responsiblePerson', e.target.value)}
                           className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-100"
                         />
+                        <datalist id="employees-list">
+                          {availableEmployees.map((e, i) => <option key={i} value={e} />)}
+                        </datalist>
                       </div>
                       <div className="w-24">
                         <div className="flex items-center space-x-1">
