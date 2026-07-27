@@ -4,3 +4,9 @@ dist_electron
 .DS_Store
 *.local
 .vercel
+.venv
+*.exe
+*.bmp
+*.lnk
+*.abc
+*.txt
