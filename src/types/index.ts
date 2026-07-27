@@ -163,6 +163,25 @@ export interface PropertyItem {
   NOTES?: string;
 }
 
+export interface PropertyWriteOffRecord {
+  ID: number;
+  ACT_NUMBER: string;
+  DATE: string;
+  PROPERTY_ID: number;
+  INVENTAR_NUMBER: string;
+  PROPERTY_NAME: string;
+  CATEGORY: string;
+  QUANTITY: number;
+  LOCATION_NAME: string;
+  RESPONSIBLE_PERSON: string;
+  REASON: string;
+  COMMISSION_HEAD: string;
+  COMMISSION_MEMBERS: string;
+  INITIAL_COST: number;
+  TOTAL_COST: number;
+  NOTES?: string;
+}
+
 export interface SadokGroup {
   ID: number;
   NAME: string;

@@ -3,7 +3,7 @@ import {
   Product, ProductCategory, Dish, DishCategory,
   RecipeComponent, EaterCategory, MenuHeader,
   InvoiceHeader, StockBatch, Institution, SupplierFirm,
-  ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage, PropertyItem,
+  ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage, PropertyItem, PropertyWriteOffRecord,
   SadokGroup, SadokEmployee, SadokChild
 } from '../types';
 
@@ -782,6 +782,124 @@ export function deletePropertyItem(id: number): PropertyItem[] {
   const updated = current.filter(i => i.ID !== id);
   localStorage.setItem('sadok_property_items', JSON.stringify(updated));
   return updated;
+}
+
+// Property Write-Off Records Persistence
+const INITIAL_PROPERTY_WRITEOFFS: PropertyWriteOffRecord[] = [
+  {
+    ID: 1,
+    ACT_NUMBER: 'Акт № 01/2026',
+    DATE: '2026-03-15',
+    PROPERTY_ID: 1,
+    INVENTAR_NUMBER: '10114001',
+    PROPERTY_NAME: 'Дитячий стілець дерев\'яний',
+    CATEGORY: 'Меблі та м\'який інвентар',
+    QUANTITY: 3,
+    LOCATION_NAME: 'Група «Сонечко»',
+    RESPONSIBLE_PERSON: 'Коваль Олена Іванівна (Вихователь)',
+    REASON: 'Повний фізичний знос, поломка спинки, непіддатливість ремонту',
+    COMMISSION_HEAD: 'Павлухіна Н. Г. (Директор)',
+    COMMISSION_MEMBERS: 'Суміна Н. Є. (Вихователь-методист), Завгосп Сидоренко В. П.',
+    INITIAL_COST: 450,
+    TOTAL_COST: 1350,
+    NOTES: 'Списано за рішенням комісії інвентаризації'
+  }
+];
+
+export function getPropertyWriteOffs(): PropertyWriteOffRecord[] {
+  const saved = localStorage.getItem('sadok_property_writeoffs');
+  if (saved) {
+    try { return JSON.parse(saved); } catch (_) {}
+  }
+  localStorage.setItem('sadok_property_writeoffs', JSON.stringify(INITIAL_PROPERTY_WRITEOFFS));
+  return INITIAL_PROPERTY_WRITEOFFS;
+}
+
+export function createPropertyWriteOff(data: Omit<PropertyWriteOffRecord, 'ID'>): { items: PropertyItem[]; writeOffs: PropertyWriteOffRecord[] } {
+  const currentWriteOffs = getPropertyWriteOffs();
+  const newId = currentWriteOffs.length > 0 ? Math.max(...currentWriteOffs.map(w => w.ID)) + 1 : 1;
+  
+  const newRecord: PropertyWriteOffRecord = {
+    ...data,
+    ID: newId
+  };
+  const updatedWriteOffs = [newRecord, ...currentWriteOffs];
+  localStorage.setItem('sadok_property_writeoffs', JSON.stringify(updatedWriteOffs));
+
+  // Deduct quantity from PropertyItem location
+  const currentItems = getPropertyItems();
+  const updatedItems = currentItems.map(item => {
+    if (item.ID === data.PROPERTY_ID) {
+      let updatedLocations = (item.LOCATIONS || []).map(loc => {
+        if (loc.locationName === data.LOCATION_NAME) {
+          const newQty = Math.max(0, loc.quantity - data.QUANTITY);
+          return { ...loc, quantity: newQty };
+        }
+        return loc;
+      });
+
+      const newTotalQty = updatedLocations.reduce((sum, l) => sum + l.quantity, 0);
+      let newCondition = item.CONDITION;
+      if (newTotalQty === 0) {
+        newCondition = 'Підлягає списанню';
+      }
+
+      return {
+        ...item,
+        TOTAL_QUANTITY: newTotalQty,
+        LOCATIONS: updatedLocations,
+        CONDITION: newCondition
+      };
+    }
+    return item;
+  });
+
+  localStorage.setItem('sadok_property_items', JSON.stringify(updatedItems));
+  return { items: updatedItems, writeOffs: updatedWriteOffs };
+}
+
+export function deletePropertyWriteOff(id: number): { items: PropertyItem[]; writeOffs: PropertyWriteOffRecord[] } {
+  const currentWriteOffs = getPropertyWriteOffs();
+  const target = currentWriteOffs.find(w => w.ID === id);
+  if (!target) return { items: getPropertyItems(), writeOffs: currentWriteOffs };
+
+  const updatedWriteOffs = currentWriteOffs.filter(w => w.ID !== id);
+  localStorage.setItem('sadok_property_writeoffs', JSON.stringify(updatedWriteOffs));
+
+  // Restore quantity to PropertyItem location
+  const currentItems = getPropertyItems();
+  const updatedItems = currentItems.map(item => {
+    if (item.ID === target.PROPERTY_ID) {
+      let found = false;
+      let updatedLocations = (item.LOCATIONS || []).map(loc => {
+        if (loc.locationName === target.LOCATION_NAME) {
+          found = true;
+          return { ...loc, quantity: loc.quantity + target.QUANTITY };
+        }
+        return loc;
+      });
+
+      if (!found) {
+        updatedLocations.push({
+          id: Date.now().toString(),
+          locationName: target.LOCATION_NAME,
+          responsiblePerson: target.RESPONSIBLE_PERSON,
+          quantity: target.QUANTITY
+        });
+      }
+
+      const newTotalQty = updatedLocations.reduce((sum, l) => sum + l.quantity, 0);
+      return {
+        ...item,
+        TOTAL_QUANTITY: newTotalQty,
+        LOCATIONS: updatedLocations
+      };
+    }
+    return item;
+  });
+
+  localStorage.setItem('sadok_property_items', JSON.stringify(updatedItems));
+  return { items: updatedItems, writeOffs: updatedWriteOffs };
 }
 
 // -----------------------------------------------------------------
