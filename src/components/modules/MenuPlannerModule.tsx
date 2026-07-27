@@ -568,70 +568,145 @@ export const MenuPlannerModule: React.FC = () => {
                 {filteredMenuItems.length === 0 ? (
                   <tr>
                     <td colSpan={6 + categories.length} className="text-center py-8 text-slate-400 italic">
-                      На обрану дату меню не сформовано. Натисніть «Додати» для вибору страв з картотеки.
+                      На обрану дату меню не сформовано. Натисніть «Додати» для вибору страв з технологічної карти.
                     </td>
                   </tr>
                 ) : (
-                  filteredMenuItems.map(item => {
-                    const dish = dishes.find(d => d.ID === item.ID_BLUDA);
-                    const baseYield = dish?.VYXOD || 200;
+                  (() => {
+                    // Group menu items by MEAL_TYPE
+                    const getMealIcon = (type: string) => {
+                      if (type.includes('Сніданок') || type.includes('1')) return '🍳';
+                      if (type.includes('2-й') || type.includes('Другий')) return '🍎';
+                      if (type.includes('Обід')) return '🍲';
+                      if (type.includes('Полуденок') || type.includes('Підвечірок')) return '🫖';
+                      if (type.includes('Вечеря')) return '🥗';
+                      return '🍴';
+                    };
 
-                    let totalNutrientRatio = 0;
-                    let activeCount = 0;
-                    categories.forEach(c => {
-                      if ((counts[c.ID] || 0) > 0) {
-                        const y = getDishYieldForCat(item.ID_BLUDA, c.ID);
-                        totalNutrientRatio += (baseYield > 0 ? y / baseYield : 1);
-                        activeCount++;
+                    const groups: { mealType: string; items: MenuHeader[]; totalB: number; totalZ: number; totalU: number; totalKcal: number }[] = [];
+
+                    MEAL_TYPES.forEach(meal => {
+                      const itemsInMeal = filteredMenuItems.filter(m => m.MEAL_TYPE === meal);
+                      if (itemsInMeal.length > 0) {
+                        let totalB = 0;
+                        let totalZ = 0;
+                        let totalU = 0;
+                        let totalKcal = 0;
+
+                        itemsInMeal.forEach(item => {
+                          const dish = dishes.find(d => d.ID === item.ID_BLUDA);
+                          const baseYield = dish?.VYXOD || 200;
+                          let totalNutrientRatio = 0;
+                          let activeCount = 0;
+                          categories.forEach(c => {
+                            if ((counts[c.ID] || 0) > 0) {
+                              const y = getDishYieldForCat(item.ID_BLUDA, c.ID);
+                              totalNutrientRatio += (baseYield > 0 ? y / baseYield : 1);
+                              activeCount++;
+                            }
+                          });
+                          const avgRatio = activeCount > 0 ? totalNutrientRatio / activeCount : 1;
+
+                          totalB += (dish?.BELKI || 0) * avgRatio;
+                          totalZ += (dish?.ZIRI || 0) * avgRatio;
+                          totalU += (dish?.UGLEVODI || 0) * avgRatio;
+                          totalKcal += Math.round((dish?.KALORII || 0) * avgRatio);
+                        });
+
+                        groups.push({ mealType: meal, items: itemsInMeal, totalB, totalZ, totalU, totalKcal });
                       }
                     });
-                    const avgRatio = activeCount > 0 ? totalNutrientRatio / activeCount : 1;
 
-                    return (
-                      <tr key={item.ID}>
-                        <td>
-                          <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 rounded text-[11px] font-semibold">
-                            {item.MEAL_TYPE}
-                          </span>
-                        </td>
-                        <td className="font-semibold text-slate-800 dark:text-slate-100">{item.NAME_BLUDA}</td>
+                    // Any other custom meal types
+                    const otherItems = filteredMenuItems.filter(m => !MEAL_TYPES.includes(m.MEAL_TYPE));
+                    if (otherItems.length > 0) {
+                      groups.push({ mealType: 'Інше', items: otherItems, totalB: 0, totalZ: 0, totalU: 0, totalKcal: 0 });
+                    }
 
-                        {/* EDITABLE PORTION WEIGHT INPUT FOR EACH EATER CATEGORY */}
-                        {categories.map(cat => {
-                          const yieldVal = getDishYieldForCat(item.ID_BLUDA, cat.ID);
+                    return groups.map(group => (
+                      <React.Fragment key={`group-${group.mealType}`}>
+                        {/* MEAL SECTION HEADER ROW WITH SUBTOTALS */}
+                        <tr className="bg-blue-50/80 dark:bg-slate-800/90 font-bold border-t border-b border-blue-200 dark:border-slate-700">
+                          <td colSpan={2 + categories.length} className="py-1.5 px-3 text-xs text-blue-900 dark:text-blue-200">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-base">{getMealIcon(group.mealType)}</span>
+                              <span className="font-black text-xs uppercase tracking-wider text-blue-700 dark:text-blue-300">
+                                {group.mealType}
+                              </span>
+                              <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                                ({group.items.length} {group.items.length === 1 ? 'страва' : 'страв'})
+                              </span>
+                            </div>
+                          </td>
+                          <td className="text-xs text-blue-900 dark:text-blue-200 font-extrabold">{group.totalB.toFixed(1)}</td>
+                          <td className="text-xs text-blue-900 dark:text-blue-200 font-extrabold">{group.totalZ.toFixed(1)}</td>
+                          <td className="text-xs text-blue-900 dark:text-blue-200 font-extrabold">{group.totalU.toFixed(1)}</td>
+                          <td className="text-xs text-amber-600 dark:text-amber-400 font-black">{group.totalKcal}</td>
+                          <td></td>
+                        </tr>
+
+                        {/* INDIVIDUAL DISH ROWS */}
+                        {group.items.map(item => {
+                          const dish = dishes.find(d => d.ID === item.ID_BLUDA);
+                          const baseYield = dish?.VYXOD || 200;
+
+                          let totalNutrientRatio = 0;
+                          let activeCount = 0;
+                          categories.forEach(c => {
+                            if ((counts[c.ID] || 0) > 0) {
+                              const y = getDishYieldForCat(item.ID_BLUDA, c.ID);
+                              totalNutrientRatio += (baseYield > 0 ? y / baseYield : 1);
+                              activeCount++;
+                            }
+                          });
+                          const avgRatio = activeCount > 0 ? totalNutrientRatio / activeCount : 1;
+
                           return (
-                            <td key={cat.ID} className="text-center">
-                              <div className="flex items-center justify-center space-x-0.5">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={yieldVal}
-                                  onChange={(e) => handleCatYieldChange(item.ID_BLUDA, cat.ID, Number(e.target.value))}
-                                  className="w-14 px-1 py-0.5 text-center bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded text-xs font-bold text-blue-600 dark:text-blue-400 focus:ring-2 focus:ring-blue-500"
-                                  title={`Змінити вагу виходу для ${translateCatName(cat.NAME)}`}
-                                />
-                                <span className="text-[10px] text-slate-400">г</span>
-                              </div>
-                            </td>
+                            <tr key={item.ID} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                              <td className="text-center text-slate-400 font-bold text-xs">
+                                •
+                              </td>
+                              <td className="font-semibold text-slate-800 dark:text-slate-100 pl-4">{item.NAME_BLUDA}</td>
+
+                              {/* EDITABLE PORTION WEIGHT INPUT FOR EACH EATER CATEGORY */}
+                              {categories.map(cat => {
+                                const yieldVal = getDishYieldForCat(item.ID_BLUDA, cat.ID);
+                                return (
+                                  <td key={cat.ID} className="text-center">
+                                    <div className="flex items-center justify-center space-x-0.5">
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        value={yieldVal}
+                                        onChange={(e) => handleCatYieldChange(item.ID_BLUDA, cat.ID, Number(e.target.value))}
+                                        className="w-14 px-1 py-0.5 text-center bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded text-xs font-bold text-blue-600 dark:text-blue-400 focus:ring-2 focus:ring-blue-500"
+                                        title={`Змінити вагу виходу для ${translateCatName(cat.NAME)}`}
+                                      />
+                                      <span className="text-[10px] text-slate-400">г</span>
+                                    </div>
+                                  </td>
+                                );
+                              })}
+
+                              <td>{((dish?.BELKI || 0) * avgRatio).toFixed(1)}</td>
+                              <td>{((dish?.ZIRI || 0) * avgRatio).toFixed(1)}</td>
+                              <td>{((dish?.UGLEVODI || 0) * avgRatio).toFixed(1)}</td>
+                              <td className="font-semibold text-amber-600 dark:text-amber-400">{Math.round((dish?.KALORII || 0) * avgRatio)}</td>
+                              <td className="text-center">
+                                <button
+                                  onClick={() => handleDeleteItem(item.ID)}
+                                  className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 rounded transition"
+                                  title="Видалити з меню"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
                           );
                         })}
-
-                        <td>{((dish?.BELKI || 0) * avgRatio).toFixed(1)}</td>
-                        <td>{((dish?.ZIRI || 0) * avgRatio).toFixed(1)}</td>
-                        <td>{((dish?.UGLEVODI || 0) * avgRatio).toFixed(1)}</td>
-                        <td className="font-semibold text-amber-600 dark:text-amber-400">{Math.round((dish?.KALORII || 0) * avgRatio)}</td>
-                        <td className="text-center">
-                          <button
-                            onClick={() => handleDeleteItem(item.ID)}
-                            className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 rounded transition"
-                            title="Видалити з меню"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
+                      </React.Fragment>
+                    ));
+                  })()
                 )}
               </tbody>
             </table>
@@ -1008,7 +1083,7 @@ export const MenuPlannerModule: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Оберіть страву з картотеки</label>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Оберіть страву з технологічної карти</label>
                 <select
                   value={newDishId}
                   onChange={(e) => setNewDishId(Number(e.target.value))}

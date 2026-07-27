@@ -95,7 +95,7 @@ export const RecipeCatalogModule: React.FC = () => {
         onExportPDF={handleExportPDF}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        title="Довідник рецептур та картотека страв"
+        title="Технологічні карти страв та рецептура"
       />
 
       <div className="flex-1 flex overflow-hidden p-3 gap-3">
