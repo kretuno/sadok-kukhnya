@@ -11,8 +11,10 @@ import { SettingsModule } from './components/modules/SettingsModule';
 import { initDatabase } from './services/db';
 import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 
+import { PortalHubModule } from './components/modules/PortalHubModule';
+
 export function App() {
-  const [activeTab, setActiveTab] = useState<string>('menu_planner');
+  const [activeTab, setActiveTab] = useState<string>('portal');
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     return localStorage.getItem('sadok_dark_mode') === 'true';
   });
@@ -99,6 +101,7 @@ export function App() {
 
         {dbStatus === 'ready' && (
           <>
+            {activeTab === 'portal' && <PortalHubModule onSelectModule={(tab) => setActiveTab(tab)} />}
             {activeTab === 'menu_planner' && <MenuPlannerModule />}
             {activeTab === 'recipes' && <RecipeCatalogModule />}
             {activeTab === 'products' && <ProductsModule />}
