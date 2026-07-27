@@ -11,7 +11,7 @@ export const AboutModule: React.FC = () => {
         onExportExcel={() => {}}
         onExportPDF={() => {}}
         onPrint={() => window.print()}
-        title="Про програму SADOK v1.0.28"
+        title="Про програму SADOK v1.0.29"
       />
 
       <div className="flex-1 p-6 overflow-auto">
@@ -30,7 +30,7 @@ export const AboutModule: React.FC = () => {
                 <div className="space-y-2">
                   <div className="inline-flex items-center space-x-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold tracking-wide">
                     <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                    <span>Офіційний реліз v1.0.28</span>
+                    <span>Офіційний реліз v1.0.29</span>
                   </div>
                   <h1 className="text-3xl md:text-4xl font-black tracking-tight drop-shadow-sm flex items-center space-x-2">
                     <span className="text-white">SADOK</span>
@@ -44,7 +44,7 @@ export const AboutModule: React.FC = () => {
 
               <div className="flex flex-col items-center justify-center p-4 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-center min-w-[170px] shadow-inner">
                 <span className="text-[11px] uppercase tracking-wider font-semibold text-blue-200">Версія ПЗ</span>
-                <span className="text-2xl font-black text-white my-0.5">v1.0.28</span>
+                <span className="text-2xl font-black text-white my-0.5">v1.0.29</span>
                 <span className="text-[10px] text-emerald-300 font-bold flex items-center space-x-1">
                   <CheckCircle2 className="w-3 h-3" />
                   <span>Активна ліцензія</span>
