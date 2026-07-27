@@ -134,36 +134,36 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
   ];
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-900 text-slate-100 overflow-y-auto selection:bg-blue-500 selection:text-white pb-12">
+    <div className="flex-1 flex flex-col bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-y-auto selection:bg-blue-500 selection:text-white pb-12 transition-colors duration-200">
       {/* TOP HERO BANNER */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 border-b border-slate-800 p-5 md:p-6 shadow-2xl shrink-0">
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 dark:from-blue-950 dark:via-slate-950 dark:to-indigo-950 text-white border-b border-slate-200 dark:border-slate-800 p-5 md:p-6 shadow-xl shrink-0">
         <div className="absolute -right-20 -top-20 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute left-1/3 -bottom-20 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2 text-center md:text-left">
-            <div className="inline-flex items-center space-x-2 px-3 py-0.5 bg-blue-500/20 border border-blue-400/30 rounded-full text-xs font-extrabold text-blue-300">
+            <div className="inline-flex items-center space-x-2 px-3 py-0.5 bg-blue-500/20 border border-blue-400/30 rounded-full text-xs font-extrabold text-blue-200">
               <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
               <span>Екосистема управління закладами дошкільної освіти України</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white drop-shadow-sm">
-              Платформа <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400">SADOK</span>
+              Платформа <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-300">SADOK</span>
             </h1>
-            <p className="text-slate-300 text-xs md:text-sm max-w-xl font-medium leading-relaxed">
+            <p className="text-blue-100 dark:text-slate-300 text-xs md:text-sm max-w-xl font-medium leading-relaxed">
               Оберіть необхідний спеціалізований модуль для роботи. Універсальний комплекс автоматизації меню, майна, медичного обліку, кадрів та аналітики ЗДО.
             </p>
           </div>
 
-          <div className="flex items-center space-x-3.5 bg-slate-800/80 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700/80 shadow-xl shrink-0">
+          <div className="flex items-center space-x-3.5 bg-white/10 dark:bg-slate-800/80 backdrop-blur-md p-3.5 rounded-2xl border border-white/20 dark:border-slate-700/80 shadow-xl shrink-0 text-white">
             <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-black text-xl text-white shadow-md border border-white/20">
               S
             </div>
             <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Платформа для ЗДО</div>
+              <div className="text-[10px] font-bold text-blue-200 dark:text-slate-400 uppercase tracking-wider">Платформа для ЗДО</div>
               <div className="text-xs font-black text-white">Універсальний онлайн-комплекс</div>
-              <div className="text-[10px] font-bold text-emerald-400 flex items-center space-x-1 mt-0.5">
+              <div className="text-[10px] font-bold text-emerald-300 dark:text-emerald-400 flex items-center space-x-1 mt-0.5">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Версія системи v1.0.15</span>
+                <span>Версія системи v1.0.16</span>
               </div>
             </div>
           </div>
@@ -172,14 +172,14 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
 
       {/* MODULES GRID SECTION */}
       <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
           <div className="flex items-center space-x-2">
-            <Building className="w-4 h-4 text-blue-400" />
-            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase">
+            <Building className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <h2 className="text-sm font-extrabold text-slate-800 dark:text-white tracking-wide uppercase">
               Модулі та субсистеми SADOK
             </h2>
           </div>
-          <span className="text-[11px] font-semibold text-slate-400 bg-slate-800 px-3 py-0.5 rounded-full border border-slate-700">
+          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
             6 Спеціалізованих модулів
           </span>
         </div>
@@ -201,8 +201,8 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
                 }}
                 className={`group relative flex flex-col justify-between p-4 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden ${
                   isActive
-                    ? 'bg-slate-800/90 hover:bg-slate-800 border-blue-500/50 hover:border-blue-400 shadow-xl hover:shadow-2xl hover:shadow-blue-500/10 -translate-y-1'
-                    : 'bg-slate-800/40 hover:bg-slate-800/70 border-slate-700/60 hover:border-slate-600 hover:-translate-y-0.5'
+                    ? 'bg-white dark:bg-slate-900/90 border-blue-500/60 dark:border-blue-500/50 hover:border-blue-600 dark:hover:border-blue-400 shadow-lg hover:shadow-2xl hover:shadow-blue-500/10 -translate-y-1'
+                    : 'bg-white/90 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-900/80 hover:border-slate-300 dark:hover:border-slate-700 hover:-translate-y-0.5 shadow-sm hover:shadow-md'
                 }`}
               >
                 {/* Background Accent Glow */}
@@ -219,44 +219,44 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
 
                       <div>
                         <div className="flex items-baseline space-x-1.5">
-                          <span className="text-sm font-black text-white tracking-tight">{proj.name}</span>
-                          <span className="text-sm font-bold text-slate-300">{proj.subtitle}</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-white tracking-tight">{proj.name}</span>
+                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">{proj.subtitle}</span>
                         </div>
-                        <span className="text-[10px] font-semibold text-slate-400 block">Модуль системи</span>
+                        <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block">Модуль системи</span>
                       </div>
                     </div>
 
                     {/* Status Badge */}
                     {isActive ? (
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 bg-emerald-500/20 border border-emerald-500/40 rounded-full text-[10px] font-extrabold text-emerald-300">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-500/20 border border-emerald-300 dark:border-emerald-500/40 rounded-full text-[10px] font-extrabold text-emerald-800 dark:text-emerald-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                         <span>Активний</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 bg-slate-700/80 border border-slate-600 rounded-full text-[10px] font-bold text-amber-300">
-                        <Clock className="w-3 h-3 text-amber-400" />
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 bg-amber-50 dark:bg-slate-800/80 border border-amber-200 dark:border-amber-700/60 rounded-full text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                        <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                         <span>В розробці</span>
                       </span>
                     )}
                   </div>
 
                   {/* Description */}
-                  <p className="text-[11px] text-slate-300 leading-relaxed font-medium min-h-[42px]">
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed font-medium min-h-[42px]">
                     {proj.description}
                   </p>
                 </div>
 
                 {/* Card Footer Button */}
-                <div className="pt-3 border-t border-slate-700/60 mt-3 flex items-center justify-between relative z-10">
-                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-400 group-hover:text-white transition-colors">
-                    <Icon className="w-3.5 h-3.5 text-blue-400" />
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-700/60 mt-3 flex items-center justify-between relative z-10">
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400 group-hover:text-blue-600 dark:group-hover:text-white transition-colors">
+                    <Icon className="w-3.5 h-3.5 text-blue-500 dark:text-blue-400" />
                     <span>{isActive ? 'Відкрити модуль' : 'Детальніше про модуль'}</span>
                   </div>
 
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-300 ${
                     isActive
                       ? 'bg-blue-600 text-white group-hover:bg-blue-500 group-hover:translate-x-1'
-                      : 'bg-slate-700 text-slate-300 group-hover:bg-slate-600'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 group-hover:bg-slate-200 dark:group-hover:bg-slate-600'
                   }`}>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </div>
@@ -269,15 +269,15 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
 
       {/* MODAL: IN DEVELOPMENT ANNOUNCEMENT */}
       {selectedInDevModule && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl space-y-6 relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl space-y-6 relative overflow-hidden animate-in fade-in zoom-in-95 duration-200 text-slate-900 dark:text-white">
             {/* Background Glow */}
             <div className={`absolute -right-20 -top-20 w-64 h-64 rounded-full blur-3xl opacity-30 bg-gradient-to-tr ${selectedInDevModule.gradient}`} />
 
             {/* Close Button */}
             <button
               onClick={() => setSelectedInDevModule(null)}
-              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full transition"
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white bg-slate-100 dark:bg-slate-800 rounded-full transition"
             >
               <X className="w-5 h-5" />
             </button>
@@ -288,32 +288,32 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
                 {selectedInDevModule.badgeLetter}
               </div>
               <div>
-                <div className="inline-flex items-center space-x-1 px-2.5 py-0.5 bg-amber-500/20 border border-amber-500/40 rounded-full text-[10px] font-bold text-amber-300 mb-1">
-                  <Clock className="w-3 h-3 text-amber-400" />
+                <div className="inline-flex items-center space-x-1 px-2.5 py-0.5 bg-amber-100 dark:bg-amber-500/20 border border-amber-300 dark:border-amber-500/40 rounded-full text-[10px] font-bold text-amber-800 dark:text-amber-300 mb-1">
+                  <Clock className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                   <span>Модуль знаходиться в розробці</span>
                 </div>
-                <h3 className="text-xl font-black text-white flex items-baseline space-x-1.5">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white flex items-baseline space-x-1.5">
                   <span>{selectedInDevModule.name}</span>
-                  <span className="text-slate-300 font-bold">{selectedInDevModule.subtitle}</span>
+                  <span className="text-slate-700 dark:text-slate-300 font-bold">{selectedInDevModule.subtitle}</span>
                 </h3>
               </div>
             </div>
 
             {/* Description */}
-            <p className="text-xs text-slate-300 leading-relaxed font-medium">
+            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
               {selectedInDevModule.description}
             </p>
 
             {/* Planned Features List */}
-            <div className="space-y-2.5 bg-slate-800/60 p-4 rounded-2xl border border-slate-700/80">
-              <div className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center space-x-2">
-                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+            <div className="space-y-2.5 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+              <div className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center space-x-2">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                 <span>Заплановані можливості модуля:</span>
               </div>
               <ul className="space-y-2">
                 {selectedInDevModule.features.map((feat, idx) => (
-                  <li key={idx} className="flex items-start space-x-2 text-xs text-slate-300">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <li key={idx} className="flex items-start space-x-2 text-xs text-slate-700 dark:text-slate-300">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                     <span>{feat}</span>
                   </li>
                 ))}
@@ -334,7 +334,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
 
               <button
                 onClick={() => setSelectedInDevModule(null)}
-                className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition text-xs cursor-pointer"
+                className="py-2.5 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition text-xs cursor-pointer"
               >
                 Закрити
               </button>
