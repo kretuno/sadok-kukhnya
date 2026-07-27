@@ -66,14 +66,14 @@ export const SettingsModule: React.FC = () => {
       const active = list.find(i => i.ID === selectedInstId) || list[0];
       setSelectedInstId(active.ID);
       setInstForm({
-        name: active.NAME || 'ЗДО № 105 «Казка»',
-        adres: active.ADRES || 'вул. Лісова, буд. 14',
-        telefon: active.TELEFON || '+380 (44) 123-45-67',
-        director: active.DIRECTOR || 'Іванченко М. П.',
-        nurse: active.NURSE || 'Ковальчук О. В.',
+        name: active.NAME || 'Криворізький КЗДО КТ №145 КМР',
+        adres: active.ADRES || 'Дніпропетровська область, м. Кривий Ріг, Тернівський район, вул. Перлинна 23А',
+        telefon: active.TELEFON || '(098) 816-05-37',
+        director: active.DIRECTOR || 'Павлухіна Наталія Георгіївна',
+        nurse: active.NURSE || 'Суміна Наталія Євгенівна',
         cook: active.COOK || 'Петренко С. М.',
-        edrpou: active.EDRPOU || '12345678',
-        email: 'sadok@kyiv.gov.ua',
+        edrpou: active.EDRPOU || '26136748',
+        email: 'zdo145@ukr.net',
         isSeparateWarehouse: Boolean(active.IS_SEPARATE_WAREHOUSE),
       });
     }
@@ -85,13 +85,13 @@ export const SettingsModule: React.FC = () => {
     if (inst) {
       setInstForm({
         name: inst.NAME,
-        adres: inst.ADRES || '',
-        telefon: inst.TELEFON || '',
-        director: inst.DIRECTOR || '',
-        nurse: inst.NURSE || '',
+        adres: inst.ADRES || 'Дніпропетровська область, м. Кривий Ріг, Тернівський район, вул. Перлинна 23А',
+        telefon: inst.TELEFON || '(098) 816-05-37',
+        director: inst.DIRECTOR || 'Павлухіна Наталія Георгіївна',
+        nurse: inst.NURSE || 'Суміна Наталія Євгенівна',
         cook: inst.COOK || '',
-        edrpou: inst.EDRPOU || '',
-        email: 'sadok@kyiv.gov.ua',
+        edrpou: inst.EDRPOU || '26136748',
+        email: 'zdo145@ukr.net',
         isSeparateWarehouse: Boolean(inst.IS_SEPARATE_WAREHOUSE),
       });
     }
@@ -191,7 +191,7 @@ export const SettingsModule: React.FC = () => {
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                SADOK Кухня v1.0.18 (Налаштування системи)
+                SADOK Кухня v1.0.19 (Налаштування системи)
               </h2>
               <p className="text-slate-500 dark:text-slate-400 mt-0.5">
                 Параметри закладу дошкільної освіти, реквізити, ліміти вартості та складські правила

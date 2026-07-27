@@ -314,15 +314,34 @@ export const getInstitutions = (): Institution[] => {
     try { db.run("ALTER TABLE SADIKI ADD COLUMN NURSE TEXT"); } catch (_) {}
     try { db.run("ALTER TABLE SADIKI ADD COLUMN COOK TEXT"); } catch (_) {}
     try { db.run("ALTER TABLE SADIKI ADD COLUMN IS_SEPARATE_WAREHOUSE INTEGER DEFAULT 0"); } catch (_) {}
+
+    // Auto-migrate old default records to Kryvyi Rih KZDO KT #145 KMR
+    try {
+      db.run(`
+        UPDATE SADIKI SET
+          NAME = 'Криворізький КЗДО КТ №145 КМР',
+          ADRES = 'Дніпропетровська область, м. Кривий Ріг, Тернівський район, вул. Перлинна 23А',
+          TELEFON = '(098) 816-05-37',
+          EDRPOU = '26136748',
+          DIRECTOR = 'Павлухіна Наталія Георгіївна',
+          NURSE = 'Суміна Наталія Євгенівна'
+        WHERE NAME LIKE '%ГБОУ%' OR NAME LIKE '%Москва%' OR NAME LIKE '%Сказка%' OR NAME LIKE '%105%' OR ID = 1
+      `);
+    } catch (_) {}
   }
   return queryAll<Institution>('SELECT * FROM SADIKI ORDER BY ID').map(i => {
     let name = i.NAME || '';
-    if (name.includes('ГБОУ') || name.includes('Сказка')) {
-      name = 'ЗДО № 105 «Казка»';
+    if (name.includes('ГБОУ') || name.includes('Сказка') || name.includes('105') || name.includes('Москва')) {
+      name = 'Криворізький КЗДО КТ №145 КМР';
     }
     return {
       ...i,
       NAME: name,
+      ADRES: i.ADRES || 'Дніпропетровська область, м. Кривий Ріг, Тернівський район, вул. Перлинна 23А',
+      TELEFON: i.TELEFON || '(098) 816-05-37',
+      EDRPOU: i.EDRPOU || '26136748',
+      DIRECTOR: i.DIRECTOR || 'Павлухіна Наталія Георгіївна',
+      NURSE: i.NURSE || 'Суміна Наталія Євгенівна',
       IS_SEPARATE_WAREHOUSE: i.IS_SEPARATE_WAREHOUSE || 0
     };
   });
