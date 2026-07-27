@@ -857,7 +857,7 @@ export const WarehouseModule: React.FC = () => {
                   type="text"
                   value={supForm.ADRES}
                   onChange={(e) => setSupForm({ ...supForm, ADRES: e.target.value })}
-                  placeholder="м. Київ, вул. Заводська, 10"
+                  placeholder="м. Кривий Ріг, вул. Каховська, 40"
                   className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs"
                 />
               </div>
@@ -1031,17 +1031,17 @@ export const WarehouseModule: React.FC = () => {
         <div className="print-only fixed inset-0 bg-white text-black p-8 text-xs font-sans">
           {/* Header */}
           <div className="flex justify-between items-start border-b-2 border-black pb-3 mb-4">
-            <div>
-              <h2 className="font-extrabold text-sm uppercase tracking-wide">Державний заклад дошкільної освіти №105</h2>
-              <p className="text-[11px]">Адреса: м. Київ, вул. Освітня, 12 | Тел: (044) 234-56-78</p>
-              <p className="text-[11px] font-bold">Код ЄДРПОУ: 12345678</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] uppercase font-bold text-slate-700">ЗАТВЕРДЖУЮ</p>
-              <p className="font-bold text-xs">Директор ЗДО №105</p>
-              <p className="text-[11px] mt-6">___________ /___________________/</p>
-              <p className="text-[10px] text-slate-500 mt-1">«_____» ____________ 20___ р.</p>
-            </div>
+              <div>
+                <h2 className="font-extrabold text-sm uppercase tracking-wide">Криворізький КЗДО (Ясла-садок) КТ №145 КМР</h2>
+                <p className="text-[11px]">Адреса: Дніпропетровська обл., м. Кривий Ріг, вул. Перлинна 23А | Тел: (098) 816-05-37</p>
+                <p className="text-[11px] font-bold">Код ЄДРПОУ: 26136748</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase font-bold text-slate-700">ЗАТВЕРДЖУЮ</p>
+                <p className="font-bold text-xs">Директор КЗДО № 145</p>
+                <p className="text-[11px] mt-6">___________ / Н. Г. Павлухіна /</p>
+                <p className="text-[10px] text-slate-500 mt-1">«_____» ____________ 2026 р.</p>
+              </div>
           </div>
 
           {/* Title */}

@@ -292,13 +292,42 @@ export const getMenuEntries = (date: string): MenuHeader[] =>
     MEAL_TYPE: translateMealType(m.MEAL_TYPE)
   }));
 
-export const getInvoices = (): InvoiceHeader[] =>
-  queryAll<InvoiceHeader>(`
+export const getInvoices = (): InvoiceHeader[] => {
+  if (db) {
+    try {
+      db.run(`
+        UPDATE FIRMI SET
+          NAME = 'ПрАТ «Криворізький Міськмолокозавод №1»',
+          ADRES = 'м. Кривий Ріг, вул. Каховська, 40',
+          TELEFON = '(056) 409-52-30',
+          INN = '00443421'
+        WHERE NAME LIKE '%Молокозавод%' OR NAME LIKE '%ООО%' OR ADRES LIKE '%Москва%' OR INN LIKE '77%' OR ID = 1;
+      `);
+      db.run(`
+        UPDATE FIRMI SET
+          NAME = 'ТОВ «Птахофабрика Зарічна»',
+          ADRES = 'Дніпропетровська обл., м. Кривий Ріг, вул. Польова, 5',
+          TELEFON = '(056) 404-12-88',
+          INN = '32984105'
+        WHERE NAME LIKE '%Птицефабрика%' OR NAME LIKE '%Северная%' OR NAME LIKE '%ЗАО%' OR ADRES LIKE '%Московская%' OR INN LIKE '50%' OR ID = 2;
+      `);
+    } catch (_) {}
+  }
+  return queryAll<InvoiceHeader>(`
     SELECT n.*, f.NAME as firmName
     FROM NAKLADNIE_PRIXODA n
     LEFT JOIN FIRMI f ON n.ID_FIRMI = f.ID
     ORDER BY n.DATA DESC
-  `);
+  `).map(inv => {
+    let fname = inv.firmName || '';
+    if (fname.includes('Молокозавод') || fname.includes('ООО') || fname.includes('Москва') || fname.includes('Городской')) {
+      fname = 'ПрАТ «Криворізький Міськмолокозавод №1»';
+    } else if (fname.includes('Птицефабрика') || fname.includes('Северная') || fname.includes('ЗАО')) {
+      fname = 'ТОВ «Птахофабрика Зарічна»';
+    }
+    return { ...inv, firmName: fname };
+  });
+};
 
 export const getStockBatches = (): StockBatch[] =>
   queryAll<StockBatch>(`
@@ -485,8 +514,48 @@ export function deleteInstitution(id: number, purgeWarehouse: boolean = false) {
   saveDatabaseToDisk();
 }
 
-export const getSuppliers = (): SupplierFirm[] =>
-  queryAll<SupplierFirm>('SELECT * FROM FIRMI WHERE DEL = 0 ORDER BY NAME');
+export const getSuppliers = (): SupplierFirm[] => {
+  if (db) {
+    try {
+      db.run(`
+        UPDATE FIRMI SET
+          NAME = 'ПрАТ «Криворізький Міськмолокозавод №1»',
+          ADRES = 'м. Кривий Ріг, вул. Каховська, 40',
+          TELEFON = '(056) 409-52-30',
+          INN = '00443421'
+        WHERE NAME LIKE '%Молокозавод%' OR NAME LIKE '%ООО%' OR ADRES LIKE '%Москва%' OR INN LIKE '77%' OR ID = 1;
+      `);
+      db.run(`
+        UPDATE FIRMI SET
+          NAME = 'ТОВ «Птахофабрика Зарічна»',
+          ADRES = 'Дніпропетровська обл., м. Кривий Ріг, вул. Польова, 5',
+          TELEFON = '(056) 404-12-88',
+          INN = '32984105'
+        WHERE NAME LIKE '%Птицефабрика%' OR NAME LIKE '%Северная%' OR NAME LIKE '%ЗАО%' OR ADRES LIKE '%Московская%' OR INN LIKE '50%' OR ID = 2;
+      `);
+    } catch (_) {}
+  }
+  return queryAll<SupplierFirm>('SELECT * FROM FIRMI WHERE DEL = 0 ORDER BY NAME').map(s => {
+    let name = s.NAME || '';
+    let adres = s.ADRES || '';
+    let phone = s.TELEFON || '';
+    let inn = s.INN || '';
+
+    if (name.includes('Молокозавод') || name.includes('ООО') || adres.includes('Москва') || inn.startsWith('77') || name.includes('Городской')) {
+      name = 'ПрАТ «Криворізький Міськмолокозавод №1»';
+      adres = 'м. Кривий Ріг, вул. Каховська, 40';
+      phone = '(056) 409-52-30';
+      inn = '00443421';
+    } else if (name.includes('Птицефабрика') || name.includes('Северная') || name.includes('ЗАО') || adres.includes('Московская') || inn.startsWith('50')) {
+      name = 'ТОВ «Птахофабрика Зарічна»';
+      adres = 'Дніпропетровська обл., м. Кривий Ріг, вул. Польова, 5';
+      phone = '(056) 404-12-88';
+      inn = '32984105';
+    }
+
+    return { ...s, NAME: name, ADRES: adres, TELEFON: phone, INN: inn };
+  });
+};
 
 export function addSupplier(firm: Partial<SupplierFirm>) {
   if (!db) return;

@@ -8,14 +8,14 @@ export const SettingsModule: React.FC = () => {
   const [insts, setInsts] = useState<Institution[]>([]);
   const [selectedInstId, setSelectedInstId] = useState<number>(1);
   const [instForm, setInstForm] = useState({
-    name: 'ЗДО № 105 «Казка»',
-    adres: 'вул. Лісова, буд. 14, м. Київ',
-    telefon: '+380 (44) 123-45-67',
-    director: 'Іванченко Марія Петрівна',
-    nurse: 'Ковальчук Олена Василівна',
-    cook: 'Петренко Сергій Миколайович',
-    edrpou: '12345678',
-    email: 'sadok105@kyiv.gov.ua',
+    name: 'Криворізький КЗДО КТ №145 КМР',
+    adres: 'Дніпропетровська область, м. Кривий Ріг, Тернівський район, вул. Перлинна 23А',
+    telefon: '(098) 816-05-37',
+    director: 'Павлухіна Наталія Георгіївна',
+    nurse: 'Суміна Наталія Євгенівна',
+    cook: 'Сидоренко Віра Петрівна',
+    edrpou: '26136748',
+    email: 'kzdo145@kr.gov.ua',
     isSeparateWarehouse: false,
   });
 
@@ -100,8 +100,8 @@ export const SettingsModule: React.FC = () => {
   const handleCreateNewProfile = () => {
     const newId = addInstitution({
       name: `Новий ЗДО № ${insts.length + 1}`,
-      adres: 'вул. Центральна, 1',
-      telefon: '+380',
+      adres: 'м. Кривий Ріг, вул. Перлинна 23А',
+      telefon: '+380 (98) 816-05-37',
       isSeparateWarehouse: false,
     });
     const updated = getInstitutions();
@@ -191,7 +191,7 @@ export const SettingsModule: React.FC = () => {
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                SADOK v1.0.33 (Налаштування системи)
+                SADOK v1.0.34 (Налаштування системи)
               </h2>
               <p className="text-slate-500 dark:text-slate-400 mt-0.5">
                 Параметри закладу дошкільної освіти, реквізити, ліміти вартості та складські правила
