@@ -1,7 +1,7 @@
 {
   "name": "sadok-kukhnya",
-  "version": "1.0.32",
-  "description": "SADOK Екосистема v1.0.32 - Автоматизована система Кухня, Облік майна та Контингент для ЗДО",
+  "version": "1.0.33",
+  "description": "SADOK Екосистема v1.0.33 - Автоматизована система Кухня, Облік майна та Контингент для ЗДО",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",

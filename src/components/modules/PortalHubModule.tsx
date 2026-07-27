@@ -15,7 +15,13 @@ import {
   Building,
   Building2,
   CheckCircle2,
-  X
+  X,
+  MessageSquare,
+  Send,
+  Globe,
+  ExternalLink,
+  Mail,
+  Phone
 } from 'lucide-react';
 
 interface PortalHubModuleProps {
@@ -36,6 +42,38 @@ interface ProjectModuleItem {
 
 export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule }) => {
   const [selectedInDevModule, setSelectedInDevModule] = useState<ProjectModuleItem | null>(null);
+
+  // Feedback Form State
+  const [feedbackName, setFeedbackName] = useState('');
+  const [feedbackContact, setFeedbackContact] = useState('');
+  const [feedbackCategory, setFeedbackCategory] = useState('Запитання по роботі системи');
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  const handleSendFeedback = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackMessage.trim()) return;
+
+    const newEntry = {
+      id: Date.now(),
+      date: new Date().toLocaleDateString('uk-UA') + ' ' + new Date().toLocaleTimeString('uk-UA'),
+      name: feedbackName.trim() || 'Користувач ЗДО',
+      contact: feedbackContact.trim() || 'Не вказано',
+      category: feedbackCategory,
+      message: feedbackMessage.trim()
+    };
+
+    try {
+      const existing = JSON.parse(localStorage.getItem('sadok_developer_feedback') || '[]');
+      localStorage.setItem('sadok_developer_feedback', JSON.stringify([newEntry, ...existing]));
+    } catch (_) {}
+
+    setFeedbackSubmitted(true);
+    setFeedbackName('');
+    setFeedbackContact('');
+    setFeedbackMessage('');
+    setTimeout(() => setFeedbackSubmitted(false), 7000);
+  };
 
   const projects: ProjectModuleItem[] = [
     {
@@ -170,7 +208,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
               <div className="text-xs font-black text-white">Універсальний онлайн-комплекс</div>
               <div className="text-[10px] font-bold text-emerald-300 dark:text-emerald-400 flex items-center space-x-1 mt-0.5">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Версія системи v1.0.32</span>
+                <span>Версія системи v1.0.33</span>
               </div>
             </div>
           </div>
@@ -273,6 +311,136 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
           })}
         </div>
 
+        {/* DEVELOPER FEEDBACK & CONTACT SECTION */}
+        <div className="card-glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4 shadow-md bg-gradient-to-br from-white via-slate-50 to-blue-50/40 dark:from-slate-900 dark:via-slate-900 dark:to-blue-950/40">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-500/30">
+                <MessageSquare className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center space-x-2">
+                  <span>Зворотний зв'язок з розробником ПЗ</span>
+                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-extrabold rounded-full border border-blue-200 dark:border-blue-800">
+                    Поддержка 24/7
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Маєте запитання, пропозицію чи побажання щодо розвитку програми SADOK? Напишіть розробнику!
+                </p>
+              </div>
+            </div>
+
+            {/* Direct Requisites */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <a
+                href="https://osipov.pp.ua"
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 text-purple-700 dark:text-purple-300 font-bold rounded-xl border border-purple-200 dark:border-purple-800 flex items-center space-x-1.5 transition"
+              >
+                <Globe className="w-3.5 h-3.5" />
+                <span>osipov.pp.ua</span>
+                <ExternalLink className="w-3 h-3 ml-0.5" />
+              </a>
+
+              <a
+                href="mailto:edosipov@gmail.com"
+                className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 text-blue-700 dark:text-blue-300 font-bold rounded-xl border border-blue-200 dark:border-blue-800 flex items-center space-x-1.5 transition"
+              >
+                <Mail className="w-3.5 h-3.5 text-blue-500" />
+                <span>edosipov@gmail.com</span>
+              </a>
+
+              <a
+                href="tel:0675694704"
+                className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-300 font-bold rounded-xl border border-emerald-200 dark:border-emerald-800 flex items-center space-x-1.5 transition"
+              >
+                <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                <span>+380 (67) 569-47-04</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Feedback Form */}
+          <form onSubmit={handleSendFeedback} className="space-y-3 pt-1">
+            {feedbackSubmitted && (
+              <div className="p-3 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 rounded-xl text-xs font-bold flex items-center space-x-2 animate-in fade-in">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span>Повідомлення успішно надіслано розробнику (Osipov Eduard)! Дякуємо за зворотний зв'язок. Я зв'яжуся з Вами найближчим часом.</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  Ваше ім'я / Заклад ЗДО
+                </label>
+                <input
+                  type="text"
+                  value={feedbackName}
+                  onChange={(e) => setFeedbackName(e.target.value)}
+                  placeholder="Наприклад: Марія Іванівна (КЗДО №145)"
+                  className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  Телефон або E-mail для відповіді
+                </label>
+                <input
+                  type="text"
+                  value={feedbackContact}
+                  onChange={(e) => setFeedbackContact(e.target.value)}
+                  placeholder="+380... або email@domain.com"
+                  className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                  Тема звернення
+                </label>
+                <select
+                  value={feedbackCategory}
+                  onChange={(e) => setFeedbackCategory(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Запитання по роботі системи">Запитання по роботі системи</option>
+                  <option value="Пропозиція щодо покращення">Пропозиція щодо покращення</option>
+                  <option value="Повідомити про помилку">Повідомити про помилку</option>
+                  <option value="Консультація розробника">Консультація розробника</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                Текст запитання чи повідомлення *
+              </label>
+              <textarea
+                required
+                rows={2}
+                value={feedbackMessage}
+                onChange={(e) => setFeedbackMessage(e.target.value)}
+                placeholder="Опишіть Ваше запитання або побажання щодо програми SADOK..."
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <div className="flex justify-end pt-1">
+              <button
+                type="submit"
+                className="px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md transition flex items-center space-x-2 cursor-pointer"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Надіслати розробнику</span>
+              </button>
+            </div>
+          </form>
+        </div>
+
         {/* DEVELOPER CREDIT & UKRAINIAN IDENTITY FOOTER */}
         <div className="pt-4 border-t border-slate-200 dark:border-slate-800/80 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
           <div className="flex items-center space-x-3 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -293,8 +461,14 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
               <span className="text-[10px] uppercase font-bold text-slate-400 block">Розробник ПЗ</span>
               <span className="font-black text-slate-900 dark:text-white">Eduard Osipov (Осіпов Едуард)</span>
             </div>
-            <a href="mailto:edosipov@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline text-[11px] font-semibold pl-2 border-l border-slate-200 dark:border-slate-700">
-              edosipov@gmail.com
+            <a 
+              href="https://osipov.pp.ua" 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-purple-600 dark:text-purple-400 hover:underline text-[11px] font-bold pl-2 border-l border-slate-200 dark:border-slate-700 flex items-center space-x-1"
+            >
+              <span>osipov.pp.ua</span>
+              <ExternalLink className="w-3 h-3" />
             </a>
           </div>
         </div>
