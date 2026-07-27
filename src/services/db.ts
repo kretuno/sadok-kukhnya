@@ -474,6 +474,18 @@ export function addSupplier(firm: Partial<SupplierFirm>) {
   saveDatabaseToDisk();
 }
 
+export function updateSupplier(firm: SupplierFirm) {
+  if (!db) return;
+  db.run(`UPDATE FIRMI SET NAME='${esc(firm.NAME)}', ADRES='${esc(firm.ADRES || '')}', TELEFON='${esc(firm.TELEFON || '')}', INN='${esc(firm.INN || '')}' WHERE ID = ${firm.ID}`);
+  saveDatabaseToDisk();
+}
+
+export function deleteSupplier(id: number) {
+  if (!db) return;
+  db.run(`UPDATE FIRMI SET DEL = 1 WHERE ID = ${id}`);
+  saveDatabaseToDisk();
+}
+
 export function addInvoiceWithBatches(
   nomerDoc: string,
   dateStr: string,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { InvoiceHeader, StockBatch, SupplierFirm, Product } from '../../types';
 import {
   getInvoices, getStockBatches, getSuppliers, getProducts,
-  addInvoiceWithBatches, updateStockBatch, deleteStockBatch, deleteInvoice, addSupplier, addProduct
+  addInvoiceWithBatches, updateStockBatch, deleteStockBatch, deleteInvoice, addSupplier, updateSupplier, deleteSupplier, addProduct
 } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
@@ -30,6 +30,7 @@ export const WarehouseModule: React.FC = () => {
   // Modals
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState<boolean>(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState<boolean>(false);
+  const [editingSupplier, setEditingSupplier] = useState<SupplierFirm | null>(null);
   const [editingBatch, setEditingBatch] = useState<StockBatch | null>(null);
   const [selectedHistoryProductId, setSelectedHistoryProductId] = useState<number | null>(null);
   const [isQuickProductModalOpen, setIsQuickProductModalOpen] = useState<boolean>(false);
@@ -204,21 +205,59 @@ export const WarehouseModule: React.FC = () => {
     }, 150);
   };
 
-  // Handler for Supplier creation
+  // Handlers for Supplier Creation / Editing / Deleting
+  const handleOpenAddSupplier = () => {
+    setEditingSupplier(null);
+    setSupForm({ NAME: '', ADRES: '', TELEFON: '', INN: '' });
+    setIsSupplierModalOpen(true);
+  };
+
+  const handleEditSupplier = (sup: SupplierFirm) => {
+    setEditingSupplier(sup);
+    setSupForm({
+      NAME: sup.NAME,
+      ADRES: sup.ADRES || '',
+      TELEFON: sup.TELEFON || '',
+      INN: sup.INN || ''
+    });
+    setIsSupplierModalOpen(true);
+  };
+
   const handleSaveSupplier = () => {
-    if (!supForm.NAME) {
+    if (!supForm.NAME.trim()) {
       alert('Введіть назву фірми-постачальника!');
       return;
     }
-    addSupplier(supForm);
+
+    if (editingSupplier) {
+      updateSupplier({
+        ...editingSupplier,
+        NAME: supForm.NAME,
+        ADRES: supForm.ADRES,
+        TELEFON: supForm.TELEFON,
+        INN: supForm.INN
+      });
+    } else {
+      addSupplier(supForm);
+    }
+
+    loadData();
     const updatedSuppliers = getSuppliers();
-    setSuppliers(updatedSuppliers);
     const newFirm = updatedSuppliers.find(s => s.NAME === supForm.NAME);
     if (newFirm) {
       setInvForm(prev => ({ ...prev, firmId: newFirm.ID }));
     }
+
     setIsSupplierModalOpen(false);
+    setEditingSupplier(null);
     setSupForm({ NAME: '', ADRES: '', TELEFON: '', INN: '' });
+  };
+
+  const handleDeleteSupplier = (id: number, name: string) => {
+    if (confirm(`Видалити постачальника «${name}» з довідника?`)) {
+      deleteSupplier(id);
+      loadData();
+    }
   };
 
   // Handlers for Quick Product Creation
@@ -285,7 +324,7 @@ export const WarehouseModule: React.FC = () => {
     <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950 text-xs">
       <QuickToolbar
         onAdd={() => {
-          if (activeSubTab === 'suppliers') setIsSupplierModalOpen(true);
+          if (activeSubTab === 'suppliers') handleOpenAddSupplier();
           else setIsInvoiceModalOpen(true);
         }}
         onRefresh={loadData}
@@ -549,13 +588,14 @@ export const WarehouseModule: React.FC = () => {
                   <th>Адреса</th>
                   <th>Телефон</th>
                   <th>ЄДРПОУ / ІПН</th>
+                  <th className="w-20 text-center no-print">Дії</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredSuppliers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-8 text-slate-400 italic">
-                      Список постачальників порожній. Натисніть «Додати фірму».
+                    <td colSpan={6} className="text-center py-8 text-slate-400 italic">
+                      Список постачальників порожній. Натисніть «+ Додати фірму».
                     </td>
                   </tr>
                 ) : (
@@ -566,6 +606,22 @@ export const WarehouseModule: React.FC = () => {
                       <td className="text-slate-600 dark:text-slate-400">{s.ADRES || '—'}</td>
                       <td className="text-slate-600 dark:text-slate-400">{s.TELEFON || '—'}</td>
                       <td className="font-mono text-slate-700 dark:text-slate-300">{s.INN || '—'}</td>
+                      <td className="text-center no-print space-x-1">
+                        <button
+                          onClick={() => handleEditSupplier(s)}
+                          className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950 rounded transition cursor-pointer"
+                          title="Редагувати реквізити постачальника"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSupplier(s.ID, s.NAME)}
+                          className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 rounded transition cursor-pointer"
+                          title="Видалити постачальника з довідника"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -774,12 +830,14 @@ export const WarehouseModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: ADD SUPPLIER */}
+      {/* MODAL: ADD / EDIT SUPPLIER */}
       {isSupplierModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print">
           <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl shadow-xl w-full max-w-md overflow-hidden">
             <div className="p-4 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-              <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Додати фірму-постачальника</h3>
+              <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">
+                {editingSupplier ? 'Редагувати реквізити постачальника' : 'Додати фірму-постачальника'}
+              </h3>
               <button onClick={() => setIsSupplierModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <div className="p-4 space-y-3">
@@ -829,7 +887,7 @@ export const WarehouseModule: React.FC = () => {
                 Скасувати
               </button>
               <button onClick={handleSaveSupplier} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold">
-                Зберегти фірму
+                {editingSupplier ? 'Зберегти зміни' : 'Додати фірму'}
               </button>
             </div>
           </div>
