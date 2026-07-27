@@ -4,6 +4,7 @@ import {
   Package,
   Brain,
   Users,
+  User,
   HeartPulse,
   BarChart3,
   Sparkles,
@@ -142,9 +143,9 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
 
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2 text-center md:text-left">
-            <div className="inline-flex items-center space-x-2 px-3 py-0.5 bg-blue-500/20 border border-blue-400/30 rounded-full text-xs font-extrabold text-blue-200">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              <span>Екосистема управління закладами дошкільної освіти України</span>
+            <div className="inline-flex items-center space-x-2 px-3 py-1 bg-gradient-to-r from-blue-600/30 to-yellow-500/30 border border-blue-400/40 rounded-full text-xs font-extrabold text-white shadow-sm">
+              <span className="text-sm">🇺🇦</span>
+              <span>Національний Український Проєкт для ЗДО</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white drop-shadow-sm">
               Платформа <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-300">SADOK</span>
@@ -163,7 +164,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
               <div className="text-xs font-black text-white">Універсальний онлайн-комплекс</div>
               <div className="text-[10px] font-bold text-emerald-300 dark:text-emerald-400 flex items-center space-x-1 mt-0.5">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Версія системи v1.0.16</span>
+                <span>Версія системи v1.0.17</span>
               </div>
             </div>
           </div>
@@ -171,7 +172,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
       </div>
 
       {/* MODULES GRID SECTION */}
-      <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 space-y-4">
+      <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 space-y-6">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
           <div className="flex items-center space-x-2">
             <Building className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -264,6 +265,28 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
               </div>
             );
           })}
+        </div>
+
+        {/* DEVELOPER CREDIT & UKRAINIAN IDENTITY FOOTER */}
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-800/80 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
+          <div className="flex items-center space-x-3 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <span className="text-xl">🇺🇦</span>
+            <div>
+              <span className="font-extrabold text-slate-800 dark:text-slate-200">Національний проєкт України</span>
+              <span className="block text-[10px] text-slate-500 dark:text-slate-400">Створено в Україні для закладів дошкільної освіти</span>
+            </div>
+          </div>
+
+          <div className="flex items-center space-x-3 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <User className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Розробник ПЗ</span>
+              <span className="font-black text-slate-900 dark:text-white">Eduard Osipov (Осіпов Едуард)</span>
+            </div>
+            <a href="mailto:edosipov@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline text-[11px] font-semibold pl-2 border-l border-slate-200 dark:border-slate-700">
+              edosipov@gmail.com
+            </a>
+          </div>
         </div>
       </div>
 
