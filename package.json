@@ -1,7 +1,7 @@
 {
   "name": "sadok-kukhnya",
-  "version": "1.0.11",
-  "description": "SADOK Кухня v1.0.11 - Автоматизована система меню-розкладки та складського обліку для ЗДО",
+  "version": "1.0.12",
+  "description": "SADOK Кухня v1.0.12 - Автоматизована система меню-розкладки та складського обліку для ЗДО",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",

@@ -47,8 +47,8 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6">
           <div className="flex items-center space-x-2 font-black text-blue-400 tracking-wide text-xs">
-            <Database className="w-4 h-4 text-blue-400" />
-            <span>SADOK Кухня v1.0.11</span>
+            <img src="./logo.png" alt="SADOK Logo" className="w-5 h-5 rounded object-contain bg-white/10 p-0.5 shadow-sm" />
+            <span>SADOK Кухня v1.0.12</span>
           </div>
           <nav className="flex space-x-4 text-slate-300">
             <button onClick={() => setActiveTab('menu_planner')} className="hover:text-white transition">Файл</button>
