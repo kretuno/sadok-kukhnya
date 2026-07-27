@@ -5,6 +5,7 @@ import {
   Brain,
   Users,
   User,
+  Heart,
   HeartPulse,
   BarChart3,
   Sparkles,
@@ -143,9 +144,13 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
 
         <div className="relative z-10 max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2 text-center md:text-left">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 bg-gradient-to-r from-blue-600/30 to-yellow-500/30 border border-blue-400/40 rounded-full text-xs font-extrabold text-white shadow-sm">
-              <span className="text-sm">🇺🇦</span>
-              <span>Національний Український Проєкт для ЗДО</span>
+            <div className="inline-flex items-center space-x-2 px-3 py-1 bg-gradient-to-r from-blue-600/30 via-amber-500/20 to-blue-500/30 border border-blue-400/40 rounded-full text-xs font-extrabold text-white shadow-sm">
+              <span className="text-sm animate-flag-wave">🇺🇦</span>
+              <span className="flex items-center space-x-1">
+                <span>Made with</span>
+                <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400 inline animate-pulse" />
+                <span>in Ukraine</span>
+              </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white drop-shadow-sm">
               Платформа <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-300">SADOK</span>
@@ -164,7 +169,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
               <div className="text-xs font-black text-white">Універсальний онлайн-комплекс</div>
               <div className="text-[10px] font-bold text-emerald-300 dark:text-emerald-400 flex items-center space-x-1 mt-0.5">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Версія системи v1.0.17</span>
+                <span>Версія системи v1.0.18</span>
               </div>
             </div>
           </div>
@@ -270,10 +275,14 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
         {/* DEVELOPER CREDIT & UKRAINIAN IDENTITY FOOTER */}
         <div className="pt-4 border-t border-slate-200 dark:border-slate-800/80 flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
           <div className="flex items-center space-x-3 bg-white dark:bg-slate-900 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <span className="text-xl">🇺🇦</span>
+            <span className="text-xl animate-flag-wave">🇺🇦</span>
             <div>
-              <span className="font-extrabold text-slate-800 dark:text-slate-200">Національний проєкт України</span>
-              <span className="block text-[10px] text-slate-500 dark:text-slate-400">Створено в Україні для закладів дошкільної освіти</span>
+              <span className="font-extrabold text-slate-800 dark:text-slate-200 flex items-center space-x-1">
+                <span>Made with</span>
+                <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 inline animate-pulse" />
+                <span>in Ukraine</span>
+              </span>
+              <span className="block text-[10px] text-slate-500 dark:text-slate-400">Створено з любов'ю в Україні для закладів дошкільної освіти</span>
             </div>
           </div>
 

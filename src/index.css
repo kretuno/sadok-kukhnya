@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@keyframes flagWave {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-2px) rotate(5deg); }
+  75% { transform: translateY(1px) rotate(-4deg); }
+}
+
+.animate-flag-wave {
+  display: inline-block;
+  animation: flagWave 1.8s ease-in-out infinite;
+}
+
 @variant dark (&:where(.dark, .dark *));
 
 @layer base {
