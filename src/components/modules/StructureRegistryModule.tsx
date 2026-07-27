@@ -245,7 +245,7 @@ export const StructureRegistryModule: React.FC = () => {
         onPrint={() => window.print()}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-        title="SADOK Кадри та Вихованці — Структура, персональний склад та контингент"
+        title="SADOK Контингент — Організаційна структура, кадри та вихованці ДНЗ"
       />
 
       <div className="flex-1 overflow-auto p-4 space-y-4">

@@ -83,7 +83,7 @@ export function App() {
         setFontScale={setFontScale}
       />
 
-      <main className="flex-1 overflow-hidden relative bg-slate-100 dark:bg-slate-950">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden relative bg-slate-100 dark:bg-slate-950">
         {dbStatus === 'loading' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-white dark:bg-slate-950 z-50 gap-3">
             <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />

@@ -89,12 +89,12 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
     {
       id: 'cadres',
       name: 'SADOK',
-      subtitle: 'Кадри та Вихованці',
+      subtitle: 'Контингент',
       badgeLetter: 'S',
       gradient: 'from-indigo-600 to-purple-700 shadow-indigo-500/30',
       icon: Users,
       status: 'active',
-      description: 'Довідники груп, приміщень, кадровий склад (МВО) та списки вихованців, пов\'язані з Майно та Психолог.',
+      description: 'Облік груп ДНЗ, кадрового складу (МВО) та контингенту вихованців. Інтеграція з Майно та Психолог.',
       features: [
         'Структура груп ДНЗ, приміщення та вікові категорії',
         'Персональний кадровий облік та закріплення МВО',
@@ -137,7 +137,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
   ];
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-y-auto selection:bg-blue-500 selection:text-white pb-12 transition-colors duration-200">
+    <div className="flex-1 flex flex-col bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-y-auto selection:bg-blue-500 selection:text-white pb-36 transition-colors duration-200">
       {/* TOP HERO BANNER */}
       <div className="relative overflow-hidden bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 dark:from-blue-950 dark:via-slate-950 dark:to-indigo-950 text-white border-b border-slate-200 dark:border-slate-800 p-5 md:p-6 shadow-xl shrink-0">
         <div className="absolute -right-20 -top-20 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -170,7 +170,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
               <div className="text-xs font-black text-white">Універсальний онлайн-комплекс</div>
               <div className="text-[10px] font-bold text-emerald-300 dark:text-emerald-400 flex items-center space-x-1 mt-0.5">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Версія системи v1.0.23</span>
+                <span>Версія системи v1.0.24</span>
               </div>
             </div>
           </div>

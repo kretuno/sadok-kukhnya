@@ -61,7 +61,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
 
   const cadresNavItems = [
     { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
-    { id: 'cadres', label: 'Кадри та Вихованці', icon: Users, hotkey: 'F10' },
+    { id: 'cadres', label: 'Контингент ДНЗ', icon: Users, hotkey: 'F10' },
     { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
     { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
   ];
@@ -83,7 +83,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6">
-          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.23' : (isCadresContext ? 'Кадри v1.0.23' : 'v1.0.23')} />
+          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.24' : (isCadresContext ? 'Контингент v1.0.24' : 'v1.0.24')} />
           <nav className="flex space-x-4 text-slate-300">
             <button onClick={() => setActiveTab('portal')} className="text-amber-400 font-extrabold hover:text-amber-300 transition flex items-center space-x-1"><span>🏠 Головне меню</span></button>
             {isPropertyContext && (
@@ -94,7 +94,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
             )}
             {isCadresContext && (
               <>
-                <button onClick={() => setActiveTab('cadres')} className="hover:text-white transition font-bold text-amber-300">Кадри та Вихованці</button>
+                <button onClick={() => setActiveTab('cadres')} className="hover:text-white transition font-bold text-amber-300">Контингент та Кадри</button>
               </>
             )}
             {!isPropertyContext && !isCadresContext && !isPortalContext && (
