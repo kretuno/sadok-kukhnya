@@ -134,36 +134,36 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
   ];
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-900 text-slate-100 overflow-auto selection:bg-blue-500 selection:text-white">
+    <div className="flex-1 flex flex-col bg-slate-900 text-slate-100 overflow-y-auto selection:bg-blue-500 selection:text-white pb-12">
       {/* TOP HERO BANNER */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 border-b border-slate-800 p-8 md:p-12 shadow-2xl">
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 border-b border-slate-800 p-5 md:p-6 shadow-2xl shrink-0">
         <div className="absolute -right-20 -top-20 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute left-1/3 -bottom-20 w-80 h-80 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="space-y-4 text-center md:text-left">
-            <div className="inline-flex items-center space-x-2 px-3 py-1 bg-blue-500/20 border border-blue-400/30 rounded-full text-xs font-extrabold text-blue-300">
+        <div className="relative z-10 max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="space-y-2 text-center md:text-left">
+            <div className="inline-flex items-center space-x-2 px-3 py-0.5 bg-blue-500/20 border border-blue-400/30 rounded-full text-xs font-extrabold text-blue-300">
               <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-              <span>Екосистема управління закладом дошкільної освіти</span>
+              <span>Екосистема управління закладами дошкільної освіти України</span>
             </div>
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white drop-shadow-sm">
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white drop-shadow-sm">
               Платформа <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400">SADOK</span>
             </h1>
-            <p className="text-slate-300 text-sm md:text-base max-w-2xl font-medium leading-relaxed">
-              Оберіть необхідний спеціалізований модуль для роботи. Комплексна система автоматизації меню, майна, медичного обліку, кадрів та аналітики ЗДО.
+            <p className="text-slate-300 text-xs md:text-sm max-w-xl font-medium leading-relaxed">
+              Оберіть необхідний спеціалізований модуль для роботи. Універсальний комплекс автоматизації меню, майна, медичного обліку, кадрів та аналітики ЗДО.
             </p>
           </div>
 
-          <div className="flex items-center space-x-4 bg-slate-800/80 backdrop-blur-md p-4 rounded-2xl border border-slate-700/80 shadow-xl shrink-0">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-black text-xl text-white shadow-md border border-white/20">
+          <div className="flex items-center space-x-3.5 bg-slate-800/80 backdrop-blur-md p-3.5 rounded-2xl border border-slate-700/80 shadow-xl shrink-0">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-black text-xl text-white shadow-md border border-white/20">
               S
             </div>
             <div>
-              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Єдина система</div>
-              <div className="text-sm font-black text-white">ЗДО № 105 «Казка»</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Платформа для ЗДО</div>
+              <div className="text-xs font-black text-white">Універсальний онлайн-комплекс</div>
               <div className="text-[10px] font-bold text-emerald-400 flex items-center space-x-1 mt-0.5">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Версія системи v1.0.14</span>
+                <span>Версія системи v1.0.15</span>
               </div>
             </div>
           </div>
@@ -171,20 +171,20 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
       </div>
 
       {/* MODULES GRID SECTION */}
-      <div className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+      <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
           <div className="flex items-center space-x-2">
-            <Building className="w-5 h-5 text-blue-400" />
-            <h2 className="text-base font-extrabold text-white tracking-wide uppercase">
+            <Building className="w-4 h-4 text-blue-400" />
+            <h2 className="text-sm font-extrabold text-white tracking-wide uppercase">
               Модулі та субсистеми SADOK
             </h2>
           </div>
-          <span className="text-xs font-semibold text-slate-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+          <span className="text-[11px] font-semibold text-slate-400 bg-slate-800 px-3 py-0.5 rounded-full border border-slate-700">
             6 Спеціалізованих модулів
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((proj) => {
             const Icon = proj.icon;
             const isActive = proj.status === 'active';
@@ -199,7 +199,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
                     setSelectedInDevModule(proj);
                   }
                 }}
-                className={`group relative flex flex-col justify-between p-6 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden ${
+                className={`group relative flex flex-col justify-between p-4 rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden ${
                   isActive
                     ? 'bg-slate-800/90 hover:bg-slate-800 border-blue-500/50 hover:border-blue-400 shadow-xl hover:shadow-2xl hover:shadow-blue-500/10 -translate-y-1'
                     : 'bg-slate-800/40 hover:bg-slate-800/70 border-slate-700/60 hover:border-slate-600 hover:-translate-y-0.5'
@@ -208,19 +208,19 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
                 {/* Background Accent Glow */}
                 <div className={`absolute -right-12 -top-12 w-32 h-32 rounded-full blur-2xl transition-opacity duration-300 opacity-20 group-hover:opacity-40 bg-gradient-to-tr ${proj.gradient}`} />
 
-                <div className="space-y-4 relative z-10">
+                <div className="space-y-3 relative z-10">
                   {/* Card Header: Badge Logo & Status Badge */}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2.5">
                       {/* Logo Badge */}
-                      <div className={`w-12 h-12 rounded-xl bg-gradient-to-tr ${proj.gradient} text-white font-black text-xl flex items-center justify-center shadow-lg border border-white/20 transition-transform duration-300 group-hover:scale-105`}>
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${proj.gradient} text-white font-black text-lg flex items-center justify-center shadow-lg border border-white/20 transition-transform duration-300 group-hover:scale-105`}>
                         {proj.badgeLetter}
                       </div>
 
                       <div>
                         <div className="flex items-baseline space-x-1.5">
-                          <span className="text-base font-black text-white tracking-tight">{proj.name}</span>
-                          <span className="text-base font-bold text-slate-300">{proj.subtitle}</span>
+                          <span className="text-sm font-black text-white tracking-tight">{proj.name}</span>
+                          <span className="text-sm font-bold text-slate-300">{proj.subtitle}</span>
                         </div>
                         <span className="text-[10px] font-semibold text-slate-400 block">Модуль системи</span>
                       </div>
@@ -228,12 +228,12 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
 
                     {/* Status Badge */}
                     {isActive ? (
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/40 rounded-full text-[10px] font-extrabold text-emerald-300">
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 bg-emerald-500/20 border border-emerald-500/40 rounded-full text-[10px] font-extrabold text-emerald-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
                         <span>Активний</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 bg-slate-700/80 border border-slate-600 rounded-full text-[10px] font-bold text-amber-300">
+                      <span className="inline-flex items-center space-x-1 px-2.5 py-0.5 bg-slate-700/80 border border-slate-600 rounded-full text-[10px] font-bold text-amber-300">
                         <Clock className="w-3 h-3 text-amber-400" />
                         <span>В розробці</span>
                       </span>
@@ -241,24 +241,24 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
                   </div>
 
                   {/* Description */}
-                  <p className="text-xs text-slate-300 leading-relaxed font-medium min-h-[50px]">
+                  <p className="text-[11px] text-slate-300 leading-relaxed font-medium min-h-[42px]">
                     {proj.description}
                   </p>
                 </div>
 
                 {/* Card Footer Button */}
-                <div className="pt-4 border-t border-slate-700/60 mt-4 flex items-center justify-between relative z-10">
-                  <div className="flex items-center space-x-2 text-xs font-bold text-slate-400 group-hover:text-white transition-colors">
-                    <Icon className="w-4 h-4 text-blue-400" />
+                <div className="pt-3 border-t border-slate-700/60 mt-3 flex items-center justify-between relative z-10">
+                  <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-400 group-hover:text-white transition-colors">
+                    <Icon className="w-3.5 h-3.5 text-blue-400" />
                     <span>{isActive ? 'Відкрити модуль' : 'Детальніше про модуль'}</span>
                   </div>
 
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300 ${
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-300 ${
                     isActive
                       ? 'bg-blue-600 text-white group-hover:bg-blue-500 group-hover:translate-x-1'
                       : 'bg-slate-700 text-slate-300 group-hover:bg-slate-600'
                   }`}>
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </div>
               </div>
