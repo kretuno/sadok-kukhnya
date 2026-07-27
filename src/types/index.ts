@@ -179,6 +179,8 @@ export interface SadokEmployee {
   PHONE?: string;
   IS_MVO: boolean;
   GROUP_NAME?: string;
+  EDUCATION?: string;
+  HIRE_DATE?: string;
   NOTES?: string;
 }
 
@@ -189,7 +191,10 @@ export interface SadokChild {
   GROUP_NAME: string;
   PARENT_NAME?: string;
   PARENT_PHONE?: string;
-  STATUS: 'Навчається' | 'Випускник' | 'Тимчасово відсутній';
+  STATUS: 'Навчається' | 'Вибув' | 'Тимчасово відсутній' | 'Випускник';
+  ADDRESS?: string;
+  GENDER?: 'Чоловіча' | 'Жіноча';
+  ENROLLMENT_DATE?: string;
   HEALTH_NOTES?: string;
   PSYCHOLOGY_NOTES?: string;
 }

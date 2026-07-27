@@ -83,7 +83,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6">
-          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.24' : (isCadresContext ? 'Контингент v1.0.24' : 'v1.0.24')} />
+          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.25' : (isCadresContext ? 'Контингент v1.0.25' : 'v1.0.25')} />
           <nav className="flex space-x-4 text-slate-300">
             <button onClick={() => setActiveTab('portal')} className="text-amber-400 font-extrabold hover:text-amber-300 transition flex items-center space-x-1"><span>🏠 Головне меню</span></button>
             {isPropertyContext && (
