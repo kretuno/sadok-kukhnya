@@ -1,0 +1,145 @@
+export interface Product {
+  ID: number;
+  NAME: string;
+  ID_GRUPPI_PRODUKTOV: number;
+  BELKI: number;
+  ZIRI: number;
+  UGLEVODI: number;
+  KALORII: number;
+  EDINICA_IZMERENIA: string;
+  CENA: number;
+  PROCENT_OTXODOV: number;
+  NOMER_PP: number;
+  DEL?: number;
+  UPD?: number;
+}
+
+export interface ProductCategory {
+  ID: number;
+  NAME: string;
+  NOMER_PP: number;
+}
+
+export interface DishCategory {
+  ID: number;
+  NAME: string;
+  PORRDOK_SLEDOVANIR: number;
+}
+
+export interface Dish {
+  ID: number;
+  NAME: string;
+  NOTES: string;
+  ID_GRUPPI_BLUD: number;
+  VYXOD: number;
+  BELKI: number;
+  ZIRI: number;
+  UGLEVODI: number;
+  KALORII: number;
+  PORRDOK_SLEDOVANIR_BLUD: number;
+}
+
+export interface RecipeComponent {
+  ID: number;
+  ID_BLUDA: number;
+  ID_PRODUKTA: number;
+  ID_KATEGORII_DETEJ: number;
+  GROSSO_GR: number;
+  NETTO_GR: number;
+  NOMER_ID_LINII_V_TABLICE?: number;
+  productName?: string;
+  unit?: string;
+}
+
+export interface EaterCategory {
+  ID: number;
+  NAME: string;
+  NOMER_PP: number;
+  VIDIMOST6?: number;
+}
+
+export interface MenuHeader {
+  ID: number;
+  ID_ZOY: number;
+  DATA: string;
+  ID_BLUDA: number;
+  NAME_BLUDA: string;
+  PORRDOK_SLEDOVANIR_BLUD: number;
+  MEAL_TYPE: string; // 'Завтрак' | '2-й Завтрак' | 'Обед' | 'Полдник' | 'Ужин'
+}
+
+export interface InvoiceHeader {
+  ID: number;
+  ID_FIRMI: number;
+  NOMER_DOCUMENTA: string;
+  DATA: string;
+  SUMMA: number;
+  firmName?: string;
+}
+
+export interface StockBatch {
+  ID: number;
+  ID_NAKLADNOJ: number;
+  ID_PRODUKTA: number;
+  KOLVO_KG: number;
+  CENA: number;
+  SUMMA: number;
+  SROK_GODNOSTI: string;
+  OST_KG: number;
+  productName?: string;
+  unit?: string;
+}
+
+export interface SupplierFirm {
+  ID: number;
+  NAME: string;
+  ADRES: string;
+  TELEFON: string;
+  INN: string;
+}
+
+export interface Institution {
+  ID: number;
+  NAME: string;
+  ID_SADIKA: number;
+  ADRES: string;
+  TELEFON: string;
+  EDRPOU?: string;
+  DIRECTOR?: string;
+  NURSE?: string;
+  COOK?: string;
+  IS_SEPARATE_WAREHOUSE?: number;
+}
+
+export interface ProductHistoryBatch {
+  ID: number;
+  ID_NAKLADNOJ: number;
+  NOMER_DOCUMENTA: string;
+  INVOICE_DATE: string;
+  firmName: string;
+  KOLVO_KG: number;
+  OST_KG: number;
+  CENA: number;
+  SUMMA: number;
+  SROK_GODNOSTI: string;
+}
+
+export interface ProductHistoryUsage {
+  ID: number;
+  ID_BLUDA: number;
+  dishName: string;
+  menuDate: string;
+  MEAL_TYPE: string;
+  GROSSO_GR: number;
+  NETTO_GR: number;
+}
+
+export interface ProductHistoryData {
+  product: Product;
+  categoryName: string;
+  totalStockKg: number;
+  totalStockCost: number;
+  batches: ProductHistoryBatch[];
+  usages: ProductHistoryUsage[];
+}
+
