@@ -75,12 +75,29 @@ export const StructureRegistryModule: React.FC = () => {
   // Child Form State
   const [childFullName, setChildFullName] = useState('');
   const [childBirthDate, setChildBirthDate] = useState('2022-05-15');
+  const [childGender, setChildGender] = useState<'Чоловіча' | 'Жіноча'>('Чоловіча');
+  const [childBirthCert, setChildBirthCert] = useState('');
   const [childGroupName, setChildGroupName] = useState('');
+  const [childStatus, setChildStatus] = useState<'Навчається' | 'Вибув' | 'Тимчасово відсутній' | 'Випускник'>('Навчається');
+  const [childBenefitCategory, setChildBenefitCategory] = useState('Загальна підстава');
+  const [childAddress, setChildAddress] = useState('');
+
+  // Parents Info
+  const [childMotherName, setChildMotherName] = useState('');
+  const [childMotherPhone, setChildMotherPhone] = useState('');
+  const [childFatherName, setChildFatherName] = useState('');
+  const [childFatherPhone, setChildFatherPhone] = useState('');
   const [childParentName, setChildParentName] = useState('');
   const [childParentPhone, setChildParentPhone] = useState('');
-  const [childStatus, setChildStatus] = useState<'Навчається' | 'Вибув' | 'Тимчасово відсутній' | 'Випускник'>('Навчається');
-  const [childAddress, setChildAddress] = useState('');
-  const [childGender, setChildGender] = useState<'Чоловіча' | 'Жіноча'>('Чоловіча');
+
+  // Admission & Departure Details
+  const [childEnrollmentDate, setChildEnrollmentDate] = useState('2025-09-01');
+  const [childEnrollmentOrder, setChildEnrollmentOrder] = useState('');
+  const [childDepartureDate, setChildDepartureDate] = useState('');
+  const [childDepartureReason, setChildDepartureReason] = useState('');
+
+  // Special Requirements
+  const [childDietNotes, setChildDietNotes] = useState('');
   const [childHealthNotes, setChildHealthNotes] = useState('');
   const [childPsychologyNotes, setChildPsychologyNotes] = useState('');
 
@@ -184,12 +201,26 @@ export const StructureRegistryModule: React.FC = () => {
     setEditingChild(ch || null);
     setChildFullName(ch?.FULL_NAME || '');
     setChildBirthDate(ch?.BIRTH_DATE || '2022-05-15');
-    setChildGroupName(ch?.GROUP_NAME || selectedGroupFilter || (groups[0]?.NAME || ''));
-    setChildParentName(ch?.PARENT_NAME || '');
-    setChildParentPhone(ch?.PARENT_PHONE || '');
-    setChildStatus(ch?.STATUS || 'Навчається');
-    setChildAddress(ch?.ADDRESS || 'м. Кривий Ріг');
     setChildGender(ch?.GENDER || 'Чоловіча');
+    setChildBirthCert(ch?.BIRTH_CERTIFICATE || '');
+    setChildGroupName(ch?.GROUP_NAME || selectedGroupFilter || (groups[0]?.NAME || ''));
+    setChildStatus(ch?.STATUS || 'Навчається');
+    setChildBenefitCategory(ch?.BENEFIT_CATEGORY || 'Загальна підстава');
+    setChildAddress(ch?.ADDRESS || 'м. Кривий Ріг');
+    
+    setChildMotherName(ch?.MOTHER_NAME || ch?.PARENT_NAME || '');
+    setChildMotherPhone(ch?.MOTHER_PHONE || ch?.PARENT_PHONE || '');
+    setChildFatherName(ch?.FATHER_NAME || '');
+    setChildFatherPhone(ch?.FATHER_PHONE || '');
+    setChildParentName(ch?.PARENT_NAME || ch?.MOTHER_NAME || '');
+    setChildParentPhone(ch?.PARENT_PHONE || ch?.MOTHER_PHONE || '');
+
+    setChildEnrollmentDate(ch?.ENROLLMENT_DATE || '2025-09-01');
+    setChildEnrollmentOrder(ch?.ENROLLMENT_ORDER || 'Наказ № 42-У');
+    setChildDepartureDate(ch?.DEPARTURE_DATE || '');
+    setChildDepartureReason(ch?.DEPARTURE_REASON || '');
+
+    setChildDietNotes(ch?.DIET_NOTES || '');
     setChildHealthNotes(ch?.HEALTH_NOTES || '');
     setChildPsychologyNotes(ch?.PSYCHOLOGY_NOTES || '');
     setIsChildModalOpen(true);
@@ -198,21 +229,40 @@ export const StructureRegistryModule: React.FC = () => {
   const handleSaveChild = (e: React.FormEvent) => {
     e.preventDefault();
     if (!childFullName.trim()) return;
-    const updated = saveChild({
+    const updatedData: Partial<SadokChild> & { FULL_NAME: string } = {
       ID: editingChild?.ID,
       FULL_NAME: childFullName.trim(),
       BIRTH_DATE: childBirthDate,
-      GROUP_NAME: childGroupName,
-      PARENT_NAME: childParentName.trim(),
-      PARENT_PHONE: childParentPhone.trim(),
-      STATUS: childStatus,
-      ADDRESS: childAddress.trim(),
       GENDER: childGender,
+      BIRTH_CERTIFICATE: childBirthCert.trim(),
+      GROUP_NAME: childGroupName,
+      STATUS: childStatus,
+      BENEFIT_CATEGORY: childBenefitCategory,
+      ADDRESS: childAddress.trim(),
+      MOTHER_NAME: childMotherName.trim(),
+      MOTHER_PHONE: childMotherPhone.trim(),
+      FATHER_NAME: childFatherName.trim(),
+      FATHER_PHONE: childFatherPhone.trim(),
+      PARENT_NAME: (childMotherName || childParentName || childFatherName).trim(),
+      PARENT_PHONE: (childMotherPhone || childParentPhone || childFatherPhone).trim(),
+      ENROLLMENT_DATE: childEnrollmentDate,
+      ENROLLMENT_ORDER: childEnrollmentOrder.trim(),
+      DEPARTURE_DATE: childDepartureDate,
+      DEPARTURE_REASON: childDepartureReason.trim(),
+      DIET_NOTES: childDietNotes.trim(),
       HEALTH_NOTES: childHealthNotes.trim(),
       PSYCHOLOGY_NOTES: childPsychologyNotes.trim()
-    });
-    setChildren(updated);
+    };
+
+    const updatedList = saveChild(updatedData);
+    setChildren(updatedList);
     setIsChildModalOpen(false);
+
+    // If currently viewing this child, update live view modal
+    if (viewingChild && editingChild && viewingChild.ID === editingChild.ID) {
+      const fresh = updatedList.find(c => c.ID === editingChild.ID);
+      if (fresh) setViewingChild(fresh);
+    }
   };
 
   const handleDeleteChild = (id: number) => {
@@ -528,9 +578,10 @@ export const StructureRegistryModule: React.FC = () => {
                         <th>ПІБ Вихованця (Дитини)</th>
                         <th className="w-28 text-center">Дата народження</th>
                         <th>Група</th>
-                        <th>ПІБ Батьків / Опікунів</th>
-                        <th className="w-32">Телефон батьків</th>
-                        <th className="w-44 text-center">Зміна статусу (в т.ч. Вибув)</th>
+                        <th>Пільгова категорія</th>
+                        <th>Батьки & Телефон</th>
+                        <th>🍎 Дієта / Алергії</th>
+                        <th className="w-36 text-center">Статус</th>
                         <th className="w-24 text-center">Дії</th>
                       </tr>
                     </thead>
@@ -542,13 +593,29 @@ export const StructureRegistryModule: React.FC = () => {
                               onClick={() => setViewingChild(c)}
                               className="hover:text-blue-600 font-bold text-left transition underline decoration-dotted flex items-center space-x-1.5"
                             >
-                              <span>{c.FULL_NAME}</span>
+                              <span>{c.GENDER === 'Жіноча' ? '👧' : '👦'} {c.FULL_NAME}</span>
                             </button>
                           </td>
                           <td className="text-center font-mono text-slate-600">{c.BIRTH_DATE}</td>
                           <td className="font-bold text-blue-600 dark:text-blue-400">{c.GROUP_NAME}</td>
-                          <td className="font-medium text-slate-700 dark:text-slate-300">{c.PARENT_NAME || '-'}</td>
-                          <td className="font-mono text-slate-600">{c.PARENT_PHONE || '-'}</td>
+                          <td>
+                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-semibold text-[11px]">
+                              {c.BENEFIT_CATEGORY || 'Загальна'}
+                            </span>
+                          </td>
+                          <td className="font-medium text-slate-700 dark:text-slate-300">
+                            <div>{c.MOTHER_NAME || c.PARENT_NAME || '-'}</div>
+                            <div className="font-mono text-[11px] text-blue-600 font-bold">{c.MOTHER_PHONE || c.PARENT_PHONE || ''}</div>
+                          </td>
+                          <td>
+                            {c.DIET_NOTES ? (
+                              <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded font-bold text-[10px] inline-flex items-center space-x-1">
+                                <span>🍎 {c.DIET_NOTES}</span>
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">Звичайна</span>
+                            )}
+                          </td>
                           <td className="text-center">
                             <select 
                               value={c.STATUS}
@@ -567,8 +634,8 @@ export const StructureRegistryModule: React.FC = () => {
                           </td>
                           <td className="text-center">
                             <div className="flex items-center justify-center space-x-1">
-                              <button onClick={() => setViewingChild(c)} className="p-1 text-indigo-600 hover:bg-indigo-50 rounded" title="Картка дитини"><FileText className="w-4 h-4" /></button>
-                              <button onClick={() => handleOpenChildModal(c)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Редагувати"><Edit3 className="w-4 h-4" /></button>
+                              <button onClick={() => setViewingChild(c)} className="p-1 text-indigo-600 hover:bg-indigo-50 rounded" title="Переглянути Особову картку"><FileText className="w-4 h-4" /></button>
+                              <button onClick={() => handleOpenChildModal(c)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Редагувати картку"><Edit3 className="w-4 h-4" /></button>
                               <button onClick={() => handleDeleteChild(c.ID)} className="p-1 text-rose-500 hover:bg-rose-50 rounded" title="Вилучити"><Trash2 className="w-4 h-4" /></button>
                             </div>
                           </td>
@@ -586,50 +653,151 @@ export const StructureRegistryModule: React.FC = () => {
       {/* VIEW MODAL: CHILD PERSONAL CARD (ОСОБОВА КАРТКА ВИХОВАНЦЯ) */}
       {viewingChild && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="px-6 py-4 bg-gradient-to-r from-blue-700 to-indigo-800 text-white flex items-center justify-between font-bold">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-900 text-white flex items-center justify-between font-bold shrink-0">
               <div className="flex items-center space-x-2">
                 <Baby className="w-5 h-5" />
-                <span>Особова картка вихованця ЗДО</span>
+                <span>Особова картка вихованця ЗДО №145</span>
               </div>
-              <button onClick={() => setViewingChild(null)}><X className="w-5 h-5 text-white/80 hover:text-white" /></button>
+              <div className="flex items-center space-x-2">
+                <button 
+                  onClick={() => handleOpenChildModal(viewingChild)}
+                  className="px-3 py-1.5 bg-amber-400 text-slate-900 rounded-xl font-extrabold hover:bg-amber-300 transition text-xs flex items-center space-x-1"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Редагувати картку</span>
+                </button>
+                <button onClick={() => setViewingChild(null)}><X className="w-5 h-5 text-white/80 hover:text-white" /></button>
+              </div>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
               <div className="flex justify-between items-start border-b pb-3">
                 <div>
-                  <h2 className="text-xl font-black text-slate-800 dark:text-slate-100">{viewingChild.FULL_NAME}</h2>
-                  <div className="text-slate-500 font-medium mt-0.5">Група: <span className="font-bold text-blue-600">{viewingChild.GROUP_NAME}</span></div>
+                  <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">{viewingChild.FULL_NAME}</h2>
+                  <div className="text-slate-500 font-medium mt-1 flex items-center space-x-3">
+                    <span>Група: <b className="text-blue-600 dark:text-blue-400">{viewingChild.GROUP_NAME}</b></span>
+                    <span>Пільгова категорія: <b className="text-amber-600 dark:text-amber-400">{viewingChild.BENEFIT_CATEGORY || 'Загальна'}</b></span>
+                  </div>
                 </div>
                 <div>{getStatusBadge(viewingChild.STATUS)}</div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl">
-                <div>
-                  <span className="text-slate-400 font-bold block text-[10px]">ДАТА НАРОДЖЕННЯ</span>
-                  <span className="font-mono font-bold text-sm text-slate-800 dark:text-slate-200">{viewingChild.BIRTH_DATE}</span>
+              {/* SECTION 1: PERSONAL DETAILS */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl space-y-3 border border-slate-200 dark:border-slate-700">
+                <div className="font-bold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider flex items-center space-x-1.5">
+                  <UserCheck className="w-4 h-4 text-blue-500" />
+                  <span>Персональна інформація вихованця</span>
                 </div>
-                <div>
-                  <span className="text-slate-400 font-bold block text-[10px]">СТАТЬ</span>
-                  <span className="font-bold text-sm text-slate-800 dark:text-slate-200">{viewingChild.GENDER || 'Чоловіча'}</span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <span className="text-slate-400 font-bold block text-[10px]">ДАТА НАРОДЖЕННЯ</span>
+                    <span className="font-mono font-bold text-sm text-slate-800 dark:text-slate-200">{viewingChild.BIRTH_DATE}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-bold block text-[10px]">СТАТЬ</span>
+                    <span className="font-bold text-sm text-slate-800 dark:text-slate-200">{viewingChild.GENDER || 'Чоловіча'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-bold block text-[10px]">СВІДОЦТВО ПРО НАРОДЖЕННЯ</span>
+                    <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">{viewingChild.BIRTH_CERTIFICATE || 'Не вказано'}</span>
+                  </div>
+                  <div className="sm:col-span-3">
+                    <span className="text-slate-400 font-bold block text-[10px]">ДОМАШНЯ АДРЕСА ПРОЖИВАННЯ</span>
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{viewingChild.ADDRESS || 'м. Кривий Ріг'}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-slate-400 font-bold block text-[10px]">БАТЬКИ / ОПІКУНИ</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-200">{viewingChild.PARENT_NAME || 'Не вказано'}</span>
+              </div>
+
+              {/* SECTION 2: PARENTS & CONTACTS */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl space-y-3 border border-slate-200 dark:border-slate-700">
+                <div className="font-bold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider flex items-center space-x-1.5">
+                  <Phone className="w-4 h-4 text-emerald-500" />
+                  <span>Відомості про батьків та опікунів</span>
                 </div>
-                <div>
-                  <span className="text-slate-400 font-bold block text-[10px]">ТЕЛЕФОН БАТЬКІВ</span>
-                  <span className="font-mono font-bold text-blue-600">{viewingChild.PARENT_PHONE || 'Не вказано'}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-400 font-bold block text-[10px]">МАТИ</span>
+                    <div className="font-bold text-slate-800 dark:text-slate-200">{viewingChild.MOTHER_NAME || viewingChild.PARENT_NAME || 'Не вказано'}</div>
+                    <div className="font-mono text-blue-600 font-bold mt-0.5">{viewingChild.MOTHER_PHONE || viewingChild.PARENT_PHONE || 'Не вказано'}</div>
+                  </div>
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+                    <span className="text-slate-400 font-bold block text-[10px]">БАТЬКО</span>
+                    <div className="font-bold text-slate-800 dark:text-slate-200">{viewingChild.FATHER_NAME || 'Не вказано'}</div>
+                    <div className="font-mono text-blue-600 font-bold mt-0.5">{viewingChild.FATHER_PHONE || 'Не вказано'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: ADMISSION & DEPARTURE */}
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl space-y-3 border border-slate-200 dark:border-slate-700">
+                <div className="font-bold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider flex items-center space-x-1.5">
+                  <Calendar className="w-4 h-4 text-purple-500" />
+                  <span>Рух контингенту (Зарахування & Вибуття)</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div>
+                    <span className="text-slate-400 font-bold block text-[10px]">ДАТА ЗАРАХУВАННЯ</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{viewingChild.ENROLLMENT_DATE || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 font-bold block text-[10px]">НАКАЗ ПРО ЗАРАХУВАННЯ</span>
+                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{viewingChild.ENROLLMENT_ORDER || '-'}</span>
+                  </div>
+                  {viewingChild.STATUS === 'Вибув' && (
+                    <>
+                      <div>
+                        <span className="text-slate-400 font-bold block text-[10px] text-rose-500">ДАТА ВИБУТТЯ</span>
+                        <span className="font-mono font-bold text-rose-600">{viewingChild.DEPARTURE_DATE || '-'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 font-bold block text-[10px] text-rose-500">ПРИЧИНА ВИБУТТЯ</span>
+                        <span className="font-semibold text-rose-600">{viewingChild.DEPARTURE_REASON || '-'}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* SECTION 4: DIET, HEALTH & PSYCHOLOGY */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-300">
+                  <div className="font-bold text-amber-900 dark:text-amber-200 flex items-center space-x-1 mb-1">
+                    <span>🍎 Дієта & Алергії (Кухня)</span>
+                  </div>
+                  <div className="text-slate-700 dark:text-slate-300 font-medium">
+                    {viewingChild.DIET_NOTES || 'Спеціальних дієтичних обмежень не заявлено.'}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-300">
+                  <div className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center space-x-1 mb-1">
+                    <HeartPulse className="w-3.5 h-3.5" />
+                    <span>Медичні примітки</span>
+                  </div>
+                  <div className="text-slate-700 dark:text-slate-300 font-medium">
+                    {viewingChild.HEALTH_NOTES || 'Група здоров’я 1-А. Щеплення за віком.'}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-300">
+                  <div className="font-bold text-purple-900 dark:text-purple-200 flex items-center space-x-1 mb-1">
+                    <Brain className="w-3.5 h-3.5" />
+                    <span>Спостереження психолога</span>
+                  </div>
+                  <div className="text-slate-700 dark:text-slate-300 font-medium">
+                    {viewingChild.PSYCHOLOGY_NOTES || 'Адаптація проходить успішно.'}
+                  </div>
                 </div>
               </div>
 
               {/* QUICK STATUS SWITCHER INSIDE MODAL */}
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-xl flex items-center justify-between">
-                <span className="font-bold text-amber-900 dark:text-amber-200">Змінити поточний статус вихованця:</span>
+              <div className="p-3 bg-slate-100 dark:bg-slate-800 border rounded-xl flex items-center justify-between">
+                <span className="font-bold text-slate-800 dark:text-slate-200">Поточний статус у закладі:</span>
                 <select 
                   value={viewingChild.STATUS}
                   onChange={(e) => handleQuickStatusChange(viewingChild, e.target.value as any)}
-                  className="px-3 py-1 bg-white dark:bg-slate-900 border rounded-lg font-bold"
+                  className="px-3 py-1 bg-white dark:bg-slate-900 border rounded-lg font-bold text-xs"
                 >
                   <option value="Навчається">🟢 Навчається</option>
                   <option value="Вибув">🔴 Вибув</option>
@@ -638,13 +806,13 @@ export const StructureRegistryModule: React.FC = () => {
                 </select>
               </div>
 
-              <div className="pt-2 flex justify-between items-center">
+              <div className="pt-2 flex justify-between items-center shrink-0">
                 <button 
                   onClick={() => window.print()} 
                   className="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition flex items-center space-x-1.5"
                 >
                   <Printer className="w-4 h-4" />
-                  <span>Друкувати картку (Держформа)</span>
+                  <span>Друкувати особову картку (А4)</span>
                 </button>
                 <button onClick={() => setViewingChild(null)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl">
                   Закрити
@@ -801,46 +969,153 @@ export const StructureRegistryModule: React.FC = () => {
 
       {isChildModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between font-bold text-sm">
-              <span>{editingChild ? 'Редагувати картку вихованця' : 'Зарахувати нового вихованця'}</span>
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between font-bold text-sm shrink-0">
+              <span>{editingChild ? `Редагування особової картки: ${editingChild.FULL_NAME}` : 'Зарахування нового вихованця'}</span>
               <button onClick={() => setIsChildModalOpen(false)}><X className="w-5 h-5 text-slate-400 hover:text-white" /></button>
             </div>
-            <form onSubmit={handleSaveChild} className="p-6 space-y-3 text-xs">
-              <div>
-                <label className="block font-bold mb-1">ПІБ Дитини *</label>
-                <input type="text" required value={childFullName} onChange={(e) => setChildFullName(e.target.value)} placeholder="Коваленко Софія Дмитрівна" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold" />
+            
+            <form onSubmit={handleSaveChild} className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
+              {/* SECTION 1: PERSONAL */}
+              <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border">
+                <div className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[11px]">
+                  1. Персональні дані дитини
+                </div>
+                <div>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">ПІБ Дитини (повністю) *</label>
+                  <input type="text" required value={childFullName} onChange={(e) => setChildFullName(e.target.value)} placeholder="Іваненко Артем Олександрович" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold" />
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Дата народження *</label>
+                    <input type="date" required value={childBirthDate} onChange={(e) => setChildBirthDate(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-mono font-bold" />
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Стать</label>
+                    <select value={childGender} onChange={(e) => setChildGender(e.target.value as any)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold">
+                      <option value="Чоловіча">Чоловіча</option>
+                      <option value="Жіноча">Жіноча</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Свідоцтво про народж.</label>
+                    <input type="text" value={childBirthCert} onChange={(e) => setChildBirthCert(e.target.value)} placeholder="1-КР № 123456" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-mono" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Закріплена група *</label>
+                    <select value={childGroupName} onChange={(e) => setChildGroupName(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold text-blue-600">
+                      {groups.map(g => <option key={g.ID} value={g.NAME}>{g.NAME}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Пільгова категорія</label>
+                    <select value={childBenefitCategory} onChange={(e) => setChildBenefitCategory(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold">
+                      <option value="Загальна підстава">Загальна підстава</option>
+                      <option value="Діти УБД">Діти УБД (Учасників бойових дій)</option>
+                      <option value="ВПО (Внутрішньо переміщена особа)">ВПО (Внутрішньо переміщена особа)</option>
+                      <option value="Багатодітна сім’я">Багатодітна сім’я</option>
+                      <option value="Діти-сироти / опіка">Діти-сироти / опіка</option>
+                      <option value="Дитина з інвалідністю">Дитина з інвалідністю</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold mb-1">Дата народження</label>
-                  <input type="date" value={childBirthDate} onChange={(e) => setChildBirthDate(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-mono" />
+
+              {/* SECTION 2: PARENTS & ADDRESS */}
+              <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border">
+                <div className="font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider text-[11px]">
+                  2. Батьки, опікуни та адреса
                 </div>
                 <div>
-                  <label className="block font-bold mb-1">Закріплена група</label>
-                  <select value={childGroupName} onChange={(e) => setChildGroupName(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold text-blue-600">
-                    {groups.map(g => <option key={g.ID} value={g.NAME}>{g.NAME}</option>)}
-                  </select>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Домашня адреса проживання</label>
+                  <input type="text" value={childAddress} onChange={(e) => setChildAddress(e.target.value)} placeholder="м. Кривий Ріг, вул. Перлинна 12, кв. 4" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">ПІБ Матері</label>
+                    <input type="text" value={childMotherName} onChange={(e) => setChildMotherName(e.target.value)} placeholder="Іваненко Олена Олександрівна" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Телефон Матері</label>
+                    <input type="text" value={childMotherPhone} onChange={(e) => setChildMotherPhone(e.target.value)} placeholder="(097) 111-22-33" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-mono" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">ПІБ Батька</label>
+                    <input type="text" value={childFatherName} onChange={(e) => setChildFatherName(e.target.value)} placeholder="Іваненко Олександр Васильович" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Телефон Батька</label>
+                    <input type="text" value={childFatherPhone} onChange={(e) => setChildFatherPhone(e.target.value)} placeholder="(050) 999-88-77" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-mono" />
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold mb-1">ПІБ Батьків</label>
-                  <input type="text" value={childParentName} onChange={(e) => setChildParentName(e.target.value)} placeholder="Коваленко Д. М." className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg" />
+
+              {/* SECTION 3: STATUS & ADMISSION */}
+              <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border">
+                <div className="font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider text-[11px]">
+                  3. Статус, Зарахування та Вибуття
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Поточний статус *</label>
+                    <select value={childStatus} onChange={(e) => setChildStatus(e.target.value as any)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold">
+                      <option value="Навчається">🟢 Навчається</option>
+                      <option value="Вибув">🔴 Вибув</option>
+                      <option value="Тимчасово відсутній">🟡 Тимчасово відсутній</option>
+                      <option value="Випускник">🎓 Випускник</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Дата зарахування</label>
+                    <input type="date" value={childEnrollmentDate} onChange={(e) => setChildEnrollmentDate(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-mono" />
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Наказ №</label>
+                    <input type="text" value={childEnrollmentOrder} onChange={(e) => setChildEnrollmentOrder(e.target.value)} placeholder="Наказ № 42-У" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-mono" />
+                  </div>
+                </div>
+                {childStatus === 'Вибув' && (
+                  <div className="grid grid-cols-2 gap-3 p-2.5 bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200">
+                    <div>
+                      <label className="block font-bold mb-1 text-rose-700">Дата вибуття</label>
+                      <input type="date" value={childDepartureDate} onChange={(e) => setChildDepartureDate(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-rose-300 rounded-lg font-mono" />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1 text-rose-700">Причина вибуття</label>
+                      <input type="text" value={childDepartureReason} onChange={(e) => setChildDepartureReason(e.target.value)} placeholder="Зміна місця проживання родини" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-rose-300 rounded-lg" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 4: DIET & HEALTH */}
+              <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border">
+                <div className="font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider text-[11px]">
+                  4. Особливі примітки (Дієта для Кухні, Медсестра, Психолог)
                 </div>
                 <div>
-                  <label className="block font-bold mb-1">Статус вихованця</label>
-                  <select value={childStatus} onChange={(e) => setChildStatus(e.target.value as any)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold">
-                    <option value="Навчається">🟢 Навчається</option>
-                    <option value="Вибув">🔴 Вибув</option>
-                    <option value="Тимчасово відсутній">🟡 Тимчасово відсутній</option>
-                    <option value="Випускник">🎓 Випускник</option>
-                  </select>
+                  <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">🍎 Дієтичні обмеження / Алергії (для Кухні)</label>
+                  <input type="text" value={childDietNotes} onChange={(e) => setChildDietNotes(e.target.value)} placeholder="Наприклад: Безмолочна дієта, алергія на цитрусові" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">🩺 Медична група & Щеплення</label>
+                    <input type="text" value={childHealthNotes} onChange={(e) => setChildHealthNotes(e.target.value)} placeholder="Група 1-А. Щеплення за віком" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">🧠 Оцінка психолога</label>
+                    <input type="text" value={childPsychologyNotes} onChange={(e) => setChildPsychologyNotes(e.target.value)} placeholder="Адаптація проходить успішно" className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg" />
+                  </div>
                 </div>
               </div>
-              <div className="pt-3 border-t flex justify-end space-x-2">
+
+              <div className="pt-3 border-t flex justify-end space-x-2 shrink-0">
                 <button type="button" onClick={() => setIsChildModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 rounded-xl font-bold">Скасувати</button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold">Зберегти</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30">Зберегти картку вихованця</button>
               </div>
             </form>
           </div>

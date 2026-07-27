@@ -811,10 +811,75 @@ const INITIAL_EMPLOYEES: SadokEmployee[] = [
 ];
 
 const INITIAL_CHILDREN: SadokChild[] = [
-  { ID: 1, FULL_NAME: 'Іваненко Артем Олександрович', BIRTH_DATE: '2023-04-12', GROUP_NAME: 'Група «Сонечко»', PARENT_NAME: 'Іваненко О. В.', PARENT_PHONE: '(097) 111-22-33', STATUS: 'Навчається' },
-  { ID: 2, FULL_NAME: 'Коваленко Софія Дмитрівна', BIRTH_DATE: '2022-08-19', GROUP_NAME: 'Група «Казка»', PARENT_NAME: 'Коваленко О. М.', PARENT_PHONE: '(067) 222-33-44', STATUS: 'Навчається' },
-  { ID: 3, FULL_NAME: 'Шевченко Максим Ігорович', BIRTH_DATE: '2021-02-05', GROUP_NAME: 'Група «Ясочка»', PARENT_NAME: 'Шевченко Т. П.', PARENT_PHONE: '(050) 333-44-55', STATUS: 'Навчається' },
-  { ID: 4, FULL_NAME: 'Мельник Аліна Романівна', BIRTH_DATE: '2020-11-30', GROUP_NAME: 'Група «Барвінок»', PARENT_NAME: 'Мельник Н. В.', PARENT_PHONE: '(063) 444-55-66', STATUS: 'Навчається' }
+  { 
+    ID: 1, 
+    FULL_NAME: 'Іваненко Артем Олександрович', 
+    BIRTH_DATE: '2023-04-12', 
+    GENDER: 'Чоловіча',
+    BIRTH_CERTIFICATE: '1-КР № 458921',
+    GROUP_NAME: 'Група «Сонечко»', 
+    STATUS: 'Навчається',
+    BENEFIT_CATEGORY: 'Багатодітна сім’я',
+    ADDRESS: 'м. Кривий Ріг, вул. Перлинна 12, кв. 4',
+    MOTHER_NAME: 'Іваненко Олена Олександрівна',
+    MOTHER_PHONE: '(097) 111-22-33',
+    FATHER_NAME: 'Іваненко Олександр Васильович',
+    FATHER_PHONE: '(050) 999-88-77',
+    PARENT_NAME: 'Іваненко О. О.', 
+    PARENT_PHONE: '(097) 111-22-33', 
+    ENROLLMENT_DATE: '2025-09-01',
+    ENROLLMENT_ORDER: 'Наказ № 42-У',
+    HEALTH_NOTES: 'Група здоров’я: 1-А. Щеплення за віком.',
+    DIET_NOTES: 'Без алергічних обмежень.'
+  },
+  { 
+    ID: 2, 
+    FULL_NAME: 'Коваленко Софія Дмитрівна', 
+    BIRTH_DATE: '2022-08-19', 
+    GENDER: 'Жіноча',
+    BIRTH_CERTIFICATE: '1-КР № 883412',
+    GROUP_NAME: 'Група «Казка»', 
+    STATUS: 'Навчається',
+    BENEFIT_CATEGORY: 'Діти УБД',
+    ADDRESS: 'м. Кривий Ріг, вул. Сергія Колачевського 54',
+    MOTHER_NAME: 'Коваленко Ольга Миколаївна',
+    MOTHER_PHONE: '(067) 222-33-44',
+    PARENT_NAME: 'Коваленко О. М.', 
+    PARENT_PHONE: '(067) 222-33-44', 
+    ENROLLMENT_DATE: '2024-09-01',
+    ENROLLMENT_ORDER: 'Наказ № 18-У',
+    DIET_NOTES: 'Обмеження: безмолочна дієта (лактозна непереносимість).'
+  },
+  { 
+    ID: 3, 
+    FULL_NAME: 'Шевченко Максим Ігорович', 
+    BIRTH_DATE: '2021-02-05', 
+    GENDER: 'Чоловіча',
+    GROUP_NAME: 'Група «Ясочка»', 
+    STATUS: 'Навчається',
+    BENEFIT_CATEGORY: 'ВПО (Внутрішньо переміщена особа)',
+    ADDRESS: 'м. Кривий Ріг, вул. Миру 10',
+    MOTHER_NAME: 'Шевченко Тетяна Петрівна',
+    MOTHER_PHONE: '(050) 333-44-55',
+    PARENT_NAME: 'Шевченко Т. П.', 
+    PARENT_PHONE: '(050) 333-44-55'
+  },
+  { 
+    ID: 4, 
+    FULL_NAME: 'Мельник Аліна Романівна', 
+    BIRTH_DATE: '2020-11-30', 
+    GENDER: 'Жіноча',
+    GROUP_NAME: 'Група «Барвінок»', 
+    STATUS: 'Вибув',
+    BENEFIT_CATEGORY: 'Норма',
+    ADDRESS: 'м. Кривий Ріг, вул. Зелена 5',
+    MOTHER_NAME: 'Мельник Наталія Вікторівна',
+    MOTHER_PHONE: '(063) 444-55-66',
+    PARENT_NAME: 'Мельник Н. В.', 
+    PARENT_PHONE: '(063) 444-55-66',
+    DEPARTURE_DATE: '2026-01-15',
+    DEPARTURE_REASON: 'Зміна місця проживання родини'
+  }
 ];
 
 export function getGroups(): SadokGroup[] {

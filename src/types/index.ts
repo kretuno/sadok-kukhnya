@@ -188,13 +188,29 @@ export interface SadokChild {
   ID: number;
   FULL_NAME: string;
   BIRTH_DATE: string;
+  GENDER?: 'Чоловіча' | 'Жіноча';
+  BIRTH_CERTIFICATE?: string;
   GROUP_NAME: string;
+  STATUS: 'Навчається' | 'Вибув' | 'Тимчасово відсутній' | 'Випускник';
+  BENEFIT_CATEGORY?: string;
+  ADDRESS?: string;
+  
+  // Parents Info
+  MOTHER_NAME?: string;
+  MOTHER_PHONE?: string;
+  FATHER_NAME?: string;
+  FATHER_PHONE?: string;
   PARENT_NAME?: string;
   PARENT_PHONE?: string;
-  STATUS: 'Навчається' | 'Вибув' | 'Тимчасово відсутній' | 'Випускник';
-  ADDRESS?: string;
-  GENDER?: 'Чоловіча' | 'Жіноча';
+
+  // Admission & Departure Details
   ENROLLMENT_DATE?: string;
+  ENROLLMENT_ORDER?: string;
+  DEPARTURE_DATE?: string;
+  DEPARTURE_REASON?: string;
+
+  // Special Requirements
+  DIET_NOTES?: string;
   HEALTH_NOTES?: string;
   PSYCHOLOGY_NOTES?: string;
 }
