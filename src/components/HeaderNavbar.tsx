@@ -1,4 +1,5 @@
 import React from 'react';
+import { SadokLogo } from './SadokLogo';
 import {
   FileText,
   BookOpen,
@@ -46,10 +47,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-2 font-black text-blue-400 tracking-wide text-xs">
-            <img src="./logo.png" alt="SADOK Logo" className="w-5 h-5 rounded object-contain bg-white/10 p-0.5 shadow-sm" />
-            <span>SADOK Кухня v1.0.12</span>
-          </div>
+          <SadokLogo size="sm" subtitle="Кухня v1.0.13" />
           <nav className="flex space-x-4 text-slate-300">
             <button onClick={() => setActiveTab('menu_planner')} className="hover:text-white transition">Файл</button>
             <button onClick={() => setActiveTab('products')} className="hover:text-white transition">Довідники</button>

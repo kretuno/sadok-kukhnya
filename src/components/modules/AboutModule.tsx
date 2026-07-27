@@ -1,5 +1,6 @@
 import React from 'react';
 import { QuickToolbar } from '../QuickToolbar';
+import { SadokLogo } from '../SadokLogo';
 import { Database, ShieldCheck, User, Mail, Phone, Globe, Cpu, Award, FileCode2, CheckCircle2, ExternalLink, Heart, Sparkles, Server } from 'lucide-react';
 
 export const AboutModule: React.FC = () => {
@@ -10,7 +11,7 @@ export const AboutModule: React.FC = () => {
         onExportExcel={() => {}}
         onExportPDF={() => {}}
         onPrint={() => window.print()}
-        title="Про програму SADOK Кухня v1.0.12"
+        title="Про програму SADOK Кухня v1.0.13"
       />
 
       <div className="flex-1 p-6 overflow-auto">
@@ -23,18 +24,17 @@ export const AboutModule: React.FC = () => {
 
             <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="flex items-center space-x-5 text-center md:text-left">
-                <img
-                  src="./logo.png"
-                  alt="SADOK Logo"
-                  className="w-20 h-20 rounded-2xl shadow-2xl border-2 border-white/30 object-contain bg-white/20 p-1 flex-shrink-0"
-                />
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-500 via-blue-600 to-indigo-600 text-white font-black text-3xl flex items-center justify-center shadow-2xl border-2 border-white/40 flex-shrink-0">
+                  S
+                </div>
                 <div className="space-y-2">
                   <div className="inline-flex items-center space-x-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold tracking-wide">
                     <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-                    <span>Офіційний реліз v1.0.12</span>
+                    <span>Офіційний реліз v1.0.13</span>
                   </div>
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight drop-shadow-sm">
-                    SADOK Кухня
+                  <h1 className="text-3xl md:text-4xl font-black tracking-tight drop-shadow-sm flex items-center space-x-2">
+                    <span className="text-white">SADOK</span>
+                    <span className="text-blue-200">Кухня</span>
                   </h1>
                   <p className="text-blue-100 text-sm max-w-xl font-medium leading-relaxed">
                     Професійна автоматизована система меню-розкладки, складського обліку продуктів та санітарно-гігієнічних норм для закладів дошкільної освіти України.
@@ -44,7 +44,7 @@ export const AboutModule: React.FC = () => {
 
               <div className="flex flex-col items-center justify-center p-4 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 text-center min-w-[170px] shadow-inner">
                 <span className="text-[11px] uppercase tracking-wider font-semibold text-blue-200">Версія ПЗ</span>
-                <span className="text-2xl font-black text-white my-0.5">v1.0.12</span>
+                <span className="text-2xl font-black text-white my-0.5">v1.0.13</span>
                 <span className="text-[10px] text-emerald-300 font-bold flex items-center space-x-1">
                   <CheckCircle2 className="w-3 h-3" />
                   <span>Активна ліцензія</span>
