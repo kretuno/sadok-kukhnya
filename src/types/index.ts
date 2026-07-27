@@ -143,3 +143,23 @@ export interface ProductHistoryData {
   usages: ProductHistoryUsage[];
 }
 
+export interface PropertyLocationDistribution {
+  id: string;
+  locationName: string;
+  responsiblePerson: string;
+  quantity: number;
+}
+
+export interface PropertyItem {
+  ID: number;
+  INVENTAR_NUMBER: string;
+  NAME: string;
+  CATEGORY: string;
+  CONDITION: 'Відмінний' | 'Задовільний' | 'Потребує ремонту' | 'Підлягає списанню';
+  YEAR_COMMISSIONED: number;
+  INITIAL_COST: number;
+  TOTAL_QUANTITY: number;
+  LOCATIONS: PropertyLocationDistribution[];
+  NOTES?: string;
+}
+

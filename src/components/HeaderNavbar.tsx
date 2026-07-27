@@ -12,6 +12,9 @@ import {
   Moon,
   Database,
   Info,
+  Building2,
+  HelpCircle,
+  Sparkles,
   LayoutGrid
 } from 'lucide-react';
 
@@ -21,7 +24,7 @@ interface HeaderNavbarProps {
   darkMode: boolean;
   setDarkMode: (val: boolean) => void;
   fontScale: number;
-  setFontScale: (scale: number) => void;
+  setFontScale: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
@@ -35,6 +38,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
   const navItems = [
     { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
     { id: 'menu_planner', label: 'Меню-розкладка', icon: Calendar, hotkey: 'F2' },
+    { id: 'property', label: 'Облік майна', icon: Building2, hotkey: 'F8' },
     { id: 'recipes', label: 'Технологічна карта страв', icon: Utensils, hotkey: 'F3' },
     { id: 'products', label: 'Продукти та відходи', icon: BookOpen, hotkey: 'F4' },
     { id: 'warehouse', label: 'Склад і прихід', icon: Package, hotkey: 'F5' },
@@ -49,7 +53,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6">
-          <SadokLogo size="sm" subtitle="Кухня v1.0.20" />
+          <SadokLogo size="sm" subtitle="v1.0.21" />
           <nav className="flex space-x-4 text-slate-300">
             <button onClick={() => setActiveTab('portal')} className="text-amber-400 font-extrabold hover:text-amber-300 transition flex items-center space-x-1"><span>🏠 Головне меню</span></button>
             <button onClick={() => setActiveTab('menu_planner')} className="hover:text-white transition">Файл</button>

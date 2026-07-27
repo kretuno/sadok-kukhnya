@@ -13,6 +13,7 @@ import {
   Clock,
   ShieldCheck,
   Building,
+  Building2,
   CheckCircle2,
   X
 } from 'lucide-react';
@@ -54,19 +55,19 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
       ]
     },
     {
-      id: 'maino',
+      id: 'property',
       name: 'SADOK',
       subtitle: 'Майно',
       badgeLetter: 'S',
       gradient: 'from-amber-500 to-orange-600 shadow-orange-500/30',
-      icon: Package,
-      status: 'in_dev',
+      icon: Building2,
+      status: 'active',
       description: 'Облік матеріально-технічних цінностей, інвентаризація обладнання, меблів, білизни та балансового майна ЗДО.',
       features: [
-        'Інвентаризаційні описи та QR-маркування майна',
-        'Закріплення матеріально-відповідальних осіб (МВО)',
-        'Акти прийому-передачі та списання непридатного майна',
-        'Облік зносу та поточного стану обладнання'
+        'Інвентарні номери, категорії та первинна вартість',
+        'Розподіл кількості одного майна по локаціях та МВО',
+        'Облік зносу, стану та року введення в експлуатацію',
+        'Друк інвентаризаційних описів A4 та експорт в Excel'
       ]
     },
     {
@@ -169,7 +170,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
               <div className="text-xs font-black text-white">Універсальний онлайн-комплекс</div>
               <div className="text-[10px] font-bold text-emerald-300 dark:text-emerald-400 flex items-center space-x-1 mt-0.5">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Версія системи v1.0.20</span>
+                <span>Версія системи v1.0.21</span>
               </div>
             </div>
           </div>

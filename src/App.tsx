@@ -12,6 +12,7 @@ import { initDatabase } from './services/db';
 import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 
 import { PortalHubModule } from './components/modules/PortalHubModule';
+import { PropertyManagementModule } from './components/modules/PropertyManagementModule';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('portal');
@@ -53,6 +54,7 @@ export function App() {
       else if (e.key === 'F5') { e.preventDefault(); setActiveTab('warehouse'); }
       else if (e.key === 'F6') { e.preventDefault(); setActiveTab('sanpin'); }
       else if (e.key === 'F7') { e.preventDefault(); setActiveTab('reports'); }
+      else if (e.key === 'F8') { e.preventDefault(); setActiveTab('property'); }
       else if (e.key === 'F9') { e.preventDefault(); setActiveTab('settings'); }
     };
     window.addEventListener('keydown', onKey);
@@ -63,7 +65,7 @@ export function App() {
   const instData = (() => {
     try { return JSON.parse(localStorage.getItem('sadok_institution') || '{}'); } catch { return {}; }
   })();
-  const instName = instData.name || 'SADOK Кухня';
+  const instName = instData.name || 'SADOK Екосистема';
 
   return (
     <div
@@ -103,6 +105,7 @@ export function App() {
           <>
             {activeTab === 'portal' && <PortalHubModule onSelectModule={(tab) => setActiveTab(tab)} />}
             {activeTab === 'menu_planner' && <MenuPlannerModule />}
+            {activeTab === 'property' && <PropertyManagementModule />}
             {activeTab === 'recipes' && <RecipeCatalogModule />}
             {activeTab === 'products' && <ProductsModule />}
             {activeTab === 'sanpin' && <SanpinNormsModule />}

@@ -3,7 +3,7 @@ import {
   Product, ProductCategory, Dish, DishCategory,
   RecipeComponent, EaterCategory, MenuHeader,
   InvoiceHeader, StockBatch, Institution, SupplierFirm,
-  ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage
+  ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage, PropertyItem
 } from '../types';
 
 // -----------------------------------------------------------------
@@ -634,6 +634,155 @@ export function getProductHistory(productId: number): ProductHistoryData | null 
     usages
   };
 }
+
+const INITIAL_PROPERTY_ITEMS: PropertyItem[] = [
+  {
+    ID: 1,
+    INVENTAR_NUMBER: '10114001',
+    NAME: 'Стіл дитячий регульований (4-місний)',
+    CATEGORY: 'Меблі та м\'який інвентар',
+    CONDITION: 'Відмінний',
+    YEAR_COMMISSIONED: 2022,
+    INITIAL_COST: 1850.00,
+    TOTAL_QUANTITY: 25,
+    LOCATIONS: [
+      { id: '1-1', locationName: 'Група «Сонечко»', responsiblePerson: 'Коваль О. І. (вихователь)', quantity: 8 },
+      { id: '1-2', locationName: 'Група «Казка»', responsiblePerson: 'Ткаченко М. В. (вихователь)', quantity: 10 },
+      { id: '1-3', locationName: 'Група «Ясочка»', responsiblePerson: 'Лисенко І. П. (вихователь)', quantity: 7 },
+    ],
+    NOTES: 'Екологічні дерев\'яні столи з регулюванням висоти'
+  },
+  {
+    ID: 2,
+    INVENTAR_NUMBER: '10114002',
+    NAME: 'Стільчик дитячий дерев\'яний',
+    CATEGORY: 'Меблі та м\'який інвентар',
+    CONDITION: 'Задовільний',
+    YEAR_COMMISSIONED: 2021,
+    INITIAL_COST: 450.00,
+    TOTAL_QUANTITY: 80,
+    LOCATIONS: [
+      { id: '2-1', locationName: 'Група «Сонечко»', responsiblePerson: 'Коваль О. І. (вихователь)', quantity: 25 },
+      { id: '2-2', locationName: 'Група «Казка»', responsiblePerson: 'Ткаченко М. В. (вихователь)', quantity: 30 },
+      { id: '2-3', locationName: 'Група «Ясочка»', responsiblePerson: 'Лисенко І. П. (вихователь)', quantity: 25 },
+    ],
+    NOTES: 'Лаковане букове дерево'
+  },
+  {
+    ID: 3,
+    INVENTAR_NUMBER: '10114003',
+    NAME: 'Конструктор розвивальний "LEGO Education"',
+    CATEGORY: 'Іграшки та методичні матеріали',
+    CONDITION: 'Відмінний',
+    YEAR_COMMISSIONED: 2023,
+    INITIAL_COST: 4200.00,
+    TOTAL_QUANTITY: 6,
+    LOCATIONS: [
+      { id: '3-1', locationName: 'Методичний кабінет', responsiblePerson: 'Суміна Н. Є. (методист)', quantity: 2 },
+      { id: '3-2', locationName: 'Група «Казка»', responsiblePerson: 'Ткаченко М. В.', quantity: 2 },
+      { id: '3-3', locationName: 'Група «Сонечко»', responsiblePerson: 'Коваль О. І.', quantity: 2 },
+    ]
+  },
+  {
+    ID: 4,
+    INVENTAR_NUMBER: '10114004',
+    NAME: 'Мультимедійний проектор EPSON EB-X06',
+    CATEGORY: 'Оргтехніка та прилади',
+    CONDITION: 'Відмінний',
+    YEAR_COMMISSIONED: 2023,
+    INITIAL_COST: 18500.00,
+    TOTAL_QUANTITY: 2,
+    LOCATIONS: [
+      { id: '4-1', locationName: 'Музична зала', responsiblePerson: 'Мельник Т. Г. (музкерівник)', quantity: 1 },
+      { id: '4-2', locationName: 'Кабінет завідувача', responsiblePerson: 'Павлухіна Н. Г. (директор)', quantity: 1 },
+    ]
+  },
+  {
+    ID: 5,
+    INVENTAR_NUMBER: '10114005',
+    NAME: 'Шафа виробнича харчоблоку (нержавіюча сталь)',
+    CATEGORY: 'Посуд та кухонне обладнання',
+    CONDITION: 'Задовільний',
+    YEAR_COMMISSIONED: 2020,
+    INITIAL_COST: 12400.00,
+    TOTAL_QUANTITY: 3,
+    LOCATIONS: [
+      { id: '5-1', locationName: 'Харчоблок', responsiblePerson: 'Петренко С. М. (шеф-кухар)', quantity: 3 },
+    ]
+  },
+  {
+    ID: 6,
+    INVENTAR_NUMBER: '10114006',
+    NAME: 'Туя західна "Smaragd" (декоративні дерева)',
+    CATEGORY: 'Зелені насадження та благоустрій',
+    CONDITION: 'Відмінний',
+    YEAR_COMMISSIONED: 2021,
+    INITIAL_COST: 650.00,
+    TOTAL_QUANTITY: 14,
+    LOCATIONS: [
+      { id: '6-1', locationName: 'Територія ДНЗ (центральна алея)', responsiblePerson: 'Завгосп', quantity: 14 },
+    ]
+  },
+  {
+    ID: 7,
+    INVENTAR_NUMBER: '10114007',
+    NAME: 'Шведська стінка гімнастична дитяча',
+    CATEGORY: 'Спортивний інвентар',
+    CONDITION: 'Задовільний',
+    YEAR_COMMISSIONED: 2019,
+    INITIAL_COST: 6800.00,
+    TOTAL_QUANTITY: 4,
+    LOCATIONS: [
+      { id: '7-1', locationName: 'Спортивна зала', responsiblePerson: 'Інструктор з фізкультури', quantity: 4 },
+    ]
+  }
+];
+
+export function getPropertyItems(): PropertyItem[] {
+  const saved = localStorage.getItem('sadok_property_items');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (_) {}
+  }
+  localStorage.setItem('sadok_property_items', JSON.stringify(INITIAL_PROPERTY_ITEMS));
+  return INITIAL_PROPERTY_ITEMS;
+}
+
+export function savePropertyItem(item: Partial<PropertyItem> & { NAME: string; INVENTAR_NUMBER: string }): PropertyItem[] {
+  const current = getPropertyItems();
+  let updated: PropertyItem[];
+
+  if (item.ID) {
+    updated = current.map(i => i.ID === item.ID ? { ...i, ...item } as PropertyItem : i);
+  } else {
+    const newId = current.length > 0 ? Math.max(...current.map(i => i.ID)) + 1 : 1;
+    const newItem: PropertyItem = {
+      ID: newId,
+      INVENTAR_NUMBER: item.INVENTAR_NUMBER || `1011400${newId}`,
+      NAME: item.NAME,
+      CATEGORY: item.CATEGORY || 'Меблі та м\'який інвентар',
+      CONDITION: item.CONDITION || 'Відмінний',
+      YEAR_COMMISSIONED: item.YEAR_COMMISSIONED || new Date().getFullYear(),
+      INITIAL_COST: Number(item.INITIAL_COST) || 0,
+      TOTAL_QUANTITY: Number(item.TOTAL_QUANTITY) || 1,
+      LOCATIONS: item.LOCATIONS || [{ id: Date.now().toString(), locationName: 'Загальна територія', responsiblePerson: 'Завгосп', quantity: Number(item.TOTAL_QUANTITY) || 1 }],
+      NOTES: item.NOTES || ''
+    };
+    updated = [newItem, ...current];
+  }
+
+  localStorage.setItem('sadok_property_items', JSON.stringify(updated));
+  return updated;
+}
+
+export function deletePropertyItem(id: number): PropertyItem[] {
+  const current = getPropertyItems();
+  const updated = current.filter(i => i.ID !== id);
+  localStorage.setItem('sadok_property_items', JSON.stringify(updated));
+  return updated;
+}
+
 
 
 
