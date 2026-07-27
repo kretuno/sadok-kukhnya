@@ -256,7 +256,9 @@ export const PropertyManagementModule: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950">
+    <>
+      {/* SCREEN UI (Hidden on Print) */}
+      <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950 no-print">
       {/* QUICK TOOLBAR */}
       <QuickToolbar
         onAdd={handleOpenAddModal}
@@ -703,6 +705,107 @@ export const PropertyManagementModule: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+      </div>
+
+      {/* FORMAL STATE PRINT LAYOUT (A4 Landscape) */}
+      <div className="print-only p-4 font-serif text-black bg-white">
+        {/* State Official Document Header */}
+        <div className="flex justify-between items-start mb-3 border-b-2 border-black pb-2">
+          <div>
+            <div className="font-bold text-xs">УКРАЇНА</div>
+            <div className="text-[11px]">ДНІПРОПЕТРОВСЬКА ОБЛАСТЬ</div>
+            <div className="font-bold text-xs uppercase">КРИВОРІЗЬКИЙ КОМУНАЛЬНИЙ ЗАКЛАД ДОШКІЛЬНОЇ ОСВІТИ №145 КМР</div>
+            <div className="text-[10px] text-slate-700">Код ЄДРПОУ: 26136748 | вул. Перлинна 23А, м. Кривий Ріг</div>
+          </div>
+          <div className="text-right text-xs">
+            <div><b>ЗАТВЕРДЖУЮ</b></div>
+            <div>Директор КЗДО № 145 КМР</div>
+            <div className="mt-4">________________ / Н. Г. Павлухіна</div>
+            <div className="text-[10px] mt-1">«_____» ________________ 2026 р.</div>
+          </div>
+        </div>
+
+        {/* Title */}
+        <div className="text-center my-3">
+          <h1 className="text-sm font-bold uppercase tracking-wide">
+            ІНВЕНТАРИЗАЦІЙНИЙ ОПИС МАТЕРІАЛЬНИХ ЦІННОСТЕЙ ТА БАЛАНСОВОГО МАЙНА
+          </h1>
+          <div className="text-[11px] mt-1">
+            <b>Категорія:</b> {selectedCategory} &nbsp;|&nbsp;
+            <b>Локація:</b> {selectedLocation} &nbsp;|&nbsp;
+            <b>Дата формування:</b> {new Date().toLocaleDateString('uk-UA')}
+          </div>
+        </div>
+
+        {/* Strict Grid Table */}
+        <table className="w-full border-collapse border border-black text-[11px] my-2">
+          <thead>
+            <tr className="bg-slate-100 border-b border-black font-bold text-center">
+              <th className="border border-black p-1 w-8">№</th>
+              <th className="border border-black p-1 w-20">Інв. №</th>
+              <th className="border border-black p-1 text-left">Найменування об'єкта майна</th>
+              <th className="border border-black p-1 text-left w-36">Категорія</th>
+              <th className="border border-black p-1 w-14 text-center">К-сть (шт)</th>
+              <th className="border border-black p-1 text-left">Розподіл по приміщеннях & МВО</th>
+              <th className="border border-black p-1 w-24 text-right">Первинна ціна (грн)</th>
+              <th className="border border-black p-1 w-28 text-right">Балансова сума (грн)</th>
+              <th className="border border-black p-1 w-20 text-center">Стан</th>
+              <th className="border border-black p-1 w-12 text-center">Рік</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredItems.map((item, idx) => {
+              const itemTotalCost = (item.INITIAL_COST || 0) * (item.TOTAL_QUANTITY || 0);
+              return (
+                <tr key={item.ID} className="border-b border-black">
+                  <td className="border border-black p-1 text-center font-mono">{idx + 1}</td>
+                  <td className="border border-black p-1 text-center font-bold font-mono">#{item.INVENTAR_NUMBER}</td>
+                  <td className="border border-black p-1 font-bold">
+                    {item.NAME}
+                    {item.NOTES && <span className="block text-[10px] font-normal italic">({item.NOTES})</span>}
+                  </td>
+                  <td className="border border-black p-1">{item.CATEGORY}</td>
+                  <td className="border border-black p-1 text-center font-bold">{item.TOTAL_QUANTITY}</td>
+                  <td className="border border-black p-1 text-[10px]">
+                    {(item.LOCATIONS || []).map(l => `${l.locationName} (${l.responsiblePerson}): ${l.quantity} шт`).join('; ')}
+                  </td>
+                  <td className="border border-black p-1 text-right font-mono">{item.INITIAL_COST.toFixed(2)}</td>
+                  <td className="border border-black p-1 text-right font-mono font-bold">{itemTotalCost.toFixed(2)}</td>
+                  <td className="border border-black p-1 text-center">{item.CONDITION}</td>
+                  <td className="border border-black p-1 text-center font-mono">{item.YEAR_COMMISSIONED}</td>
+                </tr>
+              );
+            })}
+            <tr className="border-t-2 border-black font-bold bg-slate-100">
+              <td colSpan={4} className="border border-black p-1.5 text-right uppercase">Разом за описом:</td>
+              <td className="border border-black p-1.5 text-center font-bold">{totalQuantitySum} шт</td>
+              <td className="border border-black p-1.5 font-bold">{totalTitles} найменувань</td>
+              <td className="border border-black p-1.5 text-right font-mono">X</td>
+              <td className="border border-black p-1.5 text-right font-mono text-xs">{totalBalanceCost.toFixed(2)} грн</td>
+              <td colSpan={2} className="border border-black p-1.5"></td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Official Commission Signatures */}
+        <div className="mt-6 text-xs space-y-3 page-break-inside-avoid">
+          <p className="italic">
+            Усі цінності, пойменовані в цьому інвентаризаційному описі з № 1 по № {filteredItems.length}, перевірені інвентаризаційною комісією в натурі за моєї присутності та внесені до опису. Претензій до комісії не маю.
+          </p>
+
+          <div className="flex justify-between items-end pt-2">
+            <div className="space-y-2">
+              <div><b>Голова комісії:</b> ____________________ / Н. Г. Павлухіна</div>
+              <div><b>Члени комісії:</b> ____________________ / Н. Є. Суміна</div>
+              <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ____________________ / О. І. Коваль</div>
+            </div>
+            <div className="space-y-2 text-right">
+              <div><b>Матеріально-відповідальна особа (МВО):</b> ____________________ / (Підпис)</div>
+              <div>«_____» ________________ 2026 р.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 };

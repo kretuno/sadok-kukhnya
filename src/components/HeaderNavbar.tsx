@@ -35,10 +35,12 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
   fontScale,
   setFontScale
 }) => {
-  const navItems = [
+  // Determine if active module is Property or Kitchen
+  const isPropertyContext = activeTab === 'property';
+
+  const kitchenNavItems = [
     { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
     { id: 'menu_planner', label: 'Меню-розкладка', icon: Calendar, hotkey: 'F2' },
-    { id: 'property', label: 'Облік майна', icon: Building2, hotkey: 'F8' },
     { id: 'recipes', label: 'Технологічна карта страв', icon: Utensils, hotkey: 'F3' },
     { id: 'products', label: 'Продукти та відходи', icon: BookOpen, hotkey: 'F4' },
     { id: 'warehouse', label: 'Склад і прихід', icon: Package, hotkey: 'F5' },
@@ -48,21 +50,39 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
     { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
   ];
 
+  const propertyNavItems = [
+    { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
+    { id: 'property', label: 'Облік майна ДНЗ', icon: Building2, hotkey: 'F8' },
+    { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
+    { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
+  ];
+
+  const navItems = isPropertyContext ? propertyNavItems : kitchenNavItems;
+
   return (
     <header className="bg-slate-800 text-white dark:bg-slate-900 border-b border-slate-700 shadow-md no-print">
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6">
-          <SadokLogo size="sm" subtitle="v1.0.21" />
+          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.22' : 'v1.0.22'} />
           <nav className="flex space-x-4 text-slate-300">
             <button onClick={() => setActiveTab('portal')} className="text-amber-400 font-extrabold hover:text-amber-300 transition flex items-center space-x-1"><span>🏠 Головне меню</span></button>
-            <button onClick={() => setActiveTab('menu_planner')} className="hover:text-white transition">Файл</button>
-            <button onClick={() => setActiveTab('products')} className="hover:text-white transition">Довідники</button>
-            <button onClick={() => setActiveTab('recipes')} className="hover:text-white transition">Страви</button>
-            <button onClick={() => setActiveTab('menu_planner')} className="hover:text-white transition">Меню-вимога</button>
-            <button onClick={() => setActiveTab('warehouse')} className="hover:text-white transition">Склад</button>
-            <button onClick={() => setActiveTab('sanpin')} className="hover:text-white transition">Норми харчування</button>
-            <button onClick={() => setActiveTab('reports')} className="hover:text-white transition">Звіти</button>
+            {isPropertyContext ? (
+              <>
+                <button onClick={() => setActiveTab('property')} className="hover:text-white transition font-bold text-amber-300">Реєстр майна</button>
+                <button onClick={() => window.print()} className="hover:text-white transition">Інвентаризаційний опис</button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => setActiveTab('menu_planner')} className="hover:text-white transition">Файл</button>
+                <button onClick={() => setActiveTab('products')} className="hover:text-white transition">Довідники</button>
+                <button onClick={() => setActiveTab('recipes')} className="hover:text-white transition">Страви</button>
+                <button onClick={() => setActiveTab('menu_planner')} className="hover:text-white transition">Меню-вимога</button>
+                <button onClick={() => setActiveTab('warehouse')} className="hover:text-white transition">Склад</button>
+                <button onClick={() => setActiveTab('sanpin')} className="hover:text-white transition">Норми харчування</button>
+                <button onClick={() => setActiveTab('reports')} className="hover:text-white transition">Звіти</button>
+              </>
+            )}
             <button onClick={() => setActiveTab('settings')} className="hover:text-white transition">Сервіс</button>
             <button onClick={() => setActiveTab('about')} className="hover:text-amber-300 font-bold transition">Про програму</button>
           </nav>
@@ -71,7 +91,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
         {/* System Controls */}
         <div className="flex items-center space-x-3 text-slate-300">
           <button
-            onClick={() => setFontScale(fontScale === 1 ? 1.15 : (fontScale === 1.15 ? 0.9 : 1))}
+            onClick={() => setFontScale(prev => (prev === 1 ? 1.15 : (prev === 1.15 ? 0.9 : 1)))}
             className="px-2 py-0.5 bg-slate-800 rounded border border-slate-700 hover:bg-slate-700 text-[11px]"
             title="Масштаб шрифту"
           >
