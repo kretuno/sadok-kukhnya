@@ -26,7 +26,7 @@ const DEFAULT_NORMS_1_3: NormItem[] = [
   { id: '12', category: 'Яйце (шт / 10 днів)', normGrams: 4, actualAvgGrams: 4, unit: 'шт' },
 ];
 
-const DEFAULT_NORMS_3_7: NormItem[] = [
+const DEFAULT_NORMS_4_7: NormItem[] = [
   { id: '1', category: 'Молоко та кисломолочні продукти', normGrams: 450, actualAvgGrams: 460, unit: 'г' },
   { id: '2', category: 'Масло вершкове', normGrams: 21, actualAvgGrams: 20.5, unit: 'г' },
   { id: '3', category: 'Хліб пшеничний', normGrams: 80, actualAvgGrams: 82, unit: 'г' },
@@ -41,39 +41,59 @@ const DEFAULT_NORMS_3_7: NormItem[] = [
   { id: '12', category: 'Яйце (шт / 10 днів)', normGrams: 5, actualAvgGrams: 5, unit: 'шт' },
 ];
 
+type AgeGroupId = '1-3' | '3-4' | '4-7' | 'staff';
+
+const AGE_GROUPS: Array<{ id: AgeGroupId; label: string }> = [
+  { id: '1-3', label: 'Ясла (1–3 роки)' },
+  { id: '3-4', label: 'Молодша (3–4 роки)' },
+  { id: '4-7', label: 'Садок (4–7 років)' },
+  { id: 'staff', label: 'Співробітники' },
+];
+
+const cloneNorms = (norms: NormItem[]): NormItem[] => norms.map(item => ({ ...item }));
+
+const DEFAULT_NORMS_BY_GROUP: Record<AgeGroupId, NormItem[]> = {
+  '1-3': DEFAULT_NORMS_1_3,
+  '3-4': DEFAULT_NORMS_4_7.map((item, index) => ({
+    ...item,
+    normGrams: Math.round((item.normGrams + DEFAULT_NORMS_1_3[index].normGrams) / 2),
+    actualAvgGrams: Math.round((item.actualAvgGrams + DEFAULT_NORMS_1_3[index].actualAvgGrams) / 2),
+  })),
+  '4-7': DEFAULT_NORMS_4_7,
+  staff: DEFAULT_NORMS_4_7,
+};
+
+const getAgeGroupLabel = (id: AgeGroupId) => AGE_GROUPS.find(group => group.id === id)?.label ?? id;
+
 export const SanpinNormsModule: React.FC = () => {
-  const [selectedAgeGroup, setSelectedAgeGroup] = useState<string>('1-3');
+  const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroupId>('1-3');
   const [isEditingMode, setIsEditingMode] = useState<boolean>(false);
 
-  const [norms13, setNorms13] = useState<NormItem[]>(() => {
-    const saved = localStorage.getItem('medsestra_sanpin_1_3');
-    return saved ? JSON.parse(saved) : DEFAULT_NORMS_1_3;
+  const [normsByGroup, setNormsByGroup] = useState<Record<AgeGroupId, NormItem[]>>(() => {
+    const saved = localStorage.getItem('medsestra_sanpin_norms_by_group');
+    if (saved) return JSON.parse(saved);
+    const legacy13 = localStorage.getItem('medsestra_sanpin_1_3');
+    const legacy37 = localStorage.getItem('medsestra_sanpin_3_7');
+    return {
+      '1-3': legacy13 ? JSON.parse(legacy13) : cloneNorms(DEFAULT_NORMS_BY_GROUP['1-3']),
+      '3-4': cloneNorms(DEFAULT_NORMS_BY_GROUP['3-4']),
+      '4-7': legacy37 ? JSON.parse(legacy37) : cloneNorms(DEFAULT_NORMS_BY_GROUP['4-7']),
+      staff: cloneNorms(DEFAULT_NORMS_BY_GROUP.staff),
+    };
   });
 
-  const [norms37, setNorms37] = useState<NormItem[]>(() => {
-    const saved = localStorage.getItem('medsestra_sanpin_3_7');
-    return saved ? JSON.parse(saved) : DEFAULT_NORMS_3_7;
-  });
+  const currentNorms = normsByGroup[selectedAgeGroup];
 
-  const currentNorms = selectedAgeGroup === '1-3' ? norms13 : norms37;
-
-  const saveToStorage = (updated13: NormItem[], updated37: NormItem[]) => {
-    localStorage.setItem('medsestra_sanpin_1_3', JSON.stringify(updated13));
-    localStorage.setItem('medsestra_sanpin_3_7', JSON.stringify(updated37));
+  const saveToStorage = (updated: Record<AgeGroupId, NormItem[]>) => {
+    localStorage.setItem('medsestra_sanpin_norms_by_group', JSON.stringify(updated));
   };
 
   const handleUpdateItem = (index: number, field: keyof NormItem, value: any) => {
-    if (selectedAgeGroup === '1-3') {
-      const updated = [...norms13];
-      updated[index] = { ...updated[index], [field]: value };
-      setNorms13(updated);
-      saveToStorage(updated, norms37);
-    } else {
-      const updated = [...norms37];
-      updated[index] = { ...updated[index], [field]: value };
-      setNorms37(updated);
-      saveToStorage(norms13, updated);
-    }
+    const groupNorms = [...currentNorms];
+    groupNorms[index] = { ...groupNorms[index], [field]: value };
+    const updated = { ...normsByGroup, [selectedAgeGroup]: groupNorms };
+    setNormsByGroup(updated);
+    saveToStorage(updated);
   };
 
   const handleAddItem = () => {
@@ -84,34 +104,27 @@ export const SanpinNormsModule: React.FC = () => {
       actualAvgGrams: 50,
       unit: 'г'
     };
-    if (selectedAgeGroup === '1-3') {
-      const updated = [...norms13, newItem];
-      setNorms13(updated);
-      saveToStorage(updated, norms37);
-    } else {
-      const updated = [...norms37, newItem];
-      setNorms37(updated);
-      saveToStorage(norms13, updated);
-    }
+    const updated = { ...normsByGroup, [selectedAgeGroup]: [...currentNorms, newItem] };
+    setNormsByGroup(updated);
+    saveToStorage(updated);
   };
 
   const handleDeleteItem = (index: number) => {
-    if (selectedAgeGroup === '1-3') {
-      const updated = norms13.filter((_, i) => i !== index);
-      setNorms13(updated);
-      saveToStorage(updated, norms37);
-    } else {
-      const updated = norms37.filter((_, i) => i !== index);
-      setNorms37(updated);
-      saveToStorage(norms13, updated);
-    }
+    const updated = { ...normsByGroup, [selectedAgeGroup]: currentNorms.filter((_, i) => i !== index) };
+    setNormsByGroup(updated);
+    saveToStorage(updated);
   };
 
   const handleResetDefaults = () => {
     if (confirm('Скинути норми харчування до стандартних значень КМУ №1124?')) {
-      setNorms13(DEFAULT_NORMS_1_3);
-      setNorms37(DEFAULT_NORMS_3_7);
-      saveToStorage(DEFAULT_NORMS_1_3, DEFAULT_NORMS_3_7);
+      const updated: Record<AgeGroupId, NormItem[]> = {
+        '1-3': cloneNorms(DEFAULT_NORMS_BY_GROUP['1-3']),
+        '3-4': cloneNorms(DEFAULT_NORMS_BY_GROUP['3-4']),
+        '4-7': cloneNorms(DEFAULT_NORMS_BY_GROUP['4-7']),
+        staff: cloneNorms(DEFAULT_NORMS_BY_GROUP.staff),
+      };
+      setNormsByGroup(updated);
+      saveToStorage(updated);
     }
   };
 
@@ -159,10 +172,7 @@ export const SanpinNormsModule: React.FC = () => {
           <div className="flex items-center space-x-3">
             <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">Вікова група:</span>
             <div className="flex rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700">
-              {[
-                { id: '1-3', label: 'Ясла (1–3 роки)' },
-                { id: '3-7', label: 'Сад (3–7 років)' },
-              ].map(grp => (
+              {AGE_GROUPS.map(grp => (
                 <button
                   key={grp.id}
                   onClick={() => setSelectedAgeGroup(grp.id)}
@@ -216,7 +226,7 @@ export const SanpinNormsModule: React.FC = () => {
         <div className="card-glass overflow-hidden shadow-sm">
           <div className="p-2.5 bg-slate-200/70 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
             <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
-              Норми харчування на одну дитину на день — вікова група {selectedAgeGroup === '1-3' ? 'Ясла (1-3 роки)' : 'Садок (3-7 років)'}
+              Норми харчування на одну особу на день — категорія {getAgeGroupLabel(selectedAgeGroup)}
             </span>
             {isEditingMode && (
               <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 animate-pulse">

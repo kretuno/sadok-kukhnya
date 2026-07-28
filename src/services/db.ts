@@ -28,7 +28,7 @@ import {
 // Singleton DB instance (sql.js Database object)
 // -----------------------------------------------------------------
 let db: any = null;
-export const CURRENT_DATABASE_SCHEMA_VERSION = 3;
+export const CURRENT_DATABASE_SCHEMA_VERSION = 4;
 
 interface SadokBackupEnvelope {
   format: 'sadok-backup';
@@ -218,6 +218,20 @@ export function runDatabaseMigrations(): number {
           SYNC_STATUS TEXT NOT NULL DEFAULT 'pending'
         )`,
         'CREATE INDEX IF NOT EXISTS IDX_SADOK_LEDGER_SYNC ON SADOK_OPERATION_LEDGER(SYNC_STATUS, CREATED_AT)',
+      ],
+    },
+    {
+      version: 4,
+      name: 'Four nutrition categories',
+      sql: [
+        `UPDATE KATEGORII_DETOK SET NAME = 'Ясла (1–3 роки)', NOMER_PP = 1 WHERE ID = 1`,
+        `UPDATE KATEGORII_DETOK SET NAME = 'Молодша група (3–4 роки)', NOMER_PP = 2 WHERE ID = 2`,
+        `UPDATE KATEGORII_DETOK SET NAME = 'Садок (4–7 років)', NOMER_PP = 3 WHERE ID = 3`,
+        `INSERT OR REPLACE INTO KATEGORII_DETOK (ID, NAME, NOMER_PP) VALUES (4, 'Співробітники', 4)`,
+        `UPDATE KATEGORII_EDOKOV SET NAME = 'Ясла (1–3 роки)', NOMER_PP = 1 WHERE ID = 1`,
+        `UPDATE KATEGORII_EDOKOV SET NAME = 'Молодша група (3–4 роки)', NOMER_PP = 2 WHERE ID = 2`,
+        `UPDATE KATEGORII_EDOKOV SET NAME = 'Садок (4–7 років)', NOMER_PP = 3 WHERE ID = 3`,
+        `INSERT OR REPLACE INTO KATEGORII_EDOKOV (ID, NAME, NOMER_PP) VALUES (4, 'Співробітники', 4)`,
       ],
     },
   ];
@@ -521,8 +535,9 @@ function queryAll<T>(sql: string): T[] {
 // -----------------------------------------------------------------
 export const translateCatName = (name: string): string => {
   if (!name) return '';
-  if (name.includes('Ясла') || name.includes('Ясли')) return 'Ясла (1-3 роки)';
-  if (name.includes('Садок') || name.includes('Сад') || name.includes('Садокок')) return 'Садок (3-7 років)';
+  if (name.includes('Ясла') || name.includes('Ясли')) return 'Ясла (1–3 роки)';
+  if (name.includes('Молодша') || name.includes('3-4') || name.includes('3–4')) return 'Молодша група (3–4 роки)';
+  if (name.includes('Садок') || name.includes('Сад') || name.includes('Садокок')) return 'Садок (4–7 років)';
   if (name.includes('Персонал') || name.includes('Співробітники') || name.includes('Сотрудники')) return 'Співробітники';
   return name.replace(/\s*\([^)]*лет[^)]*\)/gi, '').replace(/\s*\([^)]*года[^)]*\)/gi, '').trim();
 };

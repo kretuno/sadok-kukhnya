@@ -221,9 +221,10 @@ for idx, dg in enumerate(dish_groups, 1):
     cur.execute('INSERT OR REPLACE INTO GRUPPI_BLUD (ID, NAME, PORRDOK_SLEDOVANIR) VALUES (?, ?, ?)', (idx, dg, idx))
 
 categories_detok = [
-    (1, 'Ясли (1 - 3 года)', 1),
-    (2, 'Сад (3 - 7 лет)', 2),
-    (3, 'Персонал / Сотрудники', 3)
+    (1, 'Ясла (1–3 роки)', 1),
+    (2, 'Молодша група (3–4 роки)', 2),
+    (3, 'Садок (4–7 років)', 3),
+    (4, 'Співробітники', 4),
 ]
 for cid, cname, cpp in categories_detok:
     cur.execute('INSERT OR REPLACE INTO KATEGORII_DETOK (ID, NAME, NOMER_PP) VALUES (?, ?, ?)', (cid, cname, cpp))
