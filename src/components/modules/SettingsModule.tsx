@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Database, Building, HardDrive, CheckCircle2, ShieldCheck, Monitor, Trash2, AlertTriangle, Save, User, Phone, MapPin, Hash, Clock, DollarSign, PackageCheck, Download, Upload, Sliders, Utensils, Plus, Layers, ToggleLeft, ToggleRight, AlertCircle, FileText } from 'lucide-react';
 import { getInstitutions, updateInstitution, addInstitution, deleteInstitution, resetDatabaseToDefaults, exportSqliteFile, importSqliteFile } from '../../services/db';
 import { Institution } from '../../types';
+import { SystemAdministrationPanel } from '../system/SystemAdministrationPanel';
+import { recordAudit } from '../../services/governance';
 
 export const SettingsModule: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'general' | 'nutrition' | 'warehouse' | 'database'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'nutrition' | 'warehouse' | 'database' | 'system'>('general');
   const [insts, setInsts] = useState<Institution[]>([]);
   const [selectedInstId, setSelectedInstId] = useState<number>(1);
   const [instForm, setInstForm] = useState({
@@ -152,6 +154,12 @@ export const SettingsModule: React.FC = () => {
     localStorage.setItem('medsestra_cost_limits', JSON.stringify(costLimits));
     localStorage.setItem('medsestra_meal_schedule', JSON.stringify(mealSchedule));
     localStorage.setItem('medsestra_warehouse_rules', JSON.stringify(warehouseRules));
+    recordAudit({
+      action: 'update',
+      entityType: 'application_settings',
+      summary: 'Изменены параметры питания, расписания и складских правил',
+      after: { costLimits, mealSchedule, warehouseRules },
+    });
 
     loadData();
     setSavedOk(true);
@@ -223,6 +231,7 @@ export const SettingsModule: React.FC = () => {
             { id: 'nutrition', label: 'Харчування та ліміти', icon: Utensils },
             { id: 'warehouse', label: 'Складські правила', icon: PackageCheck },
             { id: 'database', label: 'База даних та резервування', icon: HardDrive },
+            { id: 'system', label: 'Доступ і контроль', icon: ShieldCheck },
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -685,6 +694,8 @@ export const SettingsModule: React.FC = () => {
             </div>
           </div>
         )}
+
+        {activeTab === 'system' && <SystemAdministrationPanel />}
 
       </div>
 

@@ -14,6 +14,7 @@ import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { PortalHubModule } from './components/modules/PortalHubModule';
 import { PropertyManagementModule } from './components/modules/PropertyManagementModule';
 import { StructureRegistryModule } from './components/modules/StructureRegistryModule';
+import { GovernanceError } from './services/governance';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('portal');
@@ -44,6 +45,27 @@ export function App() {
         if (!cancelled) { setDbError(String(err)); setDbStatus('error'); }
       });
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const handleGovernanceError = (event: ErrorEvent) => {
+      if (event.error instanceof GovernanceError) {
+        event.preventDefault();
+        alert(event.error.message);
+      }
+    };
+    const handleGovernanceRejection = (event: PromiseRejectionEvent) => {
+      if (event.reason instanceof GovernanceError) {
+        event.preventDefault();
+        alert(event.reason.message);
+      }
+    };
+    window.addEventListener('error', handleGovernanceError);
+    window.addEventListener('unhandledrejection', handleGovernanceRejection);
+    return () => {
+      window.removeEventListener('error', handleGovernanceError);
+      window.removeEventListener('unhandledrejection', handleGovernanceRejection);
+    };
   }, []);
 
   useEffect(() => {

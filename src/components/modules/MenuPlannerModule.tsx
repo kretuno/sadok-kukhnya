@@ -76,15 +76,23 @@ export const MenuPlannerModule: React.FC = () => {
   const handleAddDish = () => {
     const dish = dishes.find(d => d.ID === Number(newDishId));
     if (dish) {
-      addMenuEntry(selectedDate, dish.ID, dish.NAME, newMealType);
-      loadData();
-      setIsAddModalOpen(false);
+      try {
+        addMenuEntry(selectedDate, dish.ID, dish.NAME, newMealType);
+        loadData();
+        setIsAddModalOpen(false);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : String(error));
+      }
     }
   };
 
   const handleDeleteItem = (id: number) => {
-    deleteMenuEntry(id);
-    loadData();
+    try {
+      deleteMenuEntry(id);
+      loadData();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : String(error));
+    }
   };
 
   // Helper to get dish portion weight for a specific eater category
@@ -182,7 +190,13 @@ export const MenuPlannerModule: React.FC = () => {
     }
 
     if (confirm(`Ви дійсно бажаєте провести списання продуктів зі складу за ${formatDate(selectedDate)} (метод FIFO)?`)) {
-      const res = deductStockFIFO(reqList);
+      let res;
+      try {
+        res = deductStockFIFO(reqList, selectedDate);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : String(error));
+        return;
+      }
       if (res.success) {
         if (res.warnings.length > 0) {
           alert(`Списання проведено! Зауваження по нестачі на складі:\n\n` + res.warnings.join('\n'));

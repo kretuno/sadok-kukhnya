@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
 export function exportToExcel(filename: string, sheetName: string, headers: string[], dataRows: any[][]) {
