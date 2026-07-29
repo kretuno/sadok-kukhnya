@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MenuHeader, Dish, EaterCategory, Product, RecipeComponent, Institution } from '../../types';
-import { getMenuEntries, addMenuEntry, deleteMenuEntry, getDishes, getEaterCategories, getProducts, getRecipeComponents, getInstitutions, updateDish, deductStockFIFO } from '../../services/db';
+import { getMenuEntries, addMenuEntry, deleteMenuEntry, getDishes, getEaterCategories, getProducts, getRecipeComponents, getDishNutritionProfiles, getInstitutions, updateDish, deductStockFIFO } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
 import { ProductHistoryModal } from '../modals/ProductHistoryModal';
@@ -96,6 +96,9 @@ export const MenuPlannerModule: React.FC = () => {
     if (dishCatYields[dishId]?.[catId] !== undefined) {
       return dishCatYields[dishId][catId];
     }
+    const importedProfile = getDishNutritionProfiles(dishId)
+      .find(profile => profile.ID_KATEGORII_DETEJ === catId);
+    if (importedProfile?.VYXOD_GR) return importedProfile.VYXOD_GR;
     const dish = dishes.find(d => d.ID === dishId);
     const base = dish?.VYXOD || 200;
     return getDefaultDishYield(base, catId);
@@ -126,32 +129,32 @@ export const MenuPlannerModule: React.FC = () => {
 
   menuItems.forEach(menu => {
     const dish = dishes.find(d => d.ID === menu.ID_BLUDA);
-    const baseYield = dish?.VYXOD || 200;
-    const recipeComps = getRecipeComponents(menu.ID_BLUDA);
+    const profiles = getDishNutritionProfiles(menu.ID_BLUDA);
 
-    recipeComps.forEach(comp => {
-      const pid = comp.ID_PRODUKTA;
-      const prod = products.find(p => p.ID === pid);
-      const price = prod?.CENA || 0;
+    categories.forEach(cat => {
+      const catCount = counts[cat.ID] || 0;
+      if (catCount <= 0) return;
+      const profileYield = profiles.find(profile => profile.ID_KATEGORII_DETEJ === cat.ID)?.VYXOD_GR
+        || dish?.VYXOD
+        || 200;
+      const curYield = getDishYieldForCat(menu.ID_BLUDA, cat.ID);
+      const yieldRatio = profileYield > 0 ? curYield / profileYield : 1;
+      const recipeComps = getRecipeComponents(menu.ID_BLUDA, cat.ID, false);
 
-      if (!productRequirements[pid]) {
-        productRequirements[pid] = {
-          name: comp.productName || prod?.NAME || `Продукт №${pid}`,
-          unit: comp.unit || prod?.EDINICA_IZMERENIA || 'кг',
-          totalGrams: 0,
-          price,
-          gramsPerCat: {},
-          costPerCat: {}
-        };
-      }
-
-      // Calculate consumption for ALL active eater categories (Ясла, Садок, Персонал)
-      categories.forEach(cat => {
-        const catCount = counts[cat.ID] || 0;
-        if (catCount <= 0) return;
-
-        const curYield = getDishYieldForCat(menu.ID_BLUDA, cat.ID);
-        const yieldRatio = baseYield > 0 ? curYield / baseYield : 1;
+      recipeComps.forEach(comp => {
+        const pid = comp.ID_PRODUKTA;
+        const prod = products.find(p => p.ID === pid);
+        const price = prod?.CENA || 0;
+        if (!productRequirements[pid]) {
+          productRequirements[pid] = {
+            name: comp.SOURCE_NAME || comp.productName || prod?.NAME || `Продукт №${pid}`,
+            unit: comp.unit || prod?.EDINICA_IZMERENIA || 'кг',
+            totalGrams: 0,
+            price,
+            gramsPerCat: {},
+            costPerCat: {}
+          };
+        }
         const totalGramsForCat = comp.GROSSO_GR * catCount * yieldRatio;
         const costForCat = (totalGramsForCat / 1000) * price;
 

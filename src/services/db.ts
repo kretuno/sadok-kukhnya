@@ -1,7 +1,8 @@
 import { getEmbeddedDbBytes } from './db_data';
+import { IMPORTED_TECH_CARDS, TECH_CARD_DATASET_VERSION } from '../data/importedTechCards';
 import {
   Product, ProductCategory, Dish, DishCategory,
-  RecipeComponent, EaterCategory, MenuHeader,
+  RecipeComponent, RecipeNutritionProfile, EaterCategory, MenuHeader,
   InvoiceHeader, StockBatch, Institution, SupplierFirm,
   ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage, PropertyItem, PropertyWriteOffRecord,
   SadokGroup, SadokEmployee, SadokChild
@@ -28,7 +29,47 @@ import {
 // Singleton DB instance (sql.js Database object)
 // -----------------------------------------------------------------
 let db: any = null;
-export const CURRENT_DATABASE_SCHEMA_VERSION = 4;
+export const CURRENT_DATABASE_SCHEMA_VERSION = 5;
+const BROWSER_DATABASE_NAME = 'sadok_persistent_storage';
+const BROWSER_DATABASE_STORE = 'state';
+
+function openBrowserDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(BROWSER_DATABASE_NAME, 1);
+    request.onupgradeneeded = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains(BROWSER_DATABASE_STORE)) {
+        database.createObjectStore(BROWSER_DATABASE_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readBrowserState<T>(key: string): Promise<T | null> {
+  const database = await openBrowserDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(BROWSER_DATABASE_STORE, 'readonly');
+    const request = transaction.objectStore(BROWSER_DATABASE_STORE).get(key);
+    request.onsuccess = () => resolve((request.result as T) ?? null);
+    request.onerror = () => reject(request.error);
+    transaction.oncomplete = () => database.close();
+  });
+}
+
+async function writeBrowserState(key: string, value: unknown): Promise<void> {
+  const database = await openBrowserDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(BROWSER_DATABASE_STORE, 'readwrite');
+    transaction.objectStore(BROWSER_DATABASE_STORE).put(value, key);
+    transaction.oncomplete = () => {
+      database.close();
+      resolve();
+    };
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
 
 interface SadokBackupEnvelope {
   format: 'sadok-backup';
@@ -117,7 +158,25 @@ export async function initDatabase(): Promise<any> {
     } catch (_) {}
   }
 
-  // 2. Browser LocalStorage cache fallback (for web dev mode / browser HMR)
+  // 2. Browser IndexedDB cache (supports the full regulatory catalogue)
+  try {
+    const indexedBytes = await readBrowserState<ArrayBuffer | Uint8Array>('sqlite');
+    if (indexedBytes) {
+      const bytes = indexedBytes instanceof Uint8Array
+        ? indexedBytes
+        : new Uint8Array(indexedBytes);
+      if (bytes.byteLength > 0) {
+        db = new SQL.Database(bytes);
+        console.log('[DB] Loaded saved state from IndexedDB');
+        await prepareDatabase();
+        return db;
+      }
+    }
+  } catch (err) {
+    console.warn('[DB] IndexedDB load failed:', err);
+  }
+
+  // 3. Legacy LocalStorage cache; it is migrated to IndexedDB on save
   try {
     const localBase64 = localStorage.getItem('sadok_sqlite_db_b64');
     if (localBase64) {
@@ -136,7 +195,7 @@ export async function initDatabase(): Promise<any> {
     console.warn('[DB] LocalStorage load failed:', err);
   }
 
-  // 3. Embedded bytes fallback (bundled at build time)
+  // 4. Embedded bytes fallback (bundled at build time)
   const bytes = getEmbeddedDbBytes();
   db = new SQL.Database(bytes);
 
@@ -150,8 +209,160 @@ export async function initDatabase(): Promise<any> {
 
 async function prepareDatabase() {
   runDatabaseMigrations();
+  ensureImportedTechCards();
   saveDatabaseToDisk();
   await ensureAutomaticBackup();
+}
+
+function normalizeImportedName(value: string): string {
+  return (value || '')
+    .normalize('NFC')
+    .toLocaleLowerCase('uk-UA')
+    .replace(/^~\$/, '')
+    .replace(/\.(docx|doc|xlsx|pdf)$/i, '')
+    .replace(/^\s*(тк|ттк)\s*/i, '')
+    .replace(/\b(технологічна|технологическая)\s+(карта|картка)\b/gi, ' ')
+    .replace(/\s*\(\d+\)\s*$/, '')
+    .replace(/[_‐‑‒–—―]+/g, ' ')
+    .replace(/[«»"'`.,:;№]+/g, ' ')
+    .replace(/\s+/g, '');
+}
+
+function ensureTechCardColumns() {
+  const addMissingColumns = (table: string, columns: Record<string, string>) => {
+    const existing = new Set<string>(
+      (db.exec(`PRAGMA table_info(${table})`)[0]?.values || []).map((row: any[]) => String(row[1]))
+    );
+    Object.entries(columns).forEach(([name, declaration]) => {
+      if (!existing.has(name)) db.run(`ALTER TABLE ${table} ADD COLUMN ${name} ${declaration}`);
+    });
+  };
+  addMissingColumns('KARTOTEKA_BLUD', {
+    SOURCE_FILE: "TEXT DEFAULT ''",
+    SOURCE_FORMAT: "TEXT DEFAULT ''",
+    SOURCE_REF: "TEXT DEFAULT ''",
+    ALLERGENS: "TEXT DEFAULT ''",
+    QUALITY_REQUIREMENTS: "TEXT DEFAULT ''",
+    STORAGE_CONDITIONS: "TEXT DEFAULT ''",
+    SERVING_METHOD: "TEXT DEFAULT ''",
+    DISH_CHARACTERISTICS: "TEXT DEFAULT ''",
+    IMPORT_KEY: "TEXT DEFAULT ''",
+  });
+  addMissingColumns('KOMPONENTI_KARTOTEKI', {
+    SOURCE_NAME: "TEXT DEFAULT ''",
+    ALLERGENS: "TEXT DEFAULT ''",
+    QUALITY_REQUIREMENTS: "TEXT DEFAULT ''",
+    IS_ALTERNATIVE: 'INTEGER DEFAULT 0',
+  });
+}
+
+function ensureImportedTechCards() {
+  if (!db) return;
+  ensureTechCardColumns();
+  const imported = db.exec(
+    `SELECT 1 FROM SADOK_TECH_CARD_IMPORTS WHERE DATASET_VERSION = '${TECH_CARD_DATASET_VERSION}'`
+  )[0]?.values?.length;
+  if (imported) return;
+
+  const menuRows = queryAll<{ ID: number; NAME_BLUDA: string }>('SELECT ID, NAME_BLUDA FROM MENU');
+  const products = queryAll<Product>('SELECT * FROM PRODUKTS');
+  const productIds = new Map(products.map(product => [normalizeImportedName(product.NAME), product.ID]));
+  const dishIds = new Map<string, number>();
+  let nextProductOrder = products.length + 1;
+
+  db.run('BEGIN');
+  try {
+    db.run('DELETE FROM TECH_CARD_NUTRITION');
+    db.run('DELETE FROM KOMPONENTI_KARTOTEKI');
+    db.run('DELETE FROM KARTOTEKA_BLUD');
+    db.run("DELETE FROM sqlite_sequence WHERE name IN ('KARTOTEKA_BLUD','KOMPONENTI_KARTOTEKI','TECH_CARD_NUTRITION')");
+
+    IMPORTED_TECH_CARDS.forEach((card, order) => {
+      const nutrition = card.defaultNutrition || {};
+      const quality = Array.from(new Set(
+        card.ingredients.map((ingredient: any) => ingredient.quality).filter(Boolean)
+      )).join('\n');
+      db.run(
+        `INSERT INTO KARTOTEKA_BLUD
+          (NAME, NOTES, ID_GRUPPI_BLUD, VYXOD, BELKI, ZIRI, UGLEVODI, KALORII,
+           PORRDOK_SLEDOVANIR_BLUD, SOURCE_FILE, SOURCE_FORMAT, SOURCE_REF,
+           ALLERGENS, QUALITY_REQUIREMENTS, STORAGE_CONDITIONS, SERVING_METHOD,
+           DISH_CHARACTERISTICS, IMPORT_KEY)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          card.title, card.technology || '', card.categoryId || 1,
+          nutrition.yieldGr || 0, nutrition.protein || 0, nutrition.fat || 0,
+          nutrition.carbs || 0, nutrition.calories || 0, order + 1,
+          card.sourceFile || '', card.sourceFormat || '', card.sourceRef || '',
+          card.allergens || '', quality, card.storage || '', card.serving || '',
+          card.characteristics || '', normalizeImportedName(card.title),
+        ]
+      );
+      const dishId = Number(db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] || 0);
+      dishIds.set(normalizeImportedName(card.title), dishId);
+      card.nutrition.forEach((profile: any) => {
+        db.run(
+          `INSERT OR REPLACE INTO TECH_CARD_NUTRITION
+            (ID_BLUDA, ID_KATEGORII_DETEJ, VYXOD_GR, BELKI, ZIRI, UGLEVODI, KALORII)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            dishId, profile.categoryId, profile.yieldGr || 0, profile.protein || 0,
+            profile.fat || 0, profile.carbs || 0, profile.calories || 0,
+          ]
+        );
+      });
+      card.ingredients.forEach((ingredient: any, line: number) => {
+        const productKey = normalizeImportedName(ingredient.name);
+        let productId = productIds.get(productKey);
+        if (!productId) {
+          db.run(
+            `INSERT INTO PRODUKTS
+              (NAME, ID_GRUPPI_PRODUKTOV, EDINICA_IZMERENIA, NOMER_PP)
+             VALUES (?, 12, 'кг', ?)`,
+            [ingredient.name, nextProductOrder++]
+          );
+          productId = Number(db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] || 0);
+          productIds.set(productKey, productId);
+        }
+        [1, 2, 3, 4].forEach((categoryId, categoryIndex) => {
+          db.run(
+            `INSERT INTO KOMPONENTI_KARTOTEKI
+              (ID_BLUDA, ID_PRODUKTA, ID_KATEGORII_DETEJ, GROSSO_GR, NETTO_GR,
+               NOMER_ID_LINII_V_TABLICE, SOURCE_NAME, ALLERGENS,
+               QUALITY_REQUIREMENTS, IS_ALTERNATIVE)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              dishId, productId, categoryId,
+              ingredient.gross[categoryIndex] || 0, ingredient.net[categoryIndex] || 0,
+              line + 1, ingredient.name, ingredient.allergen || '',
+              ingredient.quality || '', ingredient.isAlternative ? 1 : 0,
+            ]
+          );
+        });
+      });
+    });
+
+    menuRows.forEach(menu => {
+      const dishId = dishIds.get(normalizeImportedName(menu.NAME_BLUDA || ''));
+      if (dishId) db.run('UPDATE MENU SET ID_BLUDA = ? WHERE ID = ?', [dishId, menu.ID]);
+    });
+    db.run('DELETE FROM SADOK_TECH_CARD_IMPORTS');
+    db.run(
+      `INSERT INTO SADOK_TECH_CARD_IMPORTS
+        (DATASET_VERSION, IMPORTED_AT, CARD_COUNT, SOURCE_COUNT)
+       VALUES (?, ?, ?, ?)`,
+      [
+        TECH_CARD_DATASET_VERSION,
+        new Date().toISOString(),
+        IMPORTED_TECH_CARDS.length,
+        IMPORTED_TECH_CARDS.reduce((sum, card) => sum + card.sourceFiles.length, 0),
+      ]
+    );
+    db.run('COMMIT');
+  } catch (error) {
+    db.run('ROLLBACK');
+    throw new Error(`Помилка імпорту технологічних карт: ${String(error)}`);
+  }
 }
 
 export function getDatabaseSchemaVersion(): number {
@@ -234,6 +445,30 @@ export function runDatabaseMigrations(): number {
         `INSERT OR REPLACE INTO KATEGORII_EDOKOV (ID, NAME, NOMER_PP) VALUES (4, 'Співробітники', 4)`,
       ],
     },
+    {
+      version: 5,
+      name: 'Full technological card catalogue',
+      sql: [
+        `CREATE TABLE IF NOT EXISTS TECH_CARD_NUTRITION (
+          ID INTEGER PRIMARY KEY AUTOINCREMENT,
+          ID_BLUDA INTEGER NOT NULL,
+          ID_KATEGORII_DETEJ INTEGER NOT NULL,
+          VYXOD_GR REAL DEFAULT 0,
+          BELKI REAL DEFAULT 0,
+          ZIRI REAL DEFAULT 0,
+          UGLEVODI REAL DEFAULT 0,
+          KALORII REAL DEFAULT 0,
+          UNIQUE(ID_BLUDA, ID_KATEGORII_DETEJ)
+        )`,
+        `CREATE TABLE IF NOT EXISTS SADOK_TECH_CARD_IMPORTS (
+          DATASET_VERSION TEXT PRIMARY KEY,
+          IMPORTED_AT TEXT NOT NULL,
+          CARD_COUNT INTEGER NOT NULL,
+          SOURCE_COUNT INTEGER NOT NULL
+        )`,
+        'CREATE INDEX IF NOT EXISTS IDX_TECH_CARD_NUTRITION_DISH ON TECH_CARD_NUTRITION(ID_BLUDA, ID_KATEGORII_DETEJ)',
+      ],
+    },
   ];
 
   for (const migration of migrations) {
@@ -257,7 +492,7 @@ export function runDatabaseMigrations(): number {
 }
 
 // -----------------------------------------------------------------
-// Persistence (Electron IPC + Browser LocalStorage)
+// Persistence (Electron IPC + Browser IndexedDB)
 // -----------------------------------------------------------------
 export function saveDatabaseToDisk() {
   if (!db) return;
@@ -269,18 +504,13 @@ export function saveDatabaseToDisk() {
     try { (window as any).electronAPI.saveDbFile(exportedBytes); } catch (_) {}
   }
 
-  // 2. Browser LocalStorage save (btoa chunked for performance)
-  try {
-    let binary = '';
-    const len = exportedBytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(exportedBytes[i]);
-    }
-    const base64 = btoa(binary);
-    localStorage.setItem('sadok_sqlite_db_b64', base64);
-  } catch (err) {
-    console.warn('[DB] LocalStorage save failed:', err);
-  }
+  // 2. Browser IndexedDB save. Copy the buffer because sql.js may reuse it.
+  const persistedBytes = new Uint8Array(exportedBytes);
+  void writeBrowserState('sqlite', persistedBytes).then(() => {
+    localStorage.removeItem('sadok_sqlite_db_b64');
+  }).catch(err => {
+    console.warn('[DB] IndexedDB save failed:', err);
+  });
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -378,8 +608,9 @@ export async function createSystemBackup(
     if (!result.success) throw new Error(result.error || 'Не удалось сохранить резервную копию');
     storage = 'electron';
   } else {
-    const backups = JSON.parse(localStorage.getItem('sadok_browser_backups_v1') || '[]') as SadokBackupEnvelope[];
-    localStorage.setItem('sadok_browser_backups_v1', JSON.stringify([envelope, ...backups].slice(0, 3)));
+    const backups = await readBrowserState<SadokBackupEnvelope[]>('backups') || [];
+    await writeBrowserState('backups', [envelope, ...backups].slice(0, 3));
+    localStorage.removeItem('sadok_browser_backups_v1');
   }
 
   db.run(
@@ -416,7 +647,7 @@ export async function listSystemBackups(): Promise<Array<{
   verified: boolean;
 }>> {
   if (window.electronAPI?.listBackups) return window.electronAPI.listBackups();
-  const backups = JSON.parse(localStorage.getItem('sadok_browser_backups_v1') || '[]') as SadokBackupEnvelope[];
+  const backups = await readBrowserState<SadokBackupEnvelope[]>('backups') || [];
   return backups.map((backup, index) => ({
     id: `browser-${index}`,
     createdAt: backup.createdAt,
@@ -456,6 +687,7 @@ export async function restoreSystemBackup(raw: string): Promise<void> {
   db.close();
   db = restored;
   runDatabaseMigrations();
+  ensureImportedTechCards();
   Object.entries(envelope.localStorage).forEach(([key, value]) => localStorage.setItem(key, value));
   recordAudit({
     action: 'restore',
@@ -468,9 +700,10 @@ export async function restoreSystemBackup(raw: string): Promise<void> {
 }
 
 export function resetDatabaseToDefaults() {
-  localStorage.removeItem('sadok_sqlite_db_b64');
   localStorage.clear();
-  window.location.reload();
+  const request = indexedDB.deleteDatabase(BROWSER_DATABASE_NAME);
+  request.onsuccess = () => window.location.reload();
+  request.onerror = () => window.location.reload();
 }
 
 export function exportSqliteFile() {
@@ -599,13 +832,28 @@ export const getDishCategories = (): DishCategory[] =>
     NAME: translateDishCategoryName(c.NAME)
   }));
 
-export const getRecipeComponents = (dishId: number): RecipeComponent[] =>
+export const getRecipeComponents = (
+  dishId: number,
+  categoryId = 1,
+  includeAlternatives = true
+): RecipeComponent[] =>
   queryAll<RecipeComponent>(`
     SELECT k.*, p.NAME as productName, p.EDINICA_IZMERENIA as unit
     FROM KOMPONENTI_KARTOTEKI k
     LEFT JOIN PRODUKTS p ON k.ID_PRODUKTA = p.ID
     WHERE k.ID_BLUDA = ${dishId}
+      AND k.ID_KATEGORII_DETEJ = ${categoryId}
+      ${includeAlternatives ? '' : 'AND COALESCE(k.IS_ALTERNATIVE, 0) = 0'}
     ORDER BY k.NOMER_ID_LINII_V_TABLICE
+  `);
+
+export const getDishNutritionProfiles = (dishId: number): RecipeNutritionProfile[] =>
+  queryAll<RecipeNutritionProfile>(`
+    SELECT n.*, c.NAME as categoryName
+    FROM TECH_CARD_NUTRITION n
+    LEFT JOIN KATEGORII_DETOK c ON c.ID = n.ID_KATEGORII_DETEJ
+    WHERE n.ID_BLUDA = ${dishId}
+    ORDER BY n.ID_KATEGORII_DETEJ
   `);
 
 export const getEaterCategories = (): EaterCategory[] =>
@@ -857,8 +1105,10 @@ export function deleteDish(id: number) {
 export function addRecipeComponent(c: Partial<RecipeComponent>) {
   if (!db) return;
   requirePermission('recipes.write');
-  db.run(`INSERT INTO KOMPONENTI_KARTOTEKI (ID_BLUDA, ID_PRODUKTA, ID_KATEGORII_DETEJ, GROSSO_GR, NETTO_GR)
-     VALUES (${c.ID_BLUDA}, ${c.ID_PRODUKTA}, ${c.ID_KATEGORII_DETEJ || 1}, ${c.GROSSO_GR || 0}, ${c.NETTO_GR || 0})`);
+  db.run(`INSERT INTO KOMPONENTI_KARTOTEKI
+      (ID_BLUDA, ID_PRODUKTA, ID_KATEGORII_DETEJ, GROSSO_GR, NETTO_GR, SOURCE_NAME)
+     VALUES (${c.ID_BLUDA}, ${c.ID_PRODUKTA}, ${c.ID_KATEGORII_DETEJ || 1},
+             ${c.GROSSO_GR || 0}, ${c.NETTO_GR || 0}, '${esc(c.SOURCE_NAME || '')}')`);
   const id = String(db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] || '');
   recordAudit({
     action: 'create',
