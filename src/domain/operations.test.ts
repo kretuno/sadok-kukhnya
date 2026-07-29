@@ -6,6 +6,20 @@ import {
   restorePropertyWriteOff,
   validateMenuEntryInput,
 } from './operations';
+import { DEFAULT_EATER_COUNTS, EATER_CATEGORIES, getDefaultDishYield } from './nutritionCategories';
+
+describe('категории питания', () => {
+  it('определяет четыре независимые категории и корректные стандартные выходы блюд', () => {
+    expect(EATER_CATEGORIES.map(category => category.name)).toEqual([
+      'Ясла (1–3 роки)',
+      'Молодша група (3–4 роки)',
+      'Садок (4–7 років)',
+      'Співробітники',
+    ]);
+    expect(Object.values(DEFAULT_EATER_COUNTS).reduce((sum, count) => sum + count, 0)).toBe(142);
+    expect([1, 2, 3, 4].map(categoryId => getDefaultDishYield(200, categoryId))).toEqual([170, 190, 200, 250]);
+  });
+});
 
 describe('planFifoDeductions', () => {
   it('списывает сначала самую старую партию', () => {
