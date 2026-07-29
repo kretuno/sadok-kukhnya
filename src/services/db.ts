@@ -223,8 +223,8 @@ function normalizeImportedName(value: string): string {
     .replace(/^\s*(тк|ттк)\s*/i, '')
     .replace(/\b(технологічна|технологическая)\s+(карта|картка)\b/gi, ' ')
     .replace(/\s*\(\d+\)\s*$/, '')
-    .replace(/[_‐‑‒–—―]+/g, ' ')
-    .replace(/[«»"'`.,:;№]+/g, ' ')
+    .replace(/[_‐‑‒–—―-]+/g, ' ')
+    .replace(/[«»"'`’‘ʼ.,:;№]+/g, ' ')
     .replace(/\s+/g, '');
 }
 

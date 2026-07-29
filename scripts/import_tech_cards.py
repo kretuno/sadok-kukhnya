@@ -30,7 +30,13 @@ from pypdf import PdfReader
 
 
 AGE_IDS = (1, 2, 3, 4)
-DATASET_VERSION = "2026-07-29-v3"
+DATASET_VERSION = "2026-07-29-v4"
+TITLE_OVERRIDES = {
+    "супукраїнськийзгалушками": "Суп український з галушками",
+    "борщпобахмацькі": "Борщ по-бахмацькі",
+    "котлетапомілан": "Котлета по-міланські з сиром",
+    "булгур": "Каша в’язка булгур",
+}
 SKIP_MARKERS = (
     "вихід",
     "выход",
@@ -82,8 +88,8 @@ def normalized_key(value: str) -> str:
     value = re.sub(r"^\s*(тк|ттк)\s*", "", value)
     value = re.sub(r"\b(технологічна|технологическая)\s+(карта|картка)\b", " ", value)
     value = re.sub(r"\s*\(\d+\)\s*$", "", value)
-    value = re.sub(r"[_‐‑‒–—―]+", " ", value)
-    value = re.sub(r"[«»\"'`.,:;№]+", " ", value)
+    value = re.sub(r"[_‐‑‒–—―-]+", " ", value)
+    value = re.sub(r"[«»\"'`’‘ʼ.,:;№]+", " ", value)
     value = re.sub(r"\s+", " ", value).strip()
     value = value.replace("тюфт", "тефт")
     return value.replace(" ", "")
@@ -137,6 +143,30 @@ def extract_between(lines: list[str], start_terms: tuple[str, ...], end_terms: t
     return unique_text(collected)
 
 
+def is_title_candidate(value: str) -> bool:
+    candidate = clean_text(value)
+    low = candidate.casefold()
+    letters = [char for char in candidate if char.isalpha()]
+    non_title_markers = (
+        *SKIP_MARKERS,
+        *SECTION_MARKERS,
+        *INGREDIENT_HEADER_MARKERS,
+        "затвердж",
+        "директор",
+        "рецептур",
+        "збірник",
+        "інститут",
+        "видання",
+        "№ з/п",
+    )
+    return (
+        3 < len(candidate) < 180
+        and len(letters) >= 4
+        and not any(marker in low for marker in non_title_markers)
+        and len(re.findall(r"\d+(?:[.,]\d+)?", candidate)) < 4
+    )
+
+
 def title_from_lines(lines: list[str], fallback: str) -> str:
     for index, line in enumerate(lines[:35]):
         low = line.casefold()
@@ -147,38 +177,34 @@ def title_from_lines(lines: list[str], fallback: str) -> str:
         if marker:
             inline = clean_text(re.split(marker, line, flags=re.IGNORECASE)[-1])
             inline = re.sub(r"^№\s*[\d.]+\s*", "", inline).strip()
-            if 2 < len(inline) < 180 and not any(
-                term in inline.casefold() for term in ("директор", "затвердж", "рецептур")
-            ):
+            if is_title_candidate(inline):
                 return inline
             if index + 1 >= len(lines):
                 continue
             candidate = clean_text(lines[index + 1])
-            if 2 < len(candidate) < 180 and "№ з/п" not in candidate:
+            if is_title_candidate(candidate):
                 return candidate
     for line in lines[:40]:
         candidate = re.sub(r"^\s*\d+\s*[–—-]\s*", "", clean_text(line))
         letters = [char for char in candidate if char.isalpha()]
         if (
-            3 < len(candidate) < 150
-            and len(letters) >= 4
+            is_title_candidate(candidate)
             and sum(char.isupper() for char in letters) / len(letters) > 0.8
-            and not any(term in candidate.casefold() for term in ("затвердж", "директор", "склав"))
         ):
             return candidate.title()
     for line in lines[:20]:
         candidate = clean_text(line)
         low = candidate.casefold()
         if (
-            3 < len(candidate) < 150
-            and "затвердж" not in low
-            and "рецептур" not in low
-            and "збірник" not in low
-            and "інститут" not in low
-            and "директор" not in low
+            is_title_candidate(candidate)
         ):
             return candidate
-    return clean_text(fallback)
+    fallback = clean_text(fallback)
+    return fallback if is_title_candidate(fallback) else "Технологічна картка без назви"
+
+
+def title_override(path: Path) -> str | None:
+    return TITLE_OVERRIDES.get(normalized_key(path.name))
 
 
 def classify_dish(title: str) -> int:
@@ -740,6 +766,9 @@ def parse_file(path: Path) -> list[dict[str, Any]]:
     else:
         raise ValueError(f"Unsupported format: {extension}")
     for index, card in enumerate(cards, 1):
+        override = title_override(path)
+        if override:
+            card["title"] = override
         source_label = path.name if len(cards) == 1 else f"{path.name}#{index}"
         card.update({
             "sourceFile": source_label,
