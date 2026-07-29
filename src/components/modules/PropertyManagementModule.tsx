@@ -393,13 +393,13 @@ export const PropertyManagementModule: React.FC = () => {
   const getConditionBadge = (condition: string) => {
     switch (condition) {
       case 'Відмінний':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">🟢 Відмінний</span>;
+        return <span className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Відмінний</span>;
       case 'Задовільний':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800">🔵 Задовільний</span>;
+        return <span className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-800"><span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500" />Задовільний</span>;
       case 'Потребує ремонту':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800">🟡 Ремонт</span>;
+        return <span className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-amber-500" />Ремонт</span>;
       case 'Підлягає списанню':
-        return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse">🔴 До списання</span>;
+        return <span className="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 animate-pulse"><span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-rose-500" />До списання</span>;
       default:
         return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700">{condition}</span>;
     }
@@ -698,16 +698,6 @@ export const PropertyManagementModule: React.FC = () => {
                                         <span className="font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-1 rounded">
                                           {loc.quantity} шт
                                         </span>
-
-                                        {loc.quantity > 0 && (
-                                          <button
-                                            onClick={() => handleOpenWriteOffModal(item, loc.locationName)}
-                                            className="ml-1 text-[10px] text-rose-600 dark:text-rose-400 hover:underline font-bold"
-                                            title="Списати з цієї локації"
-                                          >
-                                            [Списати]
-                                          </button>
-                                        )}
                                       </div>
                                     ))
                                   ) : (
