@@ -306,8 +306,9 @@ export const ReportsModule: React.FC = () => {
                     <th>№</th>
                     <th>Продукт</th>
                     <th className="text-center">Од. вим.</th>
-                    <th className="text-center">Ясла (1-3 роки)</th>
-                    <th className="text-center">Садок (3-7 років)</th>
+                    <th className="text-center">Ясла (1–3 роки)</th>
+                    <th className="text-center">Молодша (3–4 роки)</th>
+                    <th className="text-center">Садок (4–7 років)</th>
                     <th className="text-center">Співробітники</th>
                     <th className="text-center">Всього списано</th>
                     <th className="text-center">Загальна сума (грн)</th>
@@ -319,8 +320,9 @@ export const ReportsModule: React.FC = () => {
                       <td className="text-center text-slate-500">{i + 1}</td>
                       <td className="font-bold text-slate-800 dark:text-slate-200">{r.name}</td>
                       <td className="text-center">{r.unit}</td>
+                      <td className="text-center">{(r.expenseQty * 0.30).toFixed(3)}</td>
+                      <td className="text-center">{(r.expenseQty * 0.25).toFixed(3)}</td>
                       <td className="text-center">{(r.expenseQty * 0.35).toFixed(3)}</td>
-                      <td className="text-center">{(r.expenseQty * 0.55).toFixed(3)}</td>
                       <td className="text-center">{(r.expenseQty * 0.10).toFixed(3)}</td>
                       <td className="text-center font-bold text-blue-600">{r.expenseQty.toFixed(3)}</td>
                       <td className="text-center font-bold text-emerald-600">{r.expenseSum.toFixed(2)} грн</td>
@@ -340,7 +342,7 @@ export const ReportsModule: React.FC = () => {
               <span>Звіт по вартості детодня та дотриманню фінансових лімітів</span>
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-2">
                 <span className="font-bold text-emerald-900 dark:text-emerald-300 block text-xs">Ясла (1–3 роки)</span>
                 <div className="text-2xl font-black text-emerald-700">38.45 грн / день</div>
@@ -348,7 +350,13 @@ export const ReportsModule: React.FC = () => {
               </div>
 
               <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl space-y-2">
-                <span className="font-bold text-blue-900 dark:text-blue-300 block text-xs">Садок (3–7 років)</span>
+                <span className="font-bold text-cyan-900 dark:text-cyan-300 block text-xs">Молодша група (3–4 роки)</span>
+                <div className="text-2xl font-black text-cyan-700">48.20 грн / день</div>
+                <div className="text-[11px] text-cyan-600 font-semibold">Нормативний ліміт: 55.00 грн (в межах норми)</div>
+              </div>
+
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl space-y-2">
+                <span className="font-bold text-blue-900 dark:text-blue-300 block text-xs">Садок (4–7 років)</span>
                 <div className="text-2xl font-black text-blue-700">56.20 грн / день</div>
                 <div className="text-[11px] text-blue-600 font-semibold">Нормативний ліміт: 65.00 грн (в межах норми)</div>
               </div>
