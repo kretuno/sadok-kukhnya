@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Dish, DishCategory, RecipeComponent, Product } from '../../types';
-import { getDishes, getDishCategories, getRecipeComponents, getProducts, addDish, updateDish, deleteDish, addRecipeComponent, deleteRecipeComponent } from '../../services/db';
+import { Dish, DishCategory, RecipeComponent, RecipeNutritionProfile, EaterCategory, Product } from '../../types';
+import { getDishes, getDishCategories, getRecipeComponents, getDishNutritionProfiles, getEaterCategories, getProducts, addDish, updateDish, deleteDish, addRecipeComponent, deleteRecipeComponent } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
 import { Utensils, Plus, Trash2, Edit, Layers } from 'lucide-react';
@@ -11,6 +11,9 @@ export const RecipeCatalogModule: React.FC = () => {
   const [selectedCatId, setSelectedCatId] = useState<number>(0);
   const [selectedDishId, setSelectedDishId] = useState<number | null>(null);
   const [components, setComponents] = useState<RecipeComponent[]>([]);
+  const [nutritionProfiles, setNutritionProfiles] = useState<RecipeNutritionProfile[]>([]);
+  const [eaterCategories, setEaterCategories] = useState<EaterCategory[]>([]);
+  const [selectedEaterCategoryId, setSelectedEaterCategoryId] = useState<number>(1);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
@@ -23,14 +26,20 @@ export const RecipeCatalogModule: React.FC = () => {
 
   useEffect(() => { loadData(); }, []);
   useEffect(() => {
-    if (selectedDishId) setComponents(getRecipeComponents(selectedDishId));
-    else setComponents([]);
-  }, [selectedDishId]);
+    if (selectedDishId) {
+      setComponents(getRecipeComponents(selectedDishId, selectedEaterCategoryId));
+      setNutritionProfiles(getDishNutritionProfiles(selectedDishId));
+    } else {
+      setComponents([]);
+      setNutritionProfiles([]);
+    }
+  }, [selectedDishId, selectedEaterCategoryId]);
 
   const loadData = () => {
     const dList = getDishes();
     setDishes(dList);
     setCategories(getDishCategories());
+    setEaterCategories(getEaterCategories());
     setProducts(getProducts());
     if (dList.length > 0 && !selectedDishId) setSelectedDishId(dList[0].ID);
   };
@@ -42,6 +51,9 @@ export const RecipeCatalogModule: React.FC = () => {
   });
 
   const selectedDish = dishes.find(d => d.ID === selectedDishId);
+  const selectedNutrition = nutritionProfiles.find(
+    profile => profile.ID_KATEGORII_DETEJ === selectedEaterCategoryId
+  );
 
   const handleSaveDish = () => {
     if (!editingDish.NAME) return;
@@ -61,14 +73,14 @@ export const RecipeCatalogModule: React.FC = () => {
 
   const handleAddComp = () => {
     if (!selectedDishId) return;
-    addRecipeComponent({ ID_BLUDA: selectedDishId, ID_PRODUKTA: Number(newProdId), ID_KATEGORII_DETEJ: 1, GROSSO_GR: Number(newGrosso), NETTO_GR: Number(newNetto) });
-    setComponents(getRecipeComponents(selectedDishId));
+    addRecipeComponent({ ID_BLUDA: selectedDishId, ID_PRODUKTA: Number(newProdId), ID_KATEGORII_DETEJ: selectedEaterCategoryId, GROSSO_GR: Number(newGrosso), NETTO_GR: Number(newNetto) });
+    setComponents(getRecipeComponents(selectedDishId, selectedEaterCategoryId));
     setIsCompModalOpen(false);
   };
 
   const handleDeleteComp = (id: number) => {
     deleteRecipeComponent(id);
-    if (selectedDishId) setComponents(getRecipeComponents(selectedDishId));
+    if (selectedDishId) setComponents(getRecipeComponents(selectedDishId, selectedEaterCategoryId));
   };
 
   const handleExportExcel = () => {
@@ -177,8 +189,8 @@ export const RecipeCatalogModule: React.FC = () => {
           </div>
         </div>
 
-        {/* Right: Recipe Ingredients */}
-        <div className="w-full lg:w-96 card-glass flex flex-col shrink-0 min-h-[250px] overflow-hidden">
+        {/* Right: Full technological card */}
+        <div className="w-full lg:w-[34rem] card-glass flex flex-col shrink-0 min-h-[250px] overflow-hidden">
           <div className="p-2.5 bg-slate-200/60 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 flex justify-between items-center">
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
               {selectedDish ? `Склад: ${selectedDish.NAME}` : 'Оберіть страву'}
@@ -194,10 +206,48 @@ export const RecipeCatalogModule: React.FC = () => {
           <div className="flex-1 overflow-auto p-2">
             {selectedDish ? (
               <div className="space-y-3">
+                <div className="flex flex-wrap gap-1">
+                  {eaterCategories.map(category => (
+                    <button
+                      key={category.ID}
+                      onClick={() => setSelectedEaterCategoryId(category.ID)}
+                      className={`rounded px-2 py-1 text-[10px] font-medium transition ${
+                        selectedEaterCategoryId === category.ID
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+                      }`}
+                    >
+                      {category.NAME}
+                    </button>
+                  ))}
+                </div>
+
+                {selectedNutrition ? (
+                  <div className="grid grid-cols-5 gap-1 text-center">
+                    {[
+                      ['Вихід', `${selectedNutrition.VYXOD_GR} г`],
+                      ['Білки', `${selectedNutrition.BELKI} г`],
+                      ['Жири', `${selectedNutrition.ZIRI} г`],
+                      ['Вугл.', `${selectedNutrition.UGLEVODI} г`],
+                      ['Ккал', selectedNutrition.KALORII],
+                    ].map(([label, value]) => (
+                      <div key={String(label)} className="rounded border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900">
+                        <div className="text-[9px] uppercase tracking-wide text-slate-400">{label}</div>
+                        <div className="text-[11px] font-bold text-slate-800 dark:text-slate-100">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+
                 <div className="p-2 bg-slate-50 dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400">
                   <span className="font-semibold text-slate-800 dark:text-slate-200 block mb-0.5">Технологія приготування:</span>
                   {selectedDish.NOTES || 'Інструкція з приготування не вказана.'}
                 </div>
+                {selectedDish.ALLERGENS ? (
+                  <div className="rounded border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">
+                    <span className="font-semibold">Алергени: </span>{selectedDish.ALLERGENS}
+                  </div>
+                ) : null}
                 <table className="table-grid">
                   <thead>
                     <tr>
@@ -209,8 +259,12 @@ export const RecipeCatalogModule: React.FC = () => {
                   </thead>
                   <tbody>
                     {components.map(c => (
-                      <tr key={c.ID}>
-                        <td className="font-medium text-slate-800 dark:text-slate-200">{c.productName}</td>
+                      <tr key={c.ID} className={c.IS_ALTERNATIVE ? 'opacity-65' : ''}>
+                        <td className="font-medium text-slate-800 dark:text-slate-200">
+                          {c.SOURCE_NAME || c.productName}
+                          {c.IS_ALTERNATIVE ? <span className="ml-1 text-[9px] text-amber-600">(альтернатива)</span> : null}
+                          {c.ALLERGENS ? <span className="block text-[9px] text-rose-500">Алергени: {c.ALLERGENS}</span> : null}
+                        </td>
                         <td className="font-bold text-blue-600 dark:text-blue-400">{c.GROSSO_GR} г</td>
                         <td className="text-slate-600 dark:text-slate-400">{c.NETTO_GR} г</td>
                         <td>
@@ -222,6 +276,23 @@ export const RecipeCatalogModule: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
+                {[
+                  ['Умови зберігання', selectedDish.STORAGE_CONDITIONS],
+                  ['Спосіб подачі', selectedDish.SERVING_METHOD],
+                  ['Характеристика готової страви', selectedDish.DISH_CHARACTERISTICS],
+                  ['Вимоги до якості сировини', selectedDish.QUALITY_REQUIREMENTS],
+                  ['Нормативне джерело', selectedDish.SOURCE_REF],
+                ].filter(([, value]) => value).map(([label, value]) => (
+                  <details key={String(label)} className="rounded border border-slate-200 bg-slate-50 p-2 text-[11px] dark:border-slate-800 dark:bg-slate-950">
+                    <summary className="cursor-pointer font-semibold text-slate-700 dark:text-slate-200">{label}</summary>
+                    <div className="mt-1 whitespace-pre-line text-slate-600 dark:text-slate-400">{value}</div>
+                  </details>
+                ))}
+                {selectedDish.SOURCE_FILE ? (
+                  <div className="text-[9px] text-slate-400">
+                    Джерело: {selectedDish.SOURCE_FILE} · {selectedDish.SOURCE_FORMAT}
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="text-center py-12 text-slate-400 italic text-xs">

@@ -37,6 +37,15 @@ export interface Dish {
   UGLEVODI: number;
   KALORII: number;
   PORRDOK_SLEDOVANIR_BLUD: number;
+  SOURCE_FILE?: string;
+  SOURCE_FORMAT?: string;
+  SOURCE_REF?: string;
+  ALLERGENS?: string;
+  QUALITY_REQUIREMENTS?: string;
+  STORAGE_CONDITIONS?: string;
+  SERVING_METHOD?: string;
+  DISH_CHARACTERISTICS?: string;
+  IMPORT_KEY?: string;
 }
 
 export interface RecipeComponent {
@@ -47,8 +56,24 @@ export interface RecipeComponent {
   GROSSO_GR: number;
   NETTO_GR: number;
   NOMER_ID_LINII_V_TABLICE?: number;
+  SOURCE_NAME?: string;
+  ALLERGENS?: string;
+  QUALITY_REQUIREMENTS?: string;
+  IS_ALTERNATIVE?: number;
   productName?: string;
   unit?: string;
+}
+
+export interface RecipeNutritionProfile {
+  ID: number;
+  ID_BLUDA: number;
+  ID_KATEGORII_DETEJ: number;
+  VYXOD_GR: number;
+  BELKI: number;
+  ZIRI: number;
+  UGLEVODI: number;
+  KALORII: number;
+  categoryName?: string;
 }
 
 export interface EaterCategory {
@@ -233,5 +258,4 @@ export interface SadokChild {
   HEALTH_NOTES?: string;
   PSYCHOLOGY_NOTES?: string;
 }
-
 
