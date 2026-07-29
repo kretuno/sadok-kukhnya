@@ -23,7 +23,6 @@ import {
   MapPin, 
   UserCheck, 
   AlertCircle, 
-  DollarSign, 
   Calendar, 
   Tag, 
   Boxes, 
@@ -494,7 +493,7 @@ export const PropertyManagementModule: React.FC = () => {
 
                 <div className="card-glass p-3.5 flex items-center space-x-3.5 border-l-4 border-emerald-500">
                   <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 dark:text-emerald-400">
-                    <DollarSign className="w-6 h-6" />
+                    <span aria-hidden="true" className="flex h-6 w-6 items-center justify-center text-2xl font-black leading-none">₴</span>
                   </div>
                   <div>
                     <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Балансова вартість</div>
@@ -748,7 +747,7 @@ export const PropertyManagementModule: React.FC = () => {
 
                 <div className="card-glass p-3.5 flex items-center space-x-3.5 border-l-4 border-purple-500">
                   <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-950/80 text-purple-600 dark:text-purple-400">
-                    <DollarSign className="w-6 h-6" />
+                    <span aria-hidden="true" className="flex h-6 w-6 items-center justify-center text-2xl font-black leading-none">₴</span>
                   </div>
                   <div>
                     <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Загальна сума списання</div>
