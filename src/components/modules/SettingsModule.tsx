@@ -28,6 +28,7 @@ export const SettingsModule: React.FC = () => {
 
   const [costLimits, setCostLimits] = useState({
     yasla: 45.0,
+    junior: 55.0,
     sad: 65.0,
     staff: 75.0,
   });
@@ -52,7 +53,7 @@ export const SettingsModule: React.FC = () => {
   useEffect(() => {
     loadData();
     const savedLimits = localStorage.getItem('medsestra_cost_limits');
-    if (savedLimits) setCostLimits(JSON.parse(savedLimits));
+    if (savedLimits) setCostLimits(current => ({ ...current, ...JSON.parse(savedLimits) }));
 
     const savedSchedule = localStorage.getItem('medsestra_meal_schedule');
     if (savedSchedule) setMealSchedule(JSON.parse(savedSchedule));
@@ -199,7 +200,7 @@ export const SettingsModule: React.FC = () => {
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                SADOK v1.0.34 (Налаштування системи)
+                SADOK v1.0.35 (Налаштування системи)
               </h2>
               <p className="text-slate-500 dark:text-slate-400 mt-0.5">
                 Параметри закладу дошкільної освіти, реквізити, ліміти вартості та складські правила
@@ -457,7 +458,7 @@ export const SettingsModule: React.FC = () => {
                 <span>Гранична вартість харчування на 1 дитину в день (грн)</span>
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div className="p-3 bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-lg space-y-1">
                   <label className="font-bold text-emerald-900 dark:text-emerald-300 block">Ясла (1–3 роки)</label>
                   <div className="flex items-center space-x-2">
@@ -472,8 +473,22 @@ export const SettingsModule: React.FC = () => {
                   </div>
                 </div>
 
+                <div className="p-3 bg-cyan-50/50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800 rounded-lg space-y-1">
+                  <label className="font-bold text-cyan-900 dark:text-cyan-300 block">Молодша група (3–4 роки)</label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={costLimits.junior}
+                      onChange={(e) => setCostLimits({ ...costLimits, junior: Number(e.target.value) })}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-cyan-300 dark:border-cyan-700 rounded text-sm font-black text-cyan-700"
+                    />
+                    <span className="font-bold text-slate-600">грн/день</span>
+                  </div>
+                </div>
+
                 <div className="p-3 bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-1">
-                  <label className="font-bold text-blue-900 dark:text-blue-300 block">Садок (3–7 років)</label>
+                  <label className="font-bold text-blue-900 dark:text-blue-300 block">Садок (4–7 років)</label>
                   <div className="flex items-center space-x-2">
                     <input
                       type="number"
