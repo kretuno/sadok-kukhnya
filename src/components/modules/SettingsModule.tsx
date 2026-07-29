@@ -158,7 +158,7 @@ export const SettingsModule: React.FC = () => {
     recordAudit({
       action: 'update',
       entityType: 'application_settings',
-      summary: 'Изменены параметры питания, расписания и складских правил',
+      summary: 'Змінено параметри харчування, розкладу та складських правил',
       after: { costLimits, mealSchedule, warehouseRules },
     });
 
@@ -200,7 +200,7 @@ export const SettingsModule: React.FC = () => {
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                SADOK v1.0.42 (Налаштування системи)
+                SADOK v1.0.43 (Налаштування системи)
               </h2>
               <p className="text-slate-500 dark:text-slate-400 mt-0.5">
                 Параметри закладу дошкільної освіти, реквізити, ліміти вартості та складські правила

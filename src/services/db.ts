@@ -524,7 +524,7 @@ export function runDatabaseMigrations(): number {
       db.run('COMMIT');
     } catch (error) {
       db.run('ROLLBACK');
-      throw new Error(`Ошибка миграции БД v${migration.version}: ${String(error)}`);
+      throw new Error(`Помилка міграції БД v${migration.version}: ${String(error)}`);
     }
   }
 
@@ -599,7 +599,7 @@ function collectBackupLocalStorage(): Record<string, string> {
 }
 
 function verifySqliteBytes(bytes: Uint8Array) {
-  if (!db) throw new Error('База данных не инициализирована');
+  if (!db) throw new Error('Базу даних не ініціалізовано');
   const TestDatabase = db.constructor;
   const testDb = new TestDatabase(bytes);
   try {
@@ -615,7 +615,7 @@ export async function createSystemBackup(
   trigger: 'automatic' | 'manual' = 'manual'
 ): Promise<{ envelope: SadokBackupEnvelope; storage: 'electron' | 'browser' }> {
   if (trigger === 'manual') requirePermission('backup.manage');
-  if (!db) throw new Error('База данных не инициализирована');
+  if (!db) throw new Error('Базу даних не ініціалізовано');
 
   const sqliteBytes = db.export() as Uint8Array;
   verifySqliteBytes(sqliteBytes);
@@ -645,7 +645,7 @@ export async function createSystemBackup(
       new TextEncoder().encode(json),
       trigger,
     );
-    if (!result.success) throw new Error(result.error || 'Не удалось сохранить резервную копию');
+    if (!result.success) throw new Error(result.error || 'Не вдалося зберегти резервну копію');
     storage = 'electron';
   } else {
     const backups = await readBrowserState<SadokBackupEnvelope[]>('backups') || [];
@@ -662,7 +662,7 @@ export async function createSystemBackup(
   recordAudit({
     action: 'backup',
     entityType: 'database',
-    summary: `${trigger === 'automatic' ? 'Автоматическая' : 'Ручная'} резервная копия создана и проверена`,
+    summary: `${trigger === 'automatic' ? 'Автоматичну' : 'Ручну'} резервну копію створено та перевірено`,
     after: { checksum, schemaVersion: envelope.schemaVersion, storage },
   });
   saveDatabaseToDisk();
@@ -711,13 +711,13 @@ export async function restoreSystemBackup(raw: string): Promise<void> {
   requirePermission('backup.manage');
   const envelope = JSON.parse(raw) as SadokBackupEnvelope;
   if (envelope.format !== 'sadok-backup' || envelope.formatVersion !== 1) {
-    throw new Error('Файл не является резервной копией SADOK');
+    throw new Error('Файл не є резервною копією SADOK');
   }
   const expectedChecksum = checksumText(
     envelope.sqliteBase64 + JSON.stringify(envelope.localStorage)
   );
   if (expectedChecksum !== envelope.checksum) {
-    throw new Error('Контрольная сумма резервной копии не совпадает');
+    throw new Error('Контрольна сума резервної копії не збігається');
   }
   const bytes = base64ToBytes(envelope.sqliteBase64);
   verifySqliteBytes(bytes);
@@ -732,7 +732,7 @@ export async function restoreSystemBackup(raw: string): Promise<void> {
   recordAudit({
     action: 'restore',
     entityType: 'database',
-    summary: `Восстановлена резервная копия от ${envelope.createdAt}`,
+    summary: `Відновлено резервну копію від ${envelope.createdAt}`,
     after: { checksum: envelope.checksum, schemaVersion: envelope.schemaVersion },
   });
   saveDatabaseToDisk();
@@ -838,7 +838,10 @@ export const translateProdCategoryName = (name: string): string => {
     .replace(/Овощи, зелень, картофель/gi, 'Овочі, зелень, картопля')
     .replace(/Фрукты и ягоды/gi, 'Фрукти та ягоди')
     .replace(/Кондитерские изделия, сахар/gi, 'Кондитерські вироби, цукор')
-    .replace(/Масло сливочное, растительное/gi, 'Масло вершкове, олія');
+    .replace(/Масло сливочное, растительное/gi, 'Масло вершкове, олія')
+    .replace(/Соки, напитки, чай, какао/gi, 'Соки, напої, чай, какао')
+    .replace(/Яйца и яйцепродукты/gi, 'Яйця та яйцепродукти')
+    .replace(/Прочее\s*\(\s*специи\s*,\s*соль\s*,\s*дрожжи\s*\)|Прочее/gi, 'Інше (спеції, сіль, дріжджі)');
 };
 
 export const translateMealType = (name: string): string => {
@@ -1021,7 +1024,7 @@ export function getMenuApproval(date: string, institutionId = 1): MenuApproval |
 }
 
 export function approveMenu(date: string, institutionId: number, checks: unknown): MenuApproval {
-  if (!db) throw new Error('База даних не ініціалізована');
+  if (!db) throw new Error('Базу даних не ініціалізовано');
   requirePermission('menu.write');
   assertDateOpen(date);
   const currentUser = getCurrentUser();
@@ -1124,7 +1127,7 @@ export function registerDocument(
   periodFrom: string,
   periodTo: string
 ): DocumentRegistryEntry {
-  if (!db) throw new Error('База даних не ініціалізована');
+  if (!db) throw new Error('Базу даних не ініціалізовано');
   const prefix = documentType.replace(/[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9]/g, '').slice(0, 4).toUpperCase() || 'DOC';
   const year = periodFrom.slice(0, 4);
   const count = Number(
@@ -1260,7 +1263,7 @@ export function addMenuEntry(date: string, dishId: number, dishName: string, mea
     action: 'create',
     entityType: 'menu',
     entityId: id,
-    summary: `Добавлено блюдо «${dishName}» в меню на ${date} (${mealType})`,
+    summary: `Додано страву «${dishName}» до меню на ${date} (${mealType})`,
     after: { date, dishId, dishName, mealType },
   });
   saveDatabaseToDisk();
@@ -1295,7 +1298,7 @@ export function addProduct(p: Partial<Product>): number {
     action: 'create',
     entityType: 'product',
     entityId: String(id),
-    summary: `Создан продукт «${p.NAME}»`,
+    summary: `Створено продукт «${p.NAME}»`,
     after: p,
   });
   saveDatabaseToDisk();
@@ -1314,7 +1317,7 @@ export function updateProduct(p: Product) {
     action: 'update',
     entityType: 'product',
     entityId: String(p.ID),
-    summary: `Изменён продукт «${p.NAME}»`,
+    summary: `Змінено продукт «${p.NAME}»`,
     before,
     after: p,
   });
@@ -1347,7 +1350,7 @@ export function addDish(d: Partial<Dish>) {
     action: 'create',
     entityType: 'dish',
     entityId: id,
-    summary: `Создано блюдо «${d.NAME}»`,
+    summary: `Створено страву «${d.NAME}»`,
     after: d,
   });
   saveDatabaseToDisk();
@@ -1365,7 +1368,7 @@ export function updateDish(d: Dish) {
     action: 'update',
     entityType: 'dish',
     entityId: String(d.ID),
-    summary: `Изменено блюдо «${d.NAME}»`,
+    summary: `Змінено страву «${d.NAME}»`,
     before,
     after: d,
   });
@@ -1401,7 +1404,7 @@ export function addRecipeComponent(c: Partial<RecipeComponent>) {
     action: 'create',
     entityType: 'recipe_component',
     entityId: id,
-    summary: `Добавлен компонент рецептуры для блюда №${c.ID_BLUDA}`,
+    summary: `Додано компонент рецептури для страви №${c.ID_BLUDA}`,
     after: c,
   });
   saveDatabaseToDisk();
@@ -1415,7 +1418,7 @@ export function deleteRecipeComponent(id: number) {
   archiveRecord({
     entityType: 'recipe_component',
     entityId: String(id),
-    label: `Компонент рецептуры №${id}`,
+    label: `Компонент рецептури №${id}`,
     payload: before,
   });
   db.run(`DELETE FROM KOMPONENTI_KARTOTEKI WHERE ID = ${id}`);
@@ -1450,7 +1453,7 @@ export function updateInstitution(id: number, inst: {
     action: 'update',
     entityType: 'institution',
     entityId: String(id),
-    summary: `Изменены реквизиты учреждения «${inst.name}»`,
+    summary: `Змінено реквізити закладу «${inst.name}»`,
     before,
     after: inst,
   });
@@ -1478,7 +1481,7 @@ export function addInstitution(inst: {
     action: 'create',
     entityType: 'institution',
     entityId: String(id),
-    summary: `Создан профиль учреждения «${inst.name}»`,
+    summary: `Створено профіль закладу «${inst.name}»`,
     after: inst,
   });
   saveDatabaseToDisk();
@@ -1558,7 +1561,7 @@ export function addSupplier(firm: Partial<SupplierFirm>) {
     action: 'create',
     entityType: 'supplier',
     entityId: id,
-    summary: `Создан поставщик «${firm.NAME}»`,
+    summary: `Створено постачальника «${firm.NAME}»`,
     after: firm,
   });
   saveDatabaseToDisk();
@@ -1573,7 +1576,7 @@ export function updateSupplier(firm: SupplierFirm) {
     action: 'update',
     entityType: 'supplier',
     entityId: String(firm.ID),
-    summary: `Изменён поставщик «${firm.NAME}»`,
+    summary: `Змінено постачальника «${firm.NAME}»`,
     before,
     after: firm,
   });
@@ -1646,7 +1649,7 @@ export function addInvoiceWithBatches(
     action: 'create',
     entityType: 'invoice',
     entityId: String(invoiceId),
-    summary: `Создана приходная накладная «${nomerDoc}» от ${dateStr}`,
+    summary: `Створено прибуткову накладну «${nomerDoc}» від ${dateStr}`,
     after: { nomerDoc, dateStr, firmId, totalSum, items },
   });
   saveDatabaseToDisk();
@@ -1668,7 +1671,7 @@ export function updateStockBatch(id: number, ostKg: number, cena: number, srokGo
     action: 'update',
     entityType: 'stock_batch',
     entityId: String(id),
-    summary: `Изменена складская партия №${id}`,
+    summary: `Змінено складську партію №${id}`,
     before,
     after: { ostKg, cena, srokGodnosti },
   });
@@ -1774,7 +1777,7 @@ export function deductStockFIFO(
     action: 'update',
     entityType: 'stock_fifo',
     entityId: operationDate,
-    summary: `Проведено FIFO-списание за ${operationDate}: ${deductedCount} партий`,
+    summary: `Проведено FIFO-списання за ${operationDate}: ${deductedCount} партій`,
     before: requirements,
     after: { deductions: auditDeductions, warnings },
   });
@@ -1969,7 +1972,7 @@ export function savePropertyItem(item: Partial<PropertyItem> & { NAME: string; I
     action: item.ID ? 'update' : 'create',
     entityType: 'property_item',
     entityId: String(saved?.ID || ''),
-    summary: `${item.ID ? 'Изменено' : 'Создано'} имущество «${item.NAME}»`,
+    summary: `${item.ID ? 'Змінено' : 'Створено'} майно «${item.NAME}»`,
     before,
     after: saved,
   });
@@ -2050,7 +2053,7 @@ export function createPropertyWriteOff(data: Omit<PropertyWriteOffRecord, 'ID'>)
     action: 'create',
     entityType: 'property_writeoff',
     entityId: String(newId),
-    summary: `Оформлено списание «${data.PROPERTY_NAME}», количество: ${data.QUANTITY}`,
+    summary: `Оформлено списання «${data.PROPERTY_NAME}», кількість: ${data.QUANTITY}`,
     before: currentItems.find(item => item.ID === data.PROPERTY_ID),
     after: newRecord,
   });
@@ -2214,7 +2217,7 @@ export function saveGroup(group: Partial<SadokGroup> & { NAME: string }): SadokG
     action: group.ID ? 'update' : 'create',
     entityType: 'group',
     entityId: String(saved?.ID || ''),
-    summary: `${group.ID ? 'Изменена' : 'Создана'} группа «${group.NAME}»`,
+    summary: `${group.ID ? 'Змінено' : 'Створено'} групу «${group.NAME}»`,
     before,
     after: saved,
   });
@@ -2261,7 +2264,7 @@ export function saveEmployee(emp: Partial<SadokEmployee> & { FULL_NAME: string }
     action: emp.ID ? 'update' : 'create',
     entityType: 'employee',
     entityId: String(saved?.ID || ''),
-    summary: `${emp.ID ? 'Изменён' : 'Создан'} сотрудник «${emp.FULL_NAME}»`,
+    summary: `${emp.ID ? 'Змінено' : 'Створено'} працівника «${emp.FULL_NAME}»`,
     before,
     after: saved,
   });
@@ -2308,7 +2311,7 @@ export function saveChild(child: Partial<SadokChild> & { FULL_NAME: string }): S
     action: child.ID ? 'update' : 'create',
     entityType: 'child',
     entityId: String(saved?.ID || ''),
-    summary: `${child.ID ? 'Изменена' : 'Создана'} карточка ребёнка «${child.FULL_NAME}»`,
+    summary: `${child.ID ? 'Змінено' : 'Створено'} картку дитини «${child.FULL_NAME}»`,
     before,
     after: saved,
   });
@@ -2432,7 +2435,7 @@ export function restoreArchivedRecord(archiveId: string): void {
       restoreLocalRecord('sadok_children', payload as SadokChild);
       break;
     default:
-      throw new Error(`Восстановление типа «${archive.entityType}» пока не поддерживается`);
+      throw new Error(`Відновлення типу «${archive.entityType}» поки не підтримується`);
   }
 
   markArchiveRestored(archiveId);

@@ -58,9 +58,9 @@ export function validateMenuEntryInput(input: {
 }): string[] {
   const errors: string[] = [];
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) errors.push('Некорректная дата меню');
-  if (!Number.isInteger(input.dishId) || input.dishId <= 0) errors.push('Не выбрано блюдо');
+  if (!Number.isInteger(input.dishId) || input.dishId <= 0) errors.push('Не вибрано страву');
   if (!input.dishName.trim()) errors.push('Название блюда обязательно');
-  if (!input.mealType.trim()) errors.push('Не выбран приём пищи');
+  if (!input.mealType.trim()) errors.push('Не вибрано прийом їжі');
   return errors;
 }
 

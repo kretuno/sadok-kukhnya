@@ -84,25 +84,25 @@ export class GovernanceError extends Error {
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   director: 'Директор',
-  nurse: 'Медсестра',
-  warehouse: 'Кладовщик',
-  cook: 'Повар',
-  custodian: 'Завхоз',
-  admin: 'Администратор',
+  nurse: 'Медична сестра',
+  warehouse: 'Комірник',
+  cook: 'Кухар',
+  custodian: 'Завідувач господарства',
+  admin: 'Адміністратор',
 };
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'menu.write': 'Меню',
-  'recipes.write': 'Рецептуры',
-  'products.write': 'Продукты',
+  'recipes.write': 'Рецептури',
+  'products.write': 'Продукти',
   'stock.write': 'Склад',
-  'property.write': 'Имущество',
-  'registry.write': 'Контингент и кадры',
-  'settings.write': 'Настройки учреждения',
-  'audit.read': 'Журнал действий',
-  'backup.manage': 'Резервные копии',
-  'periods.manage': 'Закрытие периодов',
-  'users.manage': 'Пользователи и роли',
+  'property.write': 'Майно',
+  'registry.write': 'Контингент і кадри',
+  'settings.write': 'Налаштування закладу',
+  'audit.read': 'Журнал дій',
+  'backup.manage': 'Резервні копії',
+  'periods.manage': 'Закриття періодів',
+  'users.manage': 'Користувачі та ролі',
 };
 
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
@@ -184,7 +184,7 @@ export function saveUser(user: Omit<AppUser, 'id'> & { id?: string }): AppUser {
     action: user.id ? 'update' : 'create',
     entityType: 'user',
     entityId: saved.id,
-    summary: `${user.id ? 'Изменён' : 'Создан'} пользователь «${saved.displayName}»`,
+    summary: `${user.id ? 'Змінено' : 'Створено'} користувача «${saved.displayName}»`,
     after: saved,
   });
   return saved;
@@ -200,13 +200,13 @@ export function getCurrentUser(): AppUser {
 
 export function setCurrentUser(userId: string) {
   const user = getUsers().find(item => item.id === userId && item.active);
-  if (!user) throw new Error('Пользователь не найден или отключён');
+  if (!user) throw new Error('Користувача не знайдено або вимкнено');
   localStorage.setItem(CURRENT_USER_KEY, user.id);
   recordAudit({
     action: 'login',
     entityType: 'session',
     entityId: user.id,
-    summary: `Выбран пользователь «${user.displayName}»`,
+    summary: `Вибрано користувача «${user.displayName}»`,
   });
   window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
 }
@@ -263,7 +263,7 @@ export function archiveRecord(input: Omit<ArchiveEntry,
     action: 'archive',
     entityType: input.entityType,
     entityId: input.entityId,
-    summary: `Перемещено в архив: ${input.label}`,
+    summary: `Переміщено до архіву: ${input.label}`,
     before: input.payload,
   });
   return entry;
@@ -291,7 +291,7 @@ export function markArchiveRestored(id: string) {
     action: 'restore',
     entityType: target.entityType,
     entityId: target.entityId,
-    summary: `Восстановлено из архива: ${target.label}`,
+    summary: `Відновлено з архіву: ${target.label}`,
     after: target.payload,
   });
 }
@@ -303,14 +303,14 @@ export function getClosedPeriods(): ClosedPeriod[] {
 export function closePeriod(startDate: string, endDate: string, reason: string): ClosedPeriod {
   requirePermission('periods.manage');
   if (!startDate || !endDate || startDate > endDate) {
-    throw new Error('Некорректный диапазон закрываемого периода');
+    throw new Error('Некоректний діапазон періоду для закриття');
   }
   const user = getCurrentUser();
   const period: ClosedPeriod = {
     id: makeId('period'),
     startDate,
     endDate,
-    reason: reason.trim() || 'Период закрыт',
+    reason: reason.trim() || 'Період закрито',
     closedAt: new Date().toISOString(),
     closedBy: user.displayName,
   };
@@ -319,7 +319,7 @@ export function closePeriod(startDate: string, endDate: string, reason: string):
     action: 'period',
     entityType: 'closed_period',
     entityId: period.id,
-    summary: `Закрыт период ${startDate} — ${endDate}: ${period.reason}`,
+    summary: `Закрито період ${startDate} — ${endDate}: ${period.reason}`,
     after: period,
   });
   return period;
@@ -340,14 +340,14 @@ export function reopenPeriod(id: string) {
     action: 'period',
     entityType: 'closed_period',
     entityId: id,
-    summary: `Период ${target.startDate} — ${target.endDate} открыт повторно`,
+    summary: `Період ${target.startDate} — ${target.endDate} повторно відкрито`,
     before: target,
   });
 }
 
 export function assertDateOpen(date: string) {
   if (isDateInClosedPeriod(date, getClosedPeriods())) {
-    throw new GovernanceError(`Период для даты ${date} закрыт. Изменения запрещены.`);
+    throw new GovernanceError(`Період для дати ${date} закрито. Зміни заборонені.`);
   }
 }
 

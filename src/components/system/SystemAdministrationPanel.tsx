@@ -41,12 +41,12 @@ import {
 type Section = 'roles' | 'audit' | 'backup' | 'sync' | 'archive' | 'periods';
 
 const SECTION_ITEMS = [
-  { id: 'roles' as const, label: 'Роли', icon: UserCog },
+  { id: 'roles' as const, label: 'Ролі', icon: UserCog },
   { id: 'audit' as const, label: 'Журнал', icon: History },
-  { id: 'backup' as const, label: 'Резервирование', icon: DatabaseBackup },
-  { id: 'sync' as const, label: 'Синхронизация', icon: CloudUpload },
-  { id: 'archive' as const, label: 'Архив', icon: Archive },
-  { id: 'periods' as const, label: 'Закрытые периоды', icon: LockKeyhole },
+  { id: 'backup' as const, label: 'Резервне копіювання', icon: DatabaseBackup },
+  { id: 'sync' as const, label: 'Синхронізація', icon: CloudUpload },
+  { id: 'archive' as const, label: 'Архів', icon: Archive },
+  { id: 'periods' as const, label: 'Закриті періоди', icon: LockKeyhole },
 ];
 
 const ALL_ROLES = Object.keys(ROLE_LABELS) as UserRole[];
@@ -75,7 +75,7 @@ export const SystemAdministrationPanel: React.FC = () => {
   const [periodForm, setPeriodForm] = useState({
     startDate: new Date().toISOString().slice(0, 8) + '01',
     endDate: new Date().toISOString().slice(0, 10),
-    reason: 'Месяц закрыт после проверки документов',
+    reason: 'Місяць закрито після перевірки документів',
   });
   const [syncForm, setSyncForm] = useState<SyncState>(() => getSyncState());
 
@@ -124,14 +124,14 @@ export const SystemAdministrationPanel: React.FC = () => {
   const handleCreateBackup = () => runAction(async () => {
     const result = await createSystemBackup('manual');
     downloadBackup(result.envelope);
-  }, 'Резервная копия создана, проверена и сохранена.');
+  }, 'Резервну копію створено, перевірено та збережено.');
 
   const handleRestoreFile = (file?: File) => {
     if (!file) return;
     runAction(async () => {
       const raw = await file.text();
       await restoreSystemBackup(raw);
-    }, 'Резервная копия восстановлена.');
+    }, 'Резервну копію відновлено.');
   };
 
   return (
@@ -143,9 +143,9 @@ export const SystemAdministrationPanel: React.FC = () => {
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white">Управление и безопасность</h3>
+              <h3 className="text-sm font-black text-slate-900 dark:text-white">Керування та безпека</h3>
               <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                Пользователь: {currentUser.displayName} · {ROLE_LABELS[currentUser.role]} · схема БД {getDatabaseSchemaVersion()}/{CURRENT_DATABASE_SCHEMA_VERSION}
+                Користувач: {currentUser.displayName} · {ROLE_LABELS[currentUser.role]} · схема БД {getDatabaseSchemaVersion()}/{CURRENT_DATABASE_SCHEMA_VERSION}
               </p>
             </div>
           </div>
@@ -154,7 +154,7 @@ export const SystemAdministrationPanel: React.FC = () => {
               ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
               : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
           }`}>
-            {navigator.onLine ? 'Сеть доступна' : 'Автономный режим'} · {pendingCount} ожидают синхронизации
+            {navigator.onLine ? 'Мережа доступна' : 'Автономний режим'} · {pendingCount} очікують синхронізації
           </div>
         </div>
       </div>
@@ -194,16 +194,16 @@ export const SystemAdministrationPanel: React.FC = () => {
         <div className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
             <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-              <h4 className="mb-2 font-black text-slate-800 dark:text-white">Текущий пользователь</h4>
+              <h4 className="mb-2 font-black text-slate-800 dark:text-white">Поточний користувач</h4>
               <p className="mb-3 text-[10px] text-amber-700 dark:text-amber-300">
-                Тестовый режим: переключение без пароля. При подключении сервера здесь будет обычный вход.
+                Тестовий режим: перемикання без пароля. Після підключення сервера тут буде звичайний вхід.
               </p>
               <select
                 data-testid="current-user-select"
                 value={currentUser.id}
                 onChange={event => runAction(
                   () => setCurrentUser(event.target.value),
-                  'Текущий пользователь изменён.',
+                  'Поточного користувача змінено.',
                 )}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950"
               >
@@ -219,7 +219,7 @@ export const SystemAdministrationPanel: React.FC = () => {
                   <input
                     value={newUserName}
                     onChange={event => setNewUserName(event.target.value)}
-                    placeholder="ФИО нового пользователя"
+                    placeholder="ПІБ нового користувача"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950"
                   />
                   <select
@@ -231,13 +231,13 @@ export const SystemAdministrationPanel: React.FC = () => {
                   </select>
                   <button
                     onClick={() => runAction(() => {
-                      if (!newUserName.trim()) throw new Error('Введите имя пользователя');
+                      if (!newUserName.trim()) throw new Error('Введіть ім’я користувача');
                       saveUser({ displayName: newUserName.trim(), role: newUserRole, active: true });
                       setNewUserName('');
-                    }, 'Пользователь создан.')}
+                    }, 'Користувача створено.')}
                     className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 font-bold text-white hover:bg-indigo-700"
                   >
-                    <UserPlus className="h-4 w-4" /> Добавить пользователя
+                    <UserPlus className="h-4 w-4" /> Додати користувача
                   </button>
                 </div>
               )}
@@ -247,7 +247,7 @@ export const SystemAdministrationPanel: React.FC = () => {
               <table className="w-full text-[10px]">
                 <thead className="bg-slate-100 text-slate-600 dark:bg-slate-950 dark:text-slate-300">
                   <tr>
-                    <th className="p-2 text-left">Разрешение</th>
+                    <th className="p-2 text-left">Дозвіл</th>
                     {ALL_ROLES.map(role => <th key={role} className="p-2 text-center">{ROLE_LABELS[role]}</th>)}
                   </tr>
                 </thead>
@@ -274,13 +274,13 @@ export const SystemAdministrationPanel: React.FC = () => {
       {section === 'audit' && (
         <div className="space-y-3">
           {!canReadAudit ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">У этой роли нет доступа к журналу действий.</div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">Ця роль не має доступу до журналу дій.</div>
           ) : (
             <>
               <input
                 value={auditQuery}
                 onChange={event => setAuditQuery(event.target.value)}
-                placeholder="Поиск по пользователю, объекту или действию…"
+                placeholder="Пошук за користувачем, об’єктом або дією…"
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
               />
               <div className="max-h-[480px] overflow-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
@@ -290,11 +290,11 @@ export const SystemAdministrationPanel: React.FC = () => {
                     <span className="font-bold text-slate-700 dark:text-slate-200">{entry.userName}</span>
                     <span>{entry.summary}</span>
                     <span className={`text-right text-[10px] font-bold ${entry.syncStatus === 'synced' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                      {entry.syncStatus === 'synced' ? 'Синхр.' : 'Ожидает'}
+                      {entry.syncStatus === 'synced' ? 'Синхр.' : 'Очікує'}
                     </span>
                   </div>
                 ))}
-                {filteredAudit.length === 0 && <div className="p-6 text-center text-slate-400">Записей пока нет.</div>}
+                {filteredAudit.length === 0 && <div className="p-6 text-center text-slate-400">Записів поки немає.</div>}
               </div>
             </>
           )}
@@ -304,15 +304,15 @@ export const SystemAdministrationPanel: React.FC = () => {
       {section === 'backup' && (
         <div className="space-y-4">
           {!canManageBackup ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">У этой роли нет доступа к резервным копиям.</div>
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">Ця роль не має доступу до резервних копій.</div>
           ) : (
             <>
               <div className="flex flex-wrap gap-2">
                 <button data-testid="create-backup" onClick={handleCreateBackup} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 font-bold text-white hover:bg-emerald-700">
-                  <Download className="h-4 w-4" /> Создать и проверить копию
+                  <Download className="h-4 w-4" /> Створити та перевірити копію
                 </button>
                 <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white hover:bg-indigo-700">
-                  <RotateCcw className="h-4 w-4" /> Проверить и восстановить
+                  <RotateCcw className="h-4 w-4" /> Перевірити та відновити
                   <input
                     type="file"
                     accept=".json,.sadok-backup"
@@ -322,7 +322,7 @@ export const SystemAdministrationPanel: React.FC = () => {
                 </label>
               </div>
               <p className="text-[11px] text-slate-500">
-                Автоматическая копия создаётся один раз в день. Перед сохранением и восстановлением выполняется SQLite integrity_check и проверка контрольной суммы.
+                Автоматична копія створюється раз на день. Перед збереженням і відновленням виконується SQLite integrity_check та перевірка контрольної суми.
               </p>
               <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
                 {backups.map(backup => (
@@ -330,15 +330,15 @@ export const SystemAdministrationPanel: React.FC = () => {
                     <div>
                       <div className="font-bold">{formatDate(backup.createdAt)}</div>
                       <div className="text-[10px] text-slate-500">
-                        {backup.trigger === 'automatic' ? 'Автоматическая' : 'Ручная'} · {(backup.size / 1024).toFixed(1)} КБ
+                        {backup.trigger === 'automatic' ? 'Автоматична' : 'Ручна'} · {(backup.size / 1024).toFixed(1)} КБ
                       </div>
                     </div>
                     <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600">
-                      <CheckCircle2 className="h-4 w-4" /> Проверена
+                      <CheckCircle2 className="h-4 w-4" /> Перевірено
                     </span>
                   </div>
                 ))}
-                {backups.length === 0 && <div className="p-6 text-center text-slate-400">Резервных копий пока нет.</div>}
+                {backups.length === 0 && <div className="p-6 text-center text-slate-400">Резервних копій поки немає.</div>}
               </div>
             </>
           )}
@@ -351,27 +351,27 @@ export const SystemAdministrationPanel: React.FC = () => {
             <div className="mb-4 flex items-center gap-3">
               {navigator.onLine ? <Wifi className="h-6 w-6 text-emerald-500" /> : <WifiOff className="h-6 w-6 text-amber-500" />}
               <div>
-                <div className="font-black">{navigator.onLine ? 'Подключение к сети есть' : 'Работа без сети'}</div>
-                <div className="text-[10px] text-slate-500">Локальные функции доступны в обоих режимах</div>
+                <div className="font-black">{navigator.onLine ? 'Підключення до мережі є' : 'Робота без мережі'}</div>
+                <div className="text-[10px] text-slate-500">Локальні функції доступні в обох режимах</div>
               </div>
             </div>
             <dl className="space-y-2 text-[11px]">
-              <div className="flex justify-between"><dt>Режим</dt><dd className="font-bold">{syncForm.mode === 'server' ? 'Сервер' : 'Только локально'}</dd></div>
-              <div className="flex justify-between"><dt>Ожидают отправки</dt><dd className="font-bold text-amber-600">{pendingCount}</dd></div>
-              <div className="flex justify-between"><dt>Последняя синхронизация</dt><dd className="font-bold">{formatDate(syncForm.lastSuccessfulSync)}</dd></div>
-              <div className="flex justify-between"><dt>Последняя ошибка</dt><dd className="font-bold text-rose-600">{syncForm.lastError || '—'}</dd></div>
+              <div className="flex justify-between"><dt>Режим</dt><dd className="font-bold">{syncForm.mode === 'server' ? 'Сервер' : 'Лише локально'}</dd></div>
+              <div className="flex justify-between"><dt>Очікують відправлення</dt><dd className="font-bold text-amber-600">{pendingCount}</dd></div>
+              <div className="flex justify-between"><dt>Остання синхронізація</dt><dd className="font-bold">{formatDate(syncForm.lastSuccessfulSync)}</dd></div>
+              <div className="flex justify-between"><dt>Остання помилка</dt><dd className="font-bold text-rose-600">{syncForm.lastError || '—'}</dd></div>
             </dl>
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-            <h4 className="mb-2 font-black">Подключение центрального сервера</h4>
+            <h4 className="mb-2 font-black">Підключення центрального сервера</h4>
             <select
               value={syncForm.mode}
               onChange={event => setSyncForm(current => ({ ...current, mode: event.target.value as SyncState['mode'] }))}
               className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
             >
-              <option value="local-only">Только локальная работа</option>
-              <option value="server">Центральный сервер</option>
+              <option value="local-only">Лише локальна робота</option>
+              <option value="server">Центральний сервер</option>
             </select>
             <input
               value={syncForm.endpoint}
@@ -381,14 +381,14 @@ export const SystemAdministrationPanel: React.FC = () => {
               className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950"
             />
             <button
-              onClick={() => runAction(() => saveSyncState(syncForm), 'Настройки синхронизации сохранены.')}
+              onClick={() => runAction(() => saveSyncState(syncForm), 'Налаштування синхронізації збережено.')}
               className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white hover:bg-indigo-700"
             >
               {syncForm.mode === 'server' ? <CloudUpload className="h-4 w-4" /> : <CloudOff className="h-4 w-4" />}
-              Сохранить режим
+              Зберегти режим
             </button>
             <p className="mt-3 text-[10px] text-slate-500">
-              Экран и очередь уже работают. Отправка на сервер останется отключённой, пока не будет реализован защищённый серверный API.
+              Екран і черга вже працюють. Відправлення на сервер залишиться вимкненим, доки не буде реалізовано захищений серверний API.
             </p>
           </div>
         </div>
@@ -405,28 +405,28 @@ export const SystemAdministrationPanel: React.FC = () => {
                 </div>
               </div>
               {entry.restoredAt ? (
-                <span className="text-[10px] font-bold text-emerald-600">Восстановлено {formatDate(entry.restoredAt)}</span>
+                <span className="text-[10px] font-bold text-emerald-600">Відновлено {formatDate(entry.restoredAt)}</span>
               ) : (
                 <button
                   onClick={() => runAction(
                     () => restoreArchivedRecord(entry.id),
-                    'Запись восстановлена из архива.',
+                    'Запис відновлено з архіву.',
                   )}
                   className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 font-bold text-white hover:bg-slate-700"
                 >
-                  <RotateCcw className="h-3.5 w-3.5" /> Восстановить
+                  <RotateCcw className="h-3.5 w-3.5" /> Відновити
                 </button>
               )}
             </div>
           ))}
-          {archive.length === 0 && <div className="p-6 text-center text-slate-400">Архив пока пуст.</div>}
+          {archive.length === 0 && <div className="p-6 text-center text-slate-400">Архів поки порожній.</div>}
         </div>
       )}
 
       {section === 'periods' && (
         <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
           <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-            <h4 className="mb-3 flex items-center gap-2 font-black"><FileClock className="h-4 w-4" /> Закрыть период</h4>
+            <h4 className="mb-3 flex items-center gap-2 font-black"><FileClock className="h-4 w-4" /> Закрити період</h4>
             <div className="space-y-2">
               <input type="date" value={periodForm.startDate} onChange={event => setPeriodForm(current => ({ ...current, startDate: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
               <input type="date" value={periodForm.endDate} onChange={event => setPeriodForm(current => ({ ...current, endDate: event.target.value }))} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
@@ -435,11 +435,11 @@ export const SystemAdministrationPanel: React.FC = () => {
                 disabled={!canManagePeriods}
                 onClick={() => runAction(
                   () => { closePeriod(periodForm.startDate, periodForm.endDate, periodForm.reason); },
-                  'Период закрыт для изменений.',
+                  'Період закрито для змін.',
                 )}
                 className="w-full rounded-lg bg-rose-600 px-4 py-2 font-bold text-white hover:bg-rose-700 disabled:opacity-40"
               >
-                Закрыть период
+                Закрити період
               </button>
             </div>
           </div>
@@ -451,19 +451,19 @@ export const SystemAdministrationPanel: React.FC = () => {
                   <div className="text-[10px] text-slate-500">{period.reason} · {period.closedBy}</div>
                 </div>
                 {period.reopenedAt ? (
-                  <span className="text-[10px] font-bold text-emerald-600">Открыт повторно</span>
+                  <span className="text-[10px] font-bold text-emerald-600">Повторно відкрито</span>
                 ) : (
                   <button
                     disabled={!canManagePeriods}
-                    onClick={() => runAction(() => reopenPeriod(period.id), 'Период открыт повторно.')}
+                    onClick={() => runAction(() => reopenPeriod(period.id), 'Період повторно відкрито.')}
                     className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 font-bold text-white hover:bg-emerald-700 disabled:opacity-40"
                   >
-                    <RefreshCw className="h-3.5 w-3.5" /> Открыть
+                    <RefreshCw className="h-3.5 w-3.5" /> Відкрити
                   </button>
                 )}
               </div>
             ))}
-            {periods.length === 0 && <div className="p-6 text-center text-slate-400">Закрытых периодов пока нет.</div>}
+            {periods.length === 0 && <div className="p-6 text-center text-slate-400">Закритих періодів поки немає.</div>}
           </div>
         </div>
       )}
