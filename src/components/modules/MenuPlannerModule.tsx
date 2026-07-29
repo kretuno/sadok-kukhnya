@@ -5,17 +5,17 @@ import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
 import { ProductHistoryModal } from '../modals/ProductHistoryModal';
 import { Trash2, Calendar as CalendarIcon, Users, Calculator, Scale, PackageMinus, CheckCircle2, AlertTriangle, ChevronLeft, ChevronRight, Copy, CalendarDays, Printer } from 'lucide-react';
+import { DEFAULT_EATER_COUNTS, getDefaultDishYield } from '../../domain/nutritionCategories';
 
 const MEAL_TYPES = ['Сніданок', '2-й сніданок', 'Обід', 'Полуденок', 'Вечеря'];
 
 // Translate Eater category names to Ukrainian
 const translateCatName = (name: string) => {
-  return name
-    .replace(/Ясли 1-3 года/g, 'Ясла (1-3 роки)')
-    .replace(/Ясли/g, 'Ясла')
-    .replace(/Сад 3-7 лет/g, 'Садок (3-7 років)')
-    .replace(/Сад/g, 'Садок')
-    .replace(/Сотрудники/g, 'Співробітники');
+  if (name.includes('Співробіт') || name.includes('Сотрудники') || name.includes('Персонал')) return 'Співробітники';
+  if (name.includes('Молодша') || /3\s*[-–]\s*4/.test(name)) return 'Молодша група (3–4 роки)';
+  if (name.includes('Ясла') || name.includes('Ясли')) return 'Ясла (1–3 роки)';
+  if (name.includes('Садок') || name.includes('Сад')) return 'Садок (4–7 років)';
+  return name;
 };
 
 const formatQty = (val: number | string | undefined | null): string => {
@@ -53,11 +53,7 @@ export const MenuPlannerModule: React.FC = () => {
   // Per-category dish yields: dishCatYields[dishId][catId] = portion weight in grams
   const [dishCatYields, setDishCatYields] = useState<{ [dishId: number]: { [catId: number]: number } }>({});
 
-  const [counts, setCounts] = useState<{ [catId: number]: number }>({
-    1: 45, // Ясла
-    2: 85, // Садок
-    3: 12  // Персонал
-  });
+  const [counts, setCounts] = useState<{ [catId: number]: number }>(DEFAULT_EATER_COUNTS);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [newDishId, setNewDishId] = useState<number>(1);
@@ -102,10 +98,7 @@ export const MenuPlannerModule: React.FC = () => {
     }
     const dish = dishes.find(d => d.ID === dishId);
     const base = dish?.VYXOD || 200;
-    if (catId === 1) return Math.round(base * 0.85); // Ясла default
-    if (catId === 2) return base;                     // Садок default
-    if (catId === 3) return Math.round(base * 1.25); // Персонал default
-    return base;
+    return getDefaultDishYield(base, catId);
   };
 
   // Dish weight / yield update handler PER CATEGORY for tuning menu cost
@@ -118,7 +111,7 @@ export const MenuPlannerModule: React.FC = () => {
         [catId]: newYield
       }
     }));
-    if (catId === 2) {
+    if (catId === 3) {
       const dish = dishes.find(d => d.ID === dishId);
       if (dish) updateDish({ ...dish, VYXOD: newYield });
     }
@@ -503,7 +496,7 @@ export const MenuPlannerModule: React.FC = () => {
           </div>
 
           {/* Cost per category & Cost PER 1 PERSON breakdown cards */}
-          <div className="pt-1.5 border-t border-blue-200/80 dark:border-slate-700/80 grid grid-cols-3 gap-1.5 text-[10px]">
+          <div className="pt-1.5 border-t border-blue-200/80 dark:border-slate-700/80 grid grid-cols-2 xl:grid-cols-4 gap-1.5 text-[10px]">
             {categories.map(cat => {
               const catTotal = totalCostPerCat[cat.ID] || 0;
               const cnt = counts[cat.ID] || 0;
