@@ -652,9 +652,9 @@ export const StructureRegistryModule: React.FC = () => {
 
       {/* VIEW MODAL: CHILD PERSONAL CARD (ОСОБОВА КАРТКА ВИХОВАНЦЯ) */}
       {viewingChild && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
-            <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-900 text-white flex items-center justify-between font-bold shrink-0">
+        <div className="print-preview-shell fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="print-preview-panel bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl overflow-hidden animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-900 text-white flex items-center justify-between font-bold shrink-0 no-print">
               <div className="flex items-center space-x-2">
                 <Baby className="w-5 h-5" />
                 <span>Особова картка вихованця ЗДО №145</span>
@@ -671,7 +671,12 @@ export const StructureRegistryModule: React.FC = () => {
               </div>
             </div>
 
-            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1">
+            <div className="print-only print-preview print-portrait p-6 space-y-4 text-xs overflow-y-auto flex-1 bg-white text-black">
+              <div className="print-heading-only print-header">
+                <div className="text-xs font-bold uppercase">Криворізький КЗДО (ясла-садок) КТ №145 КМР</div>
+                <h1 className="text-base font-bold uppercase mt-1">Особова картка вихованця</h1>
+                <div className="text-xs mt-1">Дата формування: {new Date().toLocaleDateString('uk-UA')}</div>
+              </div>
               <div className="flex justify-between items-start border-b pb-3">
                 <div>
                   <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">{viewingChild.FULL_NAME}</h2>
@@ -825,9 +830,9 @@ export const StructureRegistryModule: React.FC = () => {
 
       {/* VIEW MODAL: EMPLOYEE PERSONAL FILE (ОСОБОВА СПРАВА СПІВРОБІТНИКА) */}
       {viewingEmployee && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between font-bold">
+        <div className="print-preview-shell fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="print-preview-panel bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95">
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between font-bold no-print">
               <div className="flex items-center space-x-2">
                 <FileText className="w-5 h-5 text-amber-400" />
                 <span>Особова справа працівника ЗДО №145</span>
@@ -835,7 +840,12 @@ export const StructureRegistryModule: React.FC = () => {
               <button onClick={() => setViewingEmployee(null)}><X className="w-5 h-5 text-slate-400 hover:text-white" /></button>
             </div>
 
-            <div className="p-6 space-y-4 text-xs">
+            <div className="print-only print-preview print-portrait p-6 space-y-4 text-xs bg-white text-black">
+              <div className="print-heading-only print-header">
+                <div className="text-xs font-bold uppercase">Криворізький КЗДО (ясла-садок) КТ №145 КМР</div>
+                <h1 className="text-base font-bold uppercase mt-1">Особова справа працівника</h1>
+                <div className="text-xs mt-1">Дата формування: {new Date().toLocaleDateString('uk-UA')}</div>
+              </div>
               <div className="flex justify-between items-start border-b pb-3">
                 <div>
                   <h2 className="text-xl font-black text-slate-800 dark:text-slate-100">{viewingEmployee.FULL_NAME}</h2>
@@ -1123,7 +1133,7 @@ export const StructureRegistryModule: React.FC = () => {
       )}
 
       {/* FORMAL STATE PRINT LAYOUT (A4 Portrait) */}
-      <div className="print-only p-6 font-serif text-black bg-white">
+      <div className={`print-only p-6 font-serif text-black bg-white ${viewingChild || viewingEmployee ? 'print-suppressed' : ''}`}>
         <div className="flex justify-between items-start mb-4 border-b-2 border-black pb-3">
           <div>
             <div className="font-bold text-xs">УКРАЇНА</div>

@@ -52,6 +52,8 @@
    PRINT STYLES — Чистий та чіткий друк для державного закладу України
    ================================================================ */
 .print-only { display: none !important; }
+.print-only.print-preview { display: block !important; }
+.print-heading-only { display: none !important; }
 
 @media print {
   /* Strictly hide all screen elements */
@@ -74,6 +76,43 @@
     box-sizing: border-box !important;
     padding: 0 !important;
     margin: 0 auto !important;
+  }
+
+  .print-suppressed {
+    display: none !important;
+  }
+
+  .print-preview-shell,
+  .print-preview-panel {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .print-preview {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .print-preview,
+  .print-preview * {
+    color: black !important;
+    background-color: white !important;
+    box-shadow: none !important;
+  }
+
+  .print-heading-only {
+    display: block !important;
   }
 
   .print-only table {
@@ -118,6 +157,15 @@
   @page {
     size: A4 landscape;
     margin: 8mm 10mm 10mm 10mm;
+  }
+
+  .print-portrait {
+    page: portrait-document;
+  }
+
+  @page portrait-document {
+    size: A4 portrait;
+    margin: 10mm;
   }
 
   /* Document Header */

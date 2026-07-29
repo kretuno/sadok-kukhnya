@@ -914,6 +914,85 @@ export const PropertyManagementModule: React.FC = () => {
         </div>
       </div>
 
+      {!viewingAct && (
+        <div className="print-only font-serif text-black bg-white">
+          <div className="print-header">
+            <div className="text-xs font-bold uppercase">Криворізький КЗДО (ясла-садок) КТ №145 КМР</div>
+            <h1 className="text-base font-bold uppercase mt-1">
+              {activeSubTab === 'inventory'
+                ? 'Інвентаризаційний опис наявного майна'
+                : 'Журнал актів списання майна'}
+            </h1>
+            <div className="text-xs mt-1">Дата формування: {new Date().toLocaleDateString('uk-UA')}</div>
+          </div>
+
+          {activeSubTab === 'inventory' ? (
+            <table className="print-table">
+              <thead>
+                <tr>
+                  <th>№</th>
+                  <th>Інв. №</th>
+                  <th>Найменування</th>
+                  <th>Категорія</th>
+                  <th>Кількість</th>
+                  <th>Ціна, грн</th>
+                  <th>Балансова вартість, грн</th>
+                  <th>Стан</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.map((item, index) => (
+                  <tr key={item.ID}>
+                    <td className="text-center">{index + 1}</td>
+                    <td className="text-center font-mono">{item.INVENTAR_NUMBER}</td>
+                    <td className="font-bold">{item.NAME}</td>
+                    <td>{item.CATEGORY}</td>
+                    <td className="text-center">{item.TOTAL_QUANTITY}</td>
+                    <td className="text-right">{item.INITIAL_COST.toFixed(2)}</td>
+                    <td className="text-right font-bold">{(item.INITIAL_COST * item.TOTAL_QUANTITY).toFixed(2)}</td>
+                    <td>{item.CONDITION}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="print-table">
+              <thead>
+                <tr>
+                  <th>№ акта</th>
+                  <th>Дата</th>
+                  <th>Інв. №</th>
+                  <th>Найменування</th>
+                  <th>К-сть</th>
+                  <th>Локація</th>
+                  <th>Сума, грн</th>
+                  <th>Причина</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredWriteOffs.map(act => (
+                  <tr key={act.ID}>
+                    <td className="text-center font-bold">{act.ACT_NUMBER}</td>
+                    <td className="text-center">{act.DATE}</td>
+                    <td className="text-center font-mono">{act.INVENTAR_NUMBER}</td>
+                    <td className="font-bold">{act.PROPERTY_NAME}</td>
+                    <td className="text-center">{act.QUANTITY}</td>
+                    <td>{act.LOCATION_NAME}</td>
+                    <td className="text-right font-bold">{act.TOTAL_COST.toFixed(2)}</td>
+                    <td>{act.REASON}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          <div className="print-signatures-block">
+            <div>Голова комісії: ____________________ /_________________/</div>
+            <div>Матеріально відповідальна особа: ____________________ /_________________/</div>
+          </div>
+        </div>
+      )}
+
       {/* ADD / EDIT PROPERTY ITEM MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1329,8 +1408,8 @@ export const PropertyManagementModule: React.FC = () => {
 
       {/* VIEW / PRINT OFFICIAL WRITE-OFF ACT MODAL */}
       {viewingAct && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-900">
+        <div className="print-preview-shell fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="print-preview-panel bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-900">
             <div className="px-6 py-3 bg-slate-900 text-white flex items-center justify-between no-print">
               <span className="font-bold text-sm flex items-center space-x-2">
                 <Printer className="w-4 h-4 text-amber-400" />
@@ -1354,7 +1433,7 @@ export const PropertyManagementModule: React.FC = () => {
             </div>
 
             {/* Printable State Document Container */}
-            <div className="p-8 overflow-y-auto font-serif text-black space-y-4 bg-white">
+            <div className="print-only print-preview print-portrait p-8 overflow-y-auto font-serif text-black space-y-4 bg-white">
               {/* Header Header */}
               <div className="flex justify-between items-start border-b-2 border-black pb-3">
                 <div>

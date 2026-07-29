@@ -321,7 +321,8 @@ export const WarehouseModule: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950 text-xs">
+    <>
+    <div className={`flex flex-col h-full bg-slate-100 dark:bg-slate-950 text-xs ${printInvoiceData ? 'print-suppressed' : ''}`}>
       <QuickToolbar
         onAdd={() => {
           if (activeSubTab === 'suppliers') handleOpenAddSupplier();
@@ -1025,10 +1026,11 @@ export const WarehouseModule: React.FC = () => {
         productId={selectedHistoryProductId}
         onClose={() => setSelectedHistoryProductId(null)}
       />
+    </div>
 
       {/* PRINT-ONLY OFFICIAL RECEIVING INVOICE DOCUMENT TEMPLATE FOR STATE INSTITUTIONS */}
       {printInvoiceData && (
-        <div className="print-only fixed inset-0 bg-white text-black p-8 text-xs font-sans">
+        <div className="print-only print-portrait bg-white text-black p-8 text-xs font-sans">
           {/* Header */}
           <div className="flex justify-between items-start border-b-2 border-black pb-3 mb-4">
               <div>
@@ -1122,6 +1124,6 @@ export const WarehouseModule: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
