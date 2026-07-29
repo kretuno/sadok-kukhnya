@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Dish, DishCategory, RecipeComponent, RecipeNutritionProfile, EaterCategory, Product } from '../../types';
-import { getDishes, getDishCategories, getRecipeComponents, getDishNutritionProfiles, getEaterCategories, getProducts, addDish, updateDish, deleteDish, addRecipeComponent, deleteRecipeComponent } from '../../services/db';
+import { Dish, DishCategory, RecipeComponent, RecipeNutritionProfile, EaterCategory, Product, DishCostProfile, DishCostHistoryEntry } from '../../types';
+import { getDishes, getDishCategories, getRecipeComponents, getDishNutritionProfiles, getEaterCategories, getProducts, addDish, updateDish, deleteDish, addRecipeComponent, deleteRecipeComponent, getDishCostProfiles, getDishCostHistory } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
-import { Utensils, Plus, Trash2, Edit, Layers } from 'lucide-react';
+import { Utensils, Plus, Trash2, Edit, Layers, Coins, TrendingUp, AlertTriangle } from 'lucide-react';
 
 export const RecipeCatalogModule: React.FC = () => {
   const [dishes, setDishes] = useState<Dish[]>([]);
@@ -15,6 +15,8 @@ export const RecipeCatalogModule: React.FC = () => {
   const [eaterCategories, setEaterCategories] = useState<EaterCategory[]>([]);
   const [selectedEaterCategoryId, setSelectedEaterCategoryId] = useState<number>(1);
   const [products, setProducts] = useState<Product[]>([]);
+  const [costProfiles, setCostProfiles] = useState<DishCostProfile[]>([]);
+  const [costHistory, setCostHistory] = useState<DishCostHistoryEntry[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   const [isDishModalOpen, setIsDishModalOpen] = useState<boolean>(false);
@@ -29,9 +31,13 @@ export const RecipeCatalogModule: React.FC = () => {
     if (selectedDishId) {
       setComponents(getRecipeComponents(selectedDishId, selectedEaterCategoryId));
       setNutritionProfiles(getDishNutritionProfiles(selectedDishId));
+      setCostProfiles(getDishCostProfiles(selectedDishId));
+      setCostHistory(getDishCostHistory(selectedDishId));
     } else {
       setComponents([]);
       setNutritionProfiles([]);
+      setCostProfiles([]);
+      setCostHistory([]);
     }
   }, [selectedDishId, selectedEaterCategoryId]);
 
@@ -53,6 +59,19 @@ export const RecipeCatalogModule: React.FC = () => {
   const selectedDish = dishes.find(d => d.ID === selectedDishId);
   const selectedNutrition = nutritionProfiles.find(
     profile => profile.ID_KATEGORII_DETEJ === selectedEaterCategoryId
+  );
+  const selectedCost = costProfiles.find(profile => profile.categoryId === selectedEaterCategoryId);
+  const costLimits = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('medsestra_cost_limits') || '{}') as Record<string, number>;
+    } catch {
+      return {};
+    }
+  })();
+  const costLimitKeyByCategory: Record<number, string> = { 1: 'yasla', 2: 'junior', 3: 'sad', 4: 'staff' };
+  const selectedCostLimit = Number(costLimits[costLimitKeyByCategory[selectedEaterCategoryId]] || 0);
+  const exceedsCostLimit = Boolean(
+    selectedCost && selectedCostLimit > 0 && selectedCost.costPerPortion > selectedCostLimit
   );
 
   const handleSaveDish = () => {
@@ -238,6 +257,57 @@ export const RecipeCatalogModule: React.FC = () => {
                     ))}
                   </div>
                 ) : null}
+
+                <div className={`rounded border p-2 ${
+                  exceedsCostLimit
+                    ? 'border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30'
+                    : 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30'
+                }`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Coins className={`h-4 w-4 ${exceedsCostLimit ? 'text-rose-600' : 'text-emerald-600'}`} />
+                      <div>
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                          Собівартість однієї порції
+                        </div>
+                        <div className={`text-base font-black ${exceedsCostLimit ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                          {(selectedCost?.costPerPortion || 0).toFixed(2)} грн
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right text-[10px] text-slate-500">
+                      <div>Вихід: {selectedCost?.yieldGr || selectedNutrition?.VYXOD_GR || selectedDish.VYXOD} г</div>
+                      {selectedCostLimit > 0 ? <div>Денний ліміт: {selectedCostLimit.toFixed(2)} грн</div> : null}
+                    </div>
+                  </div>
+                  {exceedsCostLimit ? (
+                    <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-rose-700 dark:text-rose-300">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Вартість порції перевищує встановлений ліміт категорії
+                    </div>
+                  ) : null}
+                  <details className="mt-2 border-t border-current/10 pt-1.5">
+                    <summary className="flex cursor-pointer items-center gap-1 text-[10px] font-bold text-blue-700 dark:text-blue-300">
+                      <TrendingUp className="h-3.5 w-3.5" /> Історія зміни собівартості
+                    </summary>
+                    <div className="mt-1 max-h-28 overflow-auto">
+                      <table className="w-full text-[9px]">
+                        <thead><tr><th className="text-left">Дата</th><th className="text-left">Причина</th><th className="text-right">Вартість</th></tr></thead>
+                        <tbody>
+                          {costHistory
+                            .filter(item => item.ID_KATEGORII_DETEJ === selectedEaterCategoryId)
+                            .map(item => (
+                              <tr key={item.ID} className="border-t border-slate-200/70 dark:border-slate-800">
+                                <td>{new Date(item.CALCULATED_AT).toLocaleDateString('uk-UA')}</td>
+                                <td>{item.REASON}{item.SOURCE_REF ? ` · ${item.SOURCE_REF}` : ''}</td>
+                                <td className="text-right font-bold">{Number(item.COST_PER_PORTION).toFixed(2)} грн</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </details>
+                </div>
 
                 <div className="p-2 bg-slate-50 dark:bg-slate-950 rounded border border-slate-200 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-400">
                   <span className="font-semibold text-slate-800 dark:text-slate-200 block mb-0.5">Технологія приготування:</span>

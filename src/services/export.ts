@@ -2,6 +2,24 @@ import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
+const escapeHtml = (value: unknown): string => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#039;');
+
+function downloadBlob(filename: string, blob: Blob) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function exportToExcel(filename: string, sheetName: string, headers: string[], dataRows: any[][]) {
   const wsData = [headers, ...dataRows];
   const worksheet = XLSX.utils.aoa_to_sheet(wsData);
@@ -10,7 +28,76 @@ export function exportToExcel(filename: string, sheetName: string, headers: stri
   XLSX.writeFile(workbook, `${filename}.xlsx`);
 }
 
-export async function exportToPDF(title: string, headers: string[], dataRows: any[][]) {
+export interface DocumentExportMetadata {
+  documentNumber?: string;
+  institution?: string;
+  director?: string;
+  nurse?: string;
+  cook?: string;
+  period?: string;
+}
+
+export function exportToWord(
+  filename: string,
+  title: string,
+  headers: string[],
+  dataRows: any[][],
+  metadata?: DocumentExportMetadata
+) {
+  const rows = dataRows.map((row, index) => `
+    <tr>
+      <td>${index + 1}</td>
+      ${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}
+    </tr>
+  `).join('');
+  const html = `<!DOCTYPE html>
+  <html lang="uk">
+    <head>
+      <meta charset="utf-8">
+      <title>${escapeHtml(title)}</title>
+      <style>
+        @page { size: A4 landscape; margin: 15mm; }
+        body { font-family: Arial, sans-serif; font-size: 10pt; color: #000; }
+        h1 { text-align: center; font-size: 15pt; margin: 12pt 0 4pt; }
+        .meta { display: flex; justify-content: space-between; margin-bottom: 10pt; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #000; padding: 4pt; vertical-align: middle; }
+        th { background: #e2e8f0; text-align: center; font-weight: 700; }
+        .signatures { margin-top: 24pt; display: flex; justify-content: space-between; }
+      </style>
+    </head>
+    <body>
+      <div class="meta">
+        <div><strong>${escapeHtml(metadata?.institution || 'Заклад дошкільної освіти')}</strong></div>
+        <div>№ ${escapeHtml(metadata?.documentNumber || 'без номера')}</div>
+      </div>
+      <h1>${escapeHtml(title)}</h1>
+      ${metadata?.period ? `<p style="text-align:center">${escapeHtml(metadata.period)}</p>` : ''}
+      <table>
+        <thead>
+          <tr><th>№</th>${headers.map(header => `<th>${escapeHtml(header)}</th>`).join('')}</tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="signatures">
+        <span>Директор: ____________ ${escapeHtml(metadata?.director || '')}</span>
+        <span>Медична сестра: ____________ ${escapeHtml(metadata?.nurse || '')}</span>
+        <span>Кухар: ____________ ${escapeHtml(metadata?.cook || '')}</span>
+      </div>
+    </body>
+  </html>`;
+  downloadBlob(
+    `${filename}.doc`,
+    new Blob(['\ufeff', html], { type: 'application/msword;charset=utf-8' })
+  );
+}
+
+export async function exportToPDF(
+  title: string,
+  headers: string[],
+  dataRows: any[][],
+  metadata?: DocumentExportMetadata
+) {
   // Create temporary container positioned in fixed viewport with non-zero opacity
   const container = document.createElement('div');
   container.style.position = 'fixed';
@@ -29,7 +116,7 @@ export async function exportToPDF(title: string, headers: string[], dataRows: an
   const rowsHtml = dataRows.map((row, idx) => `
     <tr style="background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'}; border-bottom: 1px solid #000000;">
       <td style="padding: 6px 8px; border: 1px solid #000000; text-align: center; font-size: 10px; font-weight: bold; color: #000000;">${idx + 1}</td>
-      ${row.map(cell => `<td style="padding: 6px 8px; border: 1px solid #000000; font-size: 10px; color: #000000;">${cell === null || cell === undefined ? '' : String(cell)}</td>`).join('')}
+      ${row.map(cell => `<td style="padding: 6px 8px; border: 1px solid #000000; font-size: 10px; color: #000000;">${escapeHtml(cell)}</td>`).join('')}
     </tr>
   `).join('');
 
@@ -37,20 +124,21 @@ export async function exportToPDF(title: string, headers: string[], dataRows: an
     <div style="font-family: Arial, sans-serif; color: #000000; background: #ffffff; width: 100%;">
       <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #000000; padding-bottom: 8px; margin-bottom: 15px;">
         <div>
-          <div style="font-size: 10px; font-weight: bold; text-transform: uppercase;">УКРАЇНА | ДНІПРОПЕТРОВСЬКА ОБЛАСТЬ</div>
-          <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; margin-top: 2px;">КРИВОРІЗЬКИЙ КЗДО (ЯСЛА-САДОК) КТ №145 КМР</div>
-          <div style="font-size: 9px; color: #333333; margin-top: 2px;">ЄДРПОУ: 26136748 | вул. Перлинна 23А, м. Кривий Ріг</div>
+          <div style="font-size: 10px; font-weight: bold; text-transform: uppercase;">УКРАЇНА</div>
+          <div style="font-size: 11px; font-weight: bold; text-transform: uppercase; margin-top: 2px;">${escapeHtml(metadata?.institution || 'Заклад дошкільної освіти')}</div>
+          <div style="font-size: 9px; color: #333333; margin-top: 2px;">Документ № ${escapeHtml(metadata?.documentNumber || 'без номера')}</div>
         </div>
         <div style="text-align: right; font-size: 10px;">
           <div><b>ЗАТВЕРДЖУЮ</b></div>
-          <div>Директор КЗДО № 145</div>
-          <div style="margin-top: 12px;">________________ / Н. Г. Павлухіна</div>
+          <div>Директор</div>
+          <div style="margin-top: 12px;">________________ / ${escapeHtml(metadata?.director || '')}</div>
           <div style="font-size: 9px; margin-top: 2px;">«_____» ____________ 2026 р.</div>
         </div>
       </div>
 
       <div style="text-align: center; margin-bottom: 15px;">
-        <h2 style="font-size: 14px; font-weight: bold; text-transform: uppercase; margin: 0; padding: 0;">${title}</h2>
+        <h2 style="font-size: 14px; font-weight: bold; text-transform: uppercase; margin: 0; padding: 0;">${escapeHtml(title)}</h2>
+        ${metadata?.period ? `<div style="font-size: 10px; margin-top: 4px;">${escapeHtml(metadata.period)}</div>` : ''}
         <div style="font-size: 10px; color: #333333; margin-top: 4px;">
           <b>Дата формування:</b> ${new Date().toLocaleDateString('uk-UA')}
         </div>
@@ -60,7 +148,7 @@ export async function exportToPDF(title: string, headers: string[], dataRows: an
         <thead>
           <tr style="background-color: #e2e8f0; border-bottom: 1px solid #000000; font-weight: bold; text-align: left;">
             <th style="padding: 6px 8px; border: 1px solid #000000; width: 35px; text-align: center; color: #000000;">№</th>
-            ${headers.map(h => `<th style="padding: 6px 8px; border: 1px solid #000000; color: #000000;">${h}</th>`).join('')}
+            ${headers.map(h => `<th style="padding: 6px 8px; border: 1px solid #000000; color: #000000;">${escapeHtml(h)}</th>`).join('')}
           </tr>
         </thead>
         <tbody>
@@ -69,8 +157,8 @@ export async function exportToPDF(title: string, headers: string[], dataRows: an
       </table>
 
       <div style="margin-top: 25px; display: flex; justify-content: space-between; font-size: 10px; font-weight: bold; color: #000000;">
-        <div>Вихователь-методист / Відповідальна особа: ____________________</div>
-        <div>Підпис: ____________________</div>
+        <div>Медична сестра: ____________________ ${escapeHtml(metadata?.nurse || '')}</div>
+        <div>Кухар: ____________________ ${escapeHtml(metadata?.cook || '')}</div>
       </div>
     </div>
   `;
@@ -117,7 +205,7 @@ export async function exportToPDF(title: string, headers: string[], dataRows: an
         <!DOCTYPE html>
         <html>
           <head>
-            <title>${title}</title>
+            <title>${escapeHtml(title)}</title>
             <style>
               body { font-family: Arial, sans-serif; padding: 20px; color: #000; background: #fff; }
               @media print { body { padding: 0; } }

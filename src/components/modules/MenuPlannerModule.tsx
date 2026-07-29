@@ -1,11 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { MenuHeader, Dish, EaterCategory, Product, RecipeComponent, Institution } from '../../types';
-import { getMenuEntries, addMenuEntry, deleteMenuEntry, getDishes, getEaterCategories, getProducts, getRecipeComponents, getDishNutritionProfiles, getInstitutions, updateDish, deductStockFIFO } from '../../services/db';
+import { MenuHeader, Dish, EaterCategory, Product, RecipeComponent, Institution, MenuApproval } from '../../types';
+import { getMenuEntries, addMenuEntry, deleteMenuEntry, getDishes, getEaterCategories, getProducts, getRecipeComponents, getDishNutritionProfiles, getInstitutions, updateDish, deductStockFIFO, getMenuEntriesRange, copyMenuPeriod, replaceMenuDish, getStockBatches, approveMenu, getMenuApproval, getDishCostProfiles } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
 import { ProductHistoryModal } from '../modals/ProductHistoryModal';
-import { Trash2, Calendar as CalendarIcon, Users, Calculator, Scale, PackageMinus, CheckCircle2, AlertTriangle, ChevronLeft, ChevronRight, Copy, CalendarDays, Printer } from 'lucide-react';
+import { Trash2, Calendar as CalendarIcon, Users, Calculator, Scale, PackageMinus, CheckCircle2, AlertTriangle, ChevronLeft, ChevronRight, Copy, CalendarDays, Printer, WandSparkles, ShieldCheck, Repeat2, X } from 'lucide-react';
 import { DEFAULT_EATER_COUNTS, getDefaultDishYield } from '../../domain/nutritionCategories';
+import {
+  PlanningPeriod,
+  MenuValidationIssue,
+  addCalendarDays,
+  buildMenuValidationIssues,
+  chooseDishReplacement,
+  getPeriodDates,
+  getPeriodLength,
+  isDishAvailable,
+  matchesNutritionNorm,
+} from '../../domain/menuPlanning';
 
 const MEAL_TYPES = ['Сніданок', '2-й сніданок', 'Обід', 'Полуденок', 'Вечеря'];
 
@@ -44,6 +55,10 @@ export const MenuPlannerModule: React.FC = () => {
   const [selectedMealType, setSelectedMealType] = useState<string>('Всі');
   const [products, setProducts] = useState<Product[]>([]);
   const [showCategoryCost, setShowCategoryCost] = useState<boolean>(false);
+  const [isConstructorOpen, setIsConstructorOpen] = useState(false);
+  const [planningPeriod, setPlanningPeriod] = useState<PlanningPeriod>('week');
+  const [approval, setApproval] = useState<MenuApproval | null>(null);
+  const [constructorMessage, setConstructorMessage] = useState('');
   const [selectedHistoryProductId, setSelectedHistoryProductId] = useState<number | null>(null);
   const [deductedDates, setDeductedDates] = useState<string[]>(() => {
     const saved = localStorage.getItem('medsestra_deducted_dates');
@@ -59,7 +74,7 @@ export const MenuPlannerModule: React.FC = () => {
   const [newDishId, setNewDishId] = useState<number>(1);
   const [newMealType, setNewMealType] = useState<string>('Обід');
 
-  useEffect(() => { loadData(); }, [selectedDate]);
+  useEffect(() => { loadData(); }, [selectedDate, selectedInstitution]);
 
   const loadData = () => {
     setMenuItems(getMenuEntries(selectedDate));
@@ -67,6 +82,7 @@ export const MenuPlannerModule: React.FC = () => {
     setCategories(getEaterCategories());
     setInstitutions(getInstitutions());
     setProducts(getProducts());
+    setApproval(getMenuApproval(selectedDate, selectedInstitution));
   };
 
   const handleAddDish = () => {
@@ -173,6 +189,21 @@ export const MenuPlannerModule: React.FC = () => {
     totalCostPerCat[cat.ID] = Object.values(productRequirements).reduce((sum, req) => sum + (req.costPerCat[cat.ID] || 0), 0);
   });
 
+  const configuredCostLimits = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('medsestra_cost_limits') || '{}') as Record<string, number>;
+    } catch {
+      return {};
+    }
+  })();
+  const costLimitKeyByCategory: Record<number, string> = { 1: 'yasla', 2: 'junior', 3: 'sad', 4: 'staff' };
+  const exceededCategories = categories.filter(category => {
+    const count = counts[category.ID] || 0;
+    const perPerson = count > 0 ? (totalCostPerCat[category.ID] || 0) / count : 0;
+    const limit = Number(configuredCostLimits[costLimitKeyByCategory[category.ID]] || 0);
+    return limit > 0 && perPerson > limit;
+  });
+
   const handleDeductStock = () => {
     const reqList = Object.entries(productRequirements).map(([pid, req]) => ({
       productId: Number(pid),
@@ -224,6 +255,135 @@ export const MenuPlannerModule: React.FC = () => {
   };
 
   const currentMonday = getMonday(selectedDate);
+
+  const toIsoDate = (date: Date) => [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+  const periodStart = planningPeriod === 'week'
+    ? toIsoDate(currentMonday)
+    : `${selectedDate.slice(0, 7)}-01`;
+  const periodDates = getPeriodDates(planningPeriod, periodStart);
+  const periodEnd = periodDates[periodDates.length - 1];
+  const periodEntries = getMenuEntriesRange(periodStart, periodEnd);
+  const stockByProduct = new Map<number, number>();
+  getStockBatches().forEach(batch => {
+    stockByProduct.set(batch.ID_PRODUKTA, (stockByProduct.get(batch.ID_PRODUKTA) || 0) + (batch.OST_KG || 0));
+  });
+  const activeCategoryIds = categories.filter(category => (counts[category.ID] || 0) > 0).map(category => category.ID);
+  const dishIsAvailable = (dishId: number) => isDishAvailable(
+    dishId,
+    activeCategoryIds.length ? activeCategoryIds : [1],
+    (id, categoryId) => getRecipeComponents(id, categoryId, false),
+    stockByProduct,
+  );
+  const unavailableDishIds = new Set(
+    periodEntries.filter(entry => !dishIsAvailable(entry.ID_BLUDA)).map(entry => entry.ID_BLUDA)
+  );
+  const periodDishIds = Array.from(new Set(periodEntries.map(entry => entry.ID_BLUDA)));
+  const dishIdsWithCards = new Set(
+    periodDishIds.filter(dishId =>
+      activeCategoryIds.every(categoryId => getRecipeComponents(dishId, categoryId, false).length > 0)
+    )
+  );
+  const costPerPersonByDate = new Map<string, number>();
+  periodDates.forEach(date => {
+    const dateEntries = periodEntries.filter(entry => entry.DATA === date);
+    const averageCost = dateEntries.reduce((sum, entry) => {
+      const profiles = getDishCostProfiles(entry.ID_BLUDA);
+      return sum + (
+        profiles.length
+          ? profiles.reduce((value, profile) => value + profile.costPerPortion, 0) / profiles.length
+          : 0
+      );
+    }, 0);
+    costPerPersonByDate.set(date, averageCost);
+  });
+  const dailyLimits = Object.values(configuredCostLimits).map(Number).filter(value => value > 0);
+  const baseValidationIssues = buildMenuValidationIssues({
+    dates: periodDates,
+    entries: periodEntries,
+    dishIdsWithCards,
+    unavailableDishIds,
+    costPerPersonByDate,
+    dailyCostLimit: dailyLimits.length ? Math.max(...dailyLimits) : 0,
+  });
+  const storedNorms = (() => {
+    try {
+      return JSON.parse(localStorage.getItem('medsestra_sanpin_norms_by_group') || '{}') as Record<
+        string,
+        Array<{ category: string; normGrams: number; unit: string }>
+      >;
+    } catch {
+      return {};
+    }
+  })();
+  const normGroupByCategory: Record<number, string> = { 1: '1-3', 2: '3-4', 3: '4-7', 4: 'staff' };
+  const filledDays = Math.max(1, new Set(periodEntries.map(entry => entry.DATA)).size);
+  const nutritionNormIssues: MenuValidationIssue[] = activeCategoryIds.flatMap(categoryId => {
+    const norms = storedNorms[normGroupByCategory[categoryId]] || [];
+    return norms.flatMap(norm => {
+      if (norm.unit === 'шт') return [];
+      const totalGrams = periodEntries.reduce((sum, entry) => {
+        return sum + getRecipeComponents(entry.ID_BLUDA, categoryId, false).reduce((componentSum, component) => {
+          const product = products.find(item => item.ID === component.ID_PRODUKTA);
+          return componentSum + (
+            product && matchesNutritionNorm(product.NAME, norm.category) ? component.GROSSO_GR : 0
+          );
+        }, 0);
+      }, 0);
+      const actualAverage = totalGrams / filledDays;
+      const ratio = norm.normGrams > 0 ? actualAverage / norm.normGrams : 1;
+      if (actualAverage <= 0 || (ratio >= 0.8 && ratio <= 1.2)) return [];
+      const category = categories.find(item => item.ID === categoryId);
+      return [{
+        severity: 'warning',
+        code: 'nutrition-norm',
+        message: `${translateCatName(category?.NAME || String(categoryId))}: «${norm.category}» — ${actualAverage.toFixed(1)} г/день при нормі ${norm.normGrams} г`,
+      }];
+    });
+  });
+  const validationIssues = [...baseValidationIssues, ...nutritionNormIssues];
+  const hasBlockingIssues = validationIssues.some(issue => issue.severity === 'error');
+
+  const handleCopyPreviousPeriod = () => {
+    const length = getPeriodLength(planningPeriod, periodStart);
+    const sourceStart = addCalendarDays(periodStart, -length);
+    if (!confirm(`Замінити меню за ${periodStart} — ${periodEnd} копією попереднього періоду?`)) return;
+    const result = copyMenuPeriod(sourceStart, periodStart, length, true);
+    setConstructorMessage(`Скопійовано ${result.copied} позицій меню.`);
+    loadData();
+  };
+
+  const handleAutoReplace = () => {
+    const usedIds = new Set(periodEntries.map(entry => entry.ID_BLUDA));
+    let replaced = 0;
+    periodEntries
+      .filter(entry => unavailableDishIds.has(entry.ID_BLUDA))
+      .forEach(entry => {
+        const sourceDish = dishes.find(dish => dish.ID === entry.ID_BLUDA);
+        if (!sourceDish) return;
+        const replacement = chooseDishReplacement(sourceDish, dishes, usedIds, dishIsAvailable);
+        if (!replacement) return;
+        replaceMenuDish(entry.ID, replacement);
+        usedIds.add(replacement.ID);
+        replaced++;
+      });
+    setConstructorMessage(
+      replaced
+        ? `Автоматично замінено ${replaced} недоступних страв.`
+        : 'Безпечних автоматичних замін не знайдено.'
+    );
+    loadData();
+  };
+
+  const handleApproveMenu = () => {
+    if (hasBlockingIssues) return;
+    const saved = approveMenu(selectedDate, selectedInstitution, validationIssues);
+    setApproval(saved);
+    setConstructorMessage(`Меню на ${selectedDate} затверджено.`);
+  };
 
   const getDayDateStr = (mondayDate: Date, dayOffset: number) => {
     const d = new Date(mondayDate);
@@ -413,6 +573,25 @@ export const MenuPlannerModule: React.FC = () => {
             </select>
           </div>
 
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsConstructorOpen(true)}
+              className="flex items-center gap-1.5 rounded bg-violet-600 px-3 py-1.5 text-[11px] font-extrabold text-white shadow-sm transition hover:bg-violet-700"
+            >
+              <WandSparkles className="h-3.5 w-3.5" />
+              Конструктор тижня / місяця
+            </button>
+            {approval ? (
+              <span className="flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                <ShieldCheck className="h-3.5 w-3.5" /> Затверджено
+              </span>
+            ) : (
+              <span className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                Не затверджено
+              </span>
+            )}
+          </div>
+
           {/* 7 DAYS OF THE WEEK STRIP WITH FILLED & DEDUCTION STATUS BADGES */}
           <div className="flex items-center space-x-1 pt-1 overflow-x-auto">
             {weekDays.map(day => {
@@ -497,6 +676,13 @@ export const MenuPlannerModule: React.FC = () => {
             </div>
             <Calculator className="w-7 h-7 text-blue-500 opacity-60 flex-shrink-0" />
           </div>
+
+          {exceededCategories.length > 0 ? (
+            <div className="flex items-center gap-1 rounded border border-rose-300 bg-rose-50 px-2 py-1 text-[10px] font-bold text-rose-700 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Перевищено ліміт: {exceededCategories.map(category => translateCatName(category.NAME)).join(', ')}
+            </div>
+          ) : null}
 
           {/* Cost per category & Cost PER 1 PERSON breakdown cards */}
           <div className="pt-1.5 border-t border-blue-200/80 dark:border-slate-700/80 grid grid-cols-2 xl:grid-cols-4 gap-1.5 text-[10px]">
@@ -1072,6 +1258,149 @@ export const MenuPlannerModule: React.FC = () => {
           <div>Кухар: _______________________ /_________________/</div>
         </div>
       </div>
+
+      {/* Week / Month Menu Constructor */}
+      {isConstructorOpen && (
+        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-200 bg-slate-100 px-5 py-3 dark:border-slate-800 dark:bg-slate-800">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white">
+                  <WandSparkles className="h-4 w-4 text-violet-600" />
+                  Конструктор меню на тиждень або місяць
+                </h3>
+                <p className="text-[10px] text-slate-500">
+                  {periodStart} — {periodEnd} · {periodEntries.length} позицій меню
+                </p>
+              </div>
+              <button onClick={() => setIsConstructorOpen(false)} className="rounded p-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" title="Закрити">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-3 dark:border-slate-800">
+              <div className="flex rounded-lg border border-slate-300 p-0.5 dark:border-slate-700">
+                {([
+                  ['week', 'Тиждень'],
+                  ['month', 'Місяць'],
+                ] as Array<[PlanningPeriod, string]>).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => setPlanningPeriod(value)}
+                    className={`rounded-md px-4 py-1.5 text-xs font-bold ${
+                      planningPeriod === value
+                        ? 'bg-violet-600 text-white'
+                        : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={handleCopyPreviousPeriod} className="flex items-center gap-1.5 rounded bg-blue-600 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-blue-700">
+                  <Copy className="h-3.5 w-3.5" /> Копіювати попередній {planningPeriod === 'week' ? 'тиждень' : 'місяць'}
+                </button>
+                <button
+                  onClick={handleAutoReplace}
+                  disabled={unavailableDishIds.size === 0}
+                  className="flex items-center gap-1.5 rounded bg-amber-500 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <Repeat2 className="h-3.5 w-3.5" /> Замінити відсутні автоматично
+                </button>
+                <button
+                  onClick={handleApproveMenu}
+                  disabled={hasBlockingIssues}
+                  className="flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  title={hasBlockingIssues ? 'Спочатку усуньте критичні помилки' : 'Затвердити обраний день'}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" /> Затвердити меню на {selectedDate}
+                </button>
+              </div>
+            </div>
+
+            {constructorMessage ? (
+              <div className="border-b border-blue-200 bg-blue-50 px-5 py-2 text-[11px] font-bold text-blue-800 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-300">
+                {constructorMessage}
+              </div>
+            ) : null}
+
+            <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[1.4fr_1fr]">
+              <section className="overflow-auto border-r border-slate-200 p-4 dark:border-slate-800">
+                <div className={`grid gap-2 ${planningPeriod === 'week' ? 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4' : 'grid-cols-2 sm:grid-cols-4 xl:grid-cols-7'}`}>
+                  {periodDates.map(date => {
+                    const entries = periodEntries.filter(entry => entry.DATA === date);
+                    const dateCost = costPerPersonByDate.get(date) || 0;
+                    const unavailable = entries.filter(entry => unavailableDishIds.has(entry.ID_BLUDA));
+                    return (
+                      <button
+                        key={date}
+                        onClick={() => { setSelectedDate(date); if (planningPeriod === 'week') setIsConstructorOpen(false); }}
+                        className={`min-h-24 rounded-lg border p-2 text-left transition ${
+                          date === selectedDate
+                            ? 'border-violet-500 bg-violet-50 ring-1 ring-violet-500 dark:bg-violet-950/30'
+                            : unavailable.length
+                              ? 'border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/20'
+                              : entries.length
+                                ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/20'
+                                : 'border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black">{new Date(`${date}T12:00:00`).toLocaleDateString('uk-UA', { weekday: 'short', day: '2-digit', month: '2-digit' })}</span>
+                          <span className="rounded bg-white/80 px-1 text-[9px] font-bold dark:bg-slate-900">{entries.length}</span>
+                        </div>
+                        <div className="mt-1 space-y-0.5">
+                          {entries.slice(0, planningPeriod === 'week' ? 5 : 2).map(entry => (
+                            <div key={entry.ID} className="truncate text-[9px]" title={entry.NAME_BLUDA}>
+                              {unavailableDishIds.has(entry.ID_BLUDA) ? '⚠ ' : ''}{entry.NAME_BLUDA}
+                            </div>
+                          ))}
+                          {entries.length > (planningPeriod === 'week' ? 5 : 2) ? <div className="text-[9px] text-slate-400">+ ще</div> : null}
+                        </div>
+                        <div className="mt-1 border-t border-current/10 pt-1 text-[9px] font-bold text-blue-700 dark:text-blue-300">
+                          ≈ {dateCost.toFixed(2)} грн/особу
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <aside className="overflow-auto p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase tracking-wide">Перевірка перед затвердженням</h4>
+                  <span className={`rounded px-2 py-1 text-[10px] font-bold ${
+                    hasBlockingIssues
+                      ? 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300'
+                      : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
+                  }`}>
+                    {hasBlockingIssues ? 'Є критичні помилки' : 'Готово до затвердження'}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {validationIssues.map((issue, index) => (
+                    <div key={`${issue.code}-${issue.dishId || issue.date || index}`} className={`rounded-lg border p-2.5 text-[10px] ${
+                      issue.severity === 'error'
+                        ? 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-300'
+                        : issue.severity === 'warning'
+                          ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-300'
+                    }`}>
+                      <div className="flex items-start gap-2">
+                        {issue.severity === 'success'
+                          ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          : <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+                        <span className="font-semibold">{issue.message}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </aside>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Dish Modal (Screen) */}
       {isAddModalOpen && (

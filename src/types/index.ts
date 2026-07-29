@@ -93,6 +93,45 @@ export interface MenuHeader {
   MEAL_TYPE: string; // 'Завтрак' | '2-й Завтрак' | 'Обед' | 'Полдник' | 'Ужин'
 }
 
+export interface DishCostProfile {
+  dishId: number;
+  categoryId: number;
+  categoryName: string;
+  yieldGr: number;
+  costPerPortion: number;
+}
+
+export interface DishCostHistoryEntry {
+  ID: number;
+  ID_BLUDA: number;
+  ID_KATEGORII_DETEJ: number;
+  COST_PER_PORTION: number;
+  CALCULATED_AT: string;
+  REASON: string;
+  SOURCE_REF: string;
+  categoryName?: string;
+}
+
+export interface MenuApproval {
+  ID: number;
+  MENU_DATE: string;
+  INSTITUTION_ID: number;
+  STATUS: 'approved';
+  APPROVED_AT: string;
+  APPROVED_BY: string;
+  CHECKS_JSON: string;
+}
+
+export interface DocumentRegistryEntry {
+  ID: number;
+  DOCUMENT_TYPE: string;
+  DOCUMENT_NUMBER: string;
+  PERIOD_FROM: string;
+  PERIOD_TO: string;
+  CREATED_AT: string;
+  CREATED_BY: string;
+}
+
 export interface InvoiceHeader {
   ID: number;
   ID_FIRMI: number;
@@ -258,4 +297,3 @@ export interface SadokChild {
   HEALTH_NOTES?: string;
   PSYCHOLOGY_NOTES?: string;
 }
-

@@ -5,7 +5,8 @@ import {
   RecipeComponent, RecipeNutritionProfile, EaterCategory, MenuHeader,
   InvoiceHeader, StockBatch, Institution, SupplierFirm,
   ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage, PropertyItem, PropertyWriteOffRecord,
-  SadokGroup, SadokEmployee, SadokChild
+  SadokGroup, SadokEmployee, SadokChild, DishCostProfile, DishCostHistoryEntry,
+  MenuApproval, DocumentRegistryEntry
 } from '../types';
 import {
   planFifoDeductions,
@@ -29,7 +30,7 @@ import {
 // Singleton DB instance (sql.js Database object)
 // -----------------------------------------------------------------
 let db: any = null;
-export const CURRENT_DATABASE_SCHEMA_VERSION = 5;
+export const CURRENT_DATABASE_SCHEMA_VERSION = 6;
 const BROWSER_DATABASE_NAME = 'sadok_persistent_storage';
 const BROWSER_DATABASE_STORE = 'state';
 
@@ -210,6 +211,7 @@ export async function initDatabase(): Promise<any> {
 async function prepareDatabase() {
   runDatabaseMigrations();
   ensureImportedTechCards();
+  ensureInitialDishCostHistory();
   saveDatabaseToDisk();
   await ensureAutomaticBackup();
 }
@@ -467,6 +469,44 @@ export function runDatabaseMigrations(): number {
           SOURCE_COUNT INTEGER NOT NULL
         )`,
         'CREATE INDEX IF NOT EXISTS IDX_TECH_CARD_NUTRITION_DISH ON TECH_CARD_NUTRITION(ID_BLUDA, ID_KATEGORII_DETEJ)',
+      ],
+    },
+    {
+      version: 6,
+      name: 'Menu approvals, dish cost history and document registry',
+      sql: [
+        `CREATE TABLE IF NOT EXISTS MENU_APPROVALS (
+          ID INTEGER PRIMARY KEY AUTOINCREMENT,
+          MENU_DATE TEXT NOT NULL,
+          INSTITUTION_ID INTEGER NOT NULL DEFAULT 1,
+          STATUS TEXT NOT NULL DEFAULT 'approved',
+          APPROVED_AT TEXT NOT NULL,
+          APPROVED_BY TEXT NOT NULL,
+          CHECKS_JSON TEXT NOT NULL DEFAULT '{}',
+          UNIQUE(MENU_DATE, INSTITUTION_ID)
+        )`,
+        `CREATE TABLE IF NOT EXISTS DISH_COST_HISTORY (
+          ID INTEGER PRIMARY KEY AUTOINCREMENT,
+          ID_BLUDA INTEGER NOT NULL,
+          ID_KATEGORII_DETEJ INTEGER NOT NULL,
+          COST_PER_PORTION REAL NOT NULL DEFAULT 0,
+          CALCULATED_AT TEXT NOT NULL,
+          REASON TEXT NOT NULL,
+          SOURCE_REF TEXT NOT NULL DEFAULT ''
+        )`,
+        `CREATE TABLE IF NOT EXISTS DOCUMENT_REGISTRY (
+          ID INTEGER PRIMARY KEY AUTOINCREMENT,
+          DOCUMENT_TYPE TEXT NOT NULL,
+          DOCUMENT_NUMBER TEXT NOT NULL,
+          PERIOD_FROM TEXT NOT NULL,
+          PERIOD_TO TEXT NOT NULL,
+          CREATED_AT TEXT NOT NULL,
+          CREATED_BY TEXT NOT NULL,
+          UNIQUE(DOCUMENT_TYPE, DOCUMENT_NUMBER)
+        )`,
+        'CREATE INDEX IF NOT EXISTS IDX_MENU_APPROVAL_DATE ON MENU_APPROVALS(MENU_DATE, INSTITUTION_ID)',
+        'CREATE INDEX IF NOT EXISTS IDX_DISH_COST_HISTORY_DISH ON DISH_COST_HISTORY(ID_BLUDA, ID_KATEGORII_DETEJ, CALCULATED_AT)',
+        'CREATE INDEX IF NOT EXISTS IDX_DOCUMENT_REGISTRY_TYPE ON DOCUMENT_REGISTRY(DOCUMENT_TYPE, CREATED_AT)',
       ],
     },
   ];
@@ -869,6 +909,253 @@ export const getMenuEntries = (date: string): MenuHeader[] =>
     ...m,
     MEAL_TYPE: translateMealType(m.MEAL_TYPE)
   }));
+
+export const getMenuEntriesRange = (dateFrom: string, dateTo: string): MenuHeader[] =>
+  queryAll<MenuHeader>(
+    `SELECT * FROM MENU
+     WHERE DATA BETWEEN '${esc(dateFrom)}' AND '${esc(dateTo)}'
+     ORDER BY DATA, PORRDOK_SLEDOVANIR_BLUD, ID`
+  ).map(m => ({ ...m, MEAL_TYPE: translateMealType(m.MEAL_TYPE) }));
+
+function addDays(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+export function copyMenuPeriod(
+  sourceStart: string,
+  targetStart: string,
+  dayCount: number,
+  replaceTarget = true
+): { copied: number; targetDates: string[] } {
+  if (!db) return { copied: 0, targetDates: [] };
+  requirePermission('menu.write');
+  const safeDayCount = Math.max(1, Math.min(31, Math.floor(dayCount)));
+  const targetDates = Array.from({ length: safeDayCount }, (_, index) => addDays(targetStart, index));
+  targetDates.forEach(assertDateOpen);
+  const sourceRows = getMenuEntriesRange(sourceStart, addDays(sourceStart, safeDayCount - 1));
+
+  db.run('BEGIN');
+  try {
+    if (replaceTarget) {
+      targetDates.forEach(date => db.run(`DELETE FROM MENU WHERE DATA = '${esc(date)}'`));
+    }
+    sourceRows.forEach(row => {
+      const sourceOffset = Math.round(
+        (new Date(`${row.DATA}T12:00:00`).getTime() - new Date(`${sourceStart}T12:00:00`).getTime())
+        / 86400000
+      );
+      const targetDate = addDays(targetStart, sourceOffset);
+      const exists = queryAll<{ ID: number }>(
+        `SELECT ID FROM MENU
+         WHERE DATA = '${esc(targetDate)}'
+           AND ID_BLUDA = ${row.ID_BLUDA}
+           AND MEAL_TYPE = '${esc(row.MEAL_TYPE)}'
+         LIMIT 1`
+      )[0];
+      if (!exists) {
+        db.run(
+          `INSERT INTO MENU
+            (ID_ZOY, DATA, ID_BLUDA, NAME_BLUDA, PORRDOK_SLEDOVANIR_BLUD, MEAL_TYPE)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            row.ID_ZOY || 1, targetDate, row.ID_BLUDA, row.NAME_BLUDA,
+            row.PORRDOK_SLEDOVANIR_BLUD || 1, row.MEAL_TYPE,
+          ]
+        );
+      }
+    });
+    targetDates.forEach(date => db.run(`DELETE FROM MENU_APPROVALS WHERE MENU_DATE = '${esc(date)}'`));
+    db.run('COMMIT');
+  } catch (error) {
+    db.run('ROLLBACK');
+    throw error;
+  }
+  recordAudit({
+    action: 'create',
+    entityType: 'menu_period',
+    entityId: `${targetStart}:${safeDayCount}`,
+    summary: `Скопійовано меню за ${safeDayCount} днів з ${sourceStart} на ${targetStart}`,
+    after: { sourceStart, targetStart, dayCount: safeDayCount, copied: sourceRows.length },
+  });
+  saveDatabaseToDisk();
+  return { copied: sourceRows.length, targetDates };
+}
+
+export function replaceMenuDish(menuId: number, dish: Dish): void {
+  if (!db) return;
+  requirePermission('menu.write');
+  const before = queryAll<MenuHeader>(`SELECT * FROM MENU WHERE ID = ${menuId}`)[0];
+  if (!before) return;
+  assertDateOpen(before.DATA);
+  db.run(
+    `UPDATE MENU
+     SET ID_BLUDA = ?, NAME_BLUDA = ?, PORRDOK_SLEDOVANIR_BLUD = ?
+     WHERE ID = ?`,
+    [dish.ID, dish.NAME, dish.PORRDOK_SLEDOVANIR_BLUD || 1, menuId]
+  );
+  db.run(`DELETE FROM MENU_APPROVALS WHERE MENU_DATE = '${esc(before.DATA)}'`);
+  recordAudit({
+    action: 'update',
+    entityType: 'menu',
+    entityId: String(menuId),
+    summary: `Страву «${before.NAME_BLUDA}» замінено на «${dish.NAME}»`,
+    before,
+    after: { ...before, ID_BLUDA: dish.ID, NAME_BLUDA: dish.NAME },
+  });
+  saveDatabaseToDisk();
+}
+
+export function getMenuApproval(date: string, institutionId = 1): MenuApproval | null {
+  return queryAll<MenuApproval>(
+    `SELECT * FROM MENU_APPROVALS
+     WHERE MENU_DATE = '${esc(date)}' AND INSTITUTION_ID = ${institutionId}
+     LIMIT 1`
+  )[0] || null;
+}
+
+export function approveMenu(date: string, institutionId: number, checks: unknown): MenuApproval {
+  if (!db) throw new Error('База даних не ініціалізована');
+  requirePermission('menu.write');
+  assertDateOpen(date);
+  const currentUser = getCurrentUser();
+  const approvedAt = new Date().toISOString();
+  db.run(
+    `INSERT OR REPLACE INTO MENU_APPROVALS
+      (ID, MENU_DATE, INSTITUTION_ID, STATUS, APPROVED_AT, APPROVED_BY, CHECKS_JSON)
+     VALUES (
+       (SELECT ID FROM MENU_APPROVALS WHERE MENU_DATE = ? AND INSTITUTION_ID = ?),
+       ?, ?, 'approved', ?, ?, ?
+     )`,
+    [
+      date, institutionId, date, institutionId, approvedAt,
+      currentUser.displayName, JSON.stringify(checks),
+    ]
+  );
+  const approval = getMenuApproval(date, institutionId);
+  if (!approval) throw new Error('Не вдалося затвердити меню');
+  recordAudit({
+    action: 'update',
+    entityType: 'menu_approval',
+    entityId: `${date}:${institutionId}`,
+    summary: `Затверджено меню на ${date}`,
+    after: approval,
+  });
+  saveDatabaseToDisk();
+  return approval;
+}
+
+export function getDishCostProfiles(dishId: number): DishCostProfile[] {
+  if (!db) return [];
+  return queryAll<DishCostProfile>(`
+    SELECT
+      k.ID_BLUDA AS dishId,
+      k.ID_KATEGORII_DETEJ AS categoryId,
+      COALESCE(c.NAME, 'Категорія ' || k.ID_KATEGORII_DETEJ) AS categoryName,
+      COALESCE(n.VYXOD_GR, b.VYXOD, 0) AS yieldGr,
+      ROUND(SUM((COALESCE(k.GROSSO_GR, 0) / 1000.0) * COALESCE(p.CENA, 0)), 4) AS costPerPortion
+    FROM KOMPONENTI_KARTOTEKI k
+    JOIN KARTOTEKA_BLUD b ON b.ID = k.ID_BLUDA
+    LEFT JOIN PRODUKTS p ON p.ID = k.ID_PRODUKTA
+    LEFT JOIN KATEGORII_DETOK c ON c.ID = k.ID_KATEGORII_DETEJ
+    LEFT JOIN TECH_CARD_NUTRITION n
+      ON n.ID_BLUDA = k.ID_BLUDA AND n.ID_KATEGORII_DETEJ = k.ID_KATEGORII_DETEJ
+    WHERE k.ID_BLUDA = ${dishId} AND COALESCE(k.IS_ALTERNATIVE, 0) = 0
+    GROUP BY k.ID_BLUDA, k.ID_KATEGORII_DETEJ, c.NAME, n.VYXOD_GR, b.VYXOD
+    ORDER BY k.ID_KATEGORII_DETEJ
+  `);
+}
+
+function recordDishCostSnapshots(reason: string, sourceRef: string, dishIds?: number[]): number {
+  if (!db) return 0;
+  const ids = dishIds?.length
+    ? Array.from(new Set(dishIds))
+    : queryAll<{ ID: number }>('SELECT ID FROM KARTOTEKA_BLUD ORDER BY ID').map(row => row.ID);
+  const now = new Date().toISOString();
+  let inserted = 0;
+  ids.forEach(dishId => {
+    getDishCostProfiles(dishId).forEach(profile => {
+      const latest = queryAll<{ COST_PER_PORTION: number }>(`
+        SELECT COST_PER_PORTION
+        FROM DISH_COST_HISTORY
+        WHERE ID_BLUDA = ${dishId} AND ID_KATEGORII_DETEJ = ${profile.categoryId}
+        ORDER BY CALCULATED_AT DESC, ID DESC
+        LIMIT 1
+      `)[0];
+      if (!latest || Math.abs(Number(latest.COST_PER_PORTION) - profile.costPerPortion) >= 0.005) {
+        db.run(
+          `INSERT INTO DISH_COST_HISTORY
+            (ID_BLUDA, ID_KATEGORII_DETEJ, COST_PER_PORTION, CALCULATED_AT, REASON, SOURCE_REF)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [dishId, profile.categoryId, profile.costPerPortion, now, reason, sourceRef]
+        );
+        inserted++;
+      }
+    });
+  });
+  return inserted;
+}
+
+function ensureInitialDishCostHistory(): void {
+  if (!db) return;
+  const count = Number(db.exec('SELECT COUNT(*) FROM DISH_COST_HISTORY')[0]?.values[0]?.[0] || 0);
+  if (count === 0) recordDishCostSnapshots('Початковий розрахунок', 'system');
+}
+
+export function getDishCostHistory(dishId: number, limit = 40): DishCostHistoryEntry[] {
+  return queryAll<DishCostHistoryEntry>(`
+    SELECT h.*, c.NAME AS categoryName
+    FROM DISH_COST_HISTORY h
+    LEFT JOIN KATEGORII_DETOK c ON c.ID = h.ID_KATEGORII_DETEJ
+    WHERE h.ID_BLUDA = ${dishId}
+    ORDER BY h.CALCULATED_AT DESC, h.ID DESC
+    LIMIT ${Math.max(1, Math.min(200, Math.floor(limit)))}
+  `);
+}
+
+export function registerDocument(
+  documentType: string,
+  periodFrom: string,
+  periodTo: string
+): DocumentRegistryEntry {
+  if (!db) throw new Error('База даних не ініціалізована');
+  const prefix = documentType.replace(/[^A-Za-zА-Яа-яІіЇїЄєҐґ0-9]/g, '').slice(0, 4).toUpperCase() || 'DOC';
+  const year = periodFrom.slice(0, 4);
+  const count = Number(
+    db.exec(
+      `SELECT COUNT(*) FROM DOCUMENT_REGISTRY
+       WHERE DOCUMENT_TYPE = '${esc(documentType)}'
+         AND substr(PERIOD_FROM, 1, 4) = '${esc(year)}'`
+    )[0]?.values[0]?.[0] || 0
+  );
+  const documentNumber = `${prefix}-${year}-${String(count + 1).padStart(4, '0')}`;
+  const createdAt = new Date().toISOString();
+  const createdBy = getCurrentUser().displayName;
+  db.run(
+    `INSERT INTO DOCUMENT_REGISTRY
+      (DOCUMENT_TYPE, DOCUMENT_NUMBER, PERIOD_FROM, PERIOD_TO, CREATED_AT, CREATED_BY)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [documentType, documentNumber, periodFrom, periodTo, createdAt, createdBy]
+  );
+  saveDatabaseToDisk();
+  return queryAll<DocumentRegistryEntry>(
+    'SELECT * FROM DOCUMENT_REGISTRY ORDER BY ID DESC LIMIT 1'
+  )[0];
+}
+
+export function getDocumentRegistry(limit = 100): DocumentRegistryEntry[] {
+  return queryAll<DocumentRegistryEntry>(`
+    SELECT * FROM DOCUMENT_REGISTRY
+    ORDER BY CREATED_AT DESC, ID DESC
+    LIMIT ${Math.max(1, Math.min(500, Math.floor(limit)))}
+  `);
+}
 
 export const getInvoices = (): InvoiceHeader[] => {
   if (db) {
@@ -1344,6 +1631,16 @@ export function addInvoiceWithBatches(
     db.run('ROLLBACK');
     throw error;
   }
+
+  const affectedProductIds = Array.from(new Set(items.map(item => item.productId)));
+  const affectedDishIds = affectedProductIds.length
+    ? queryAll<{ ID_BLUDA: number }>(`
+        SELECT DISTINCT ID_BLUDA
+        FROM KOMPONENTI_KARTOTEKI
+        WHERE ID_PRODUKTA IN (${affectedProductIds.join(',')})
+      `).map(row => row.ID_BLUDA)
+    : [];
+  recordDishCostSnapshots('Нова приходна накладна', `${nomerDoc} від ${dateStr}`, affectedDishIds);
 
   recordAudit({
     action: 'create',

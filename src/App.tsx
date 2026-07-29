@@ -14,6 +14,7 @@ import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import { PortalHubModule } from './components/modules/PortalHubModule';
 import { PropertyManagementModule } from './components/modules/PropertyManagementModule';
 import { StructureRegistryModule } from './components/modules/StructureRegistryModule';
+import { PrintCenterModule } from './components/modules/PrintCenterModule';
 import { GovernanceError } from './services/governance';
 
 export function App() {
@@ -80,6 +81,7 @@ export function App() {
       else if (e.key === 'F8') { e.preventDefault(); setActiveTab('property'); }
       else if (e.key === 'F9') { e.preventDefault(); setActiveTab('settings'); }
       else if (e.key === 'F10') { e.preventDefault(); setActiveTab('cadres'); }
+      else if (e.key === 'F11') { e.preventDefault(); setActiveTab('print_center'); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -136,6 +138,7 @@ export function App() {
             {activeTab === 'sanpin' && <SanpinNormsModule />}
             {activeTab === 'warehouse' && <WarehouseModule />}
             {activeTab === 'reports' && <ReportsModule />}
+            {activeTab === 'print_center' && <PrintCenterModule />}
             {activeTab === 'about' && <AboutModule />}
             {activeTab === 'settings' && <SettingsModule />}
           </>

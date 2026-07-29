@@ -16,7 +16,8 @@ import {
   HelpCircle,
   Sparkles,
   LayoutGrid,
-  Users
+  Users,
+  BookOpenCheck
 } from 'lucide-react';
 
 interface HeaderNavbarProps {
@@ -48,6 +49,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
     { id: 'warehouse', label: 'Склад і прихід', icon: Package, hotkey: 'F5' },
     { id: 'sanpin', label: 'Норми харчування', icon: BarChart3, hotkey: 'F6' },
     { id: 'reports', label: 'Звіти та ОСВ', icon: FileText, hotkey: 'F7' },
+    { id: 'print_center', label: 'Центр друку', icon: BookOpenCheck, hotkey: 'F11' },
     { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
     { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
   ];
@@ -83,7 +85,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6 overflow-x-auto max-w-full">
-          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.40' : (isCadresContext ? 'Контингент v1.0.40' : 'v1.0.40')} />
+          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.41' : (isCadresContext ? 'Контингент v1.0.41' : 'v1.0.41')} />
           <nav className="flex space-x-4 text-slate-300 overflow-x-auto whitespace-nowrap py-0.5 shrink-0">
             <button onClick={() => setActiveTab('portal')} className="text-amber-400 font-extrabold hover:text-amber-300 transition flex items-center space-x-1"><span>🏠 Головне меню</span></button>
             {isPropertyContext && (
@@ -106,6 +108,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
                 <button onClick={() => setActiveTab('warehouse')} className="hover:text-white transition">Склад</button>
                 <button onClick={() => setActiveTab('sanpin')} className="hover:text-white transition">Норми харчування</button>
                 <button onClick={() => setActiveTab('reports')} className="hover:text-white transition">Звіти</button>
+                <button onClick={() => setActiveTab('print_center')} className="hover:text-white transition">Центр друку</button>
               </>
             )}
             <button onClick={() => setActiveTab('settings')} className="hover:text-white transition">Сервіс</button>
