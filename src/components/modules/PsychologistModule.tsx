@@ -13,7 +13,12 @@ import {
   ChevronRight,
   X,
   Edit2,
-  Trash2
+  Trash2,
+  Download,
+  Save,
+  Sparkles,
+  RefreshCw,
+  Calendar
 } from 'lucide-react';
 import {
   getChildren,
@@ -25,27 +30,38 @@ import {
   deleteSchoolReadinessAssessment,
   getPsychologyConsultations,
   savePsychologyConsultation,
-  deletePsychologyConsultation
+  deletePsychologyConsultation,
+  getPsychologySummaryReports,
+  savePsychologySummaryReport,
+  generateDefaultReport210
 } from '../../services/db';
+import { exportToExcel } from '../../services/export';
 import {
   SadokChild,
   PsychologyAdaptationRecord,
   SchoolReadinessAssessment,
-  PsychologyConsultation
+  PsychologyConsultation,
+  PsychologySummaryReport,
+  PsychologyReportRow
 } from '../../types';
 
 export const PsychologistModule: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'adaptation' | 'readiness' | 'consultations' | 'conclusions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'adaptation' | 'readiness' | 'consultations' | 'reports' | 'conclusions'>('overview');
   
   // Data state
   const [children, setChildren] = useState<SadokChild[]>([]);
   const [adaptations, setAdaptations] = useState<PsychologyAdaptationRecord[]>([]);
   const [readinessList, setReadinessList] = useState<SchoolReadinessAssessment[]>([]);
   const [consultations, setConsultations] = useState<PsychologyConsultation[]>([]);
+  const [reportsList, setReportsList] = useState<PsychologySummaryReport[]>([]);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
+
+  // Reports state
+  const [activeReportYear, setActiveReportYear] = useState<string>('2024/2025 н.р.');
+  const [currentReport, setCurrentReport] = useState<PsychologySummaryReport | null>(null);
 
   // Modals state
   const [isAdaptationModalOpen, setIsAdaptationModalOpen] = useState(false);
@@ -63,9 +79,23 @@ export const PsychologistModule: React.FC = () => {
   const loadData = () => {
     const ch = getChildren();
     setChildren(ch);
-    setAdaptations(getPsychologyAdaptations());
-    setReadinessList(getSchoolReadinessAssessments());
-    setConsultations(getPsychologyConsultations());
+    const ad = getPsychologyAdaptations();
+    setAdaptations(ad);
+    const rd = getSchoolReadinessAssessments();
+    setReadinessList(rd);
+    const cs = getPsychologyConsultations();
+    setConsultations(cs);
+    
+    const rps = getPsychologySummaryReports();
+    setReportsList(rps);
+    if (rps.length > 0) {
+      setCurrentReport(rps[0]);
+      setActiveReportYear(rps[0].ACADEMIC_YEAR);
+    } else {
+      const def = generateDefaultReport210('2024/2025 н.р.');
+      setCurrentReport(def);
+    }
+
     if (ch.length > 0 && !selectedChildForReport) {
       setSelectedChildForReport(ch[0]);
     }
@@ -174,6 +204,158 @@ export const PsychologistModule: React.FC = () => {
     }
   };
 
+  // Report 2.10 Editing Handlers
+  const handleCellChange = (rowIndex: number, field: keyof PsychologyReportRow, value: string | number) => {
+    if (!currentReport) return;
+    const updatedRows = [...currentReport.ROWS];
+    const row = { ...updatedRows[rowIndex] };
+
+    if (field === 'CATEGORY_NAME') {
+      row.CATEGORY_NAME = String(value);
+    } else {
+      const numVal = Math.max(0, Number(value) || 0);
+      (row as any)[field] = numVal;
+      row.ROW_TOTAL = (row.INDIVIDUAL_DIAGNOSTICS || 0) +
+                      (row.GROUP_DIAGNOSTICS || 0) +
+                      (row.INDIVIDUAL_PROPHYLAXIS || 0) +
+                      (row.GROUP_PROPHYLAXIS || 0) +
+                      (row.INDIVIDUAL_CORRECTION || 0) +
+                      (row.GROUP_CORRECTION || 0) +
+                      (row.TRAININGS_SEMINARS || 0);
+    }
+
+    updatedRows[rowIndex] = row;
+    setCurrentReport({ ...currentReport, ROWS: updatedRows });
+  };
+
+  const handleAddReportRow = () => {
+    if (!currentReport) return;
+    const newRow: PsychologyReportRow = {
+      ID: `row_${Date.now()}`,
+      CATEGORY_NAME: 'Новий напрям / Категорія',
+      INDIVIDUAL_DIAGNOSTICS: 0,
+      GROUP_DIAGNOSTICS: 0,
+      INDIVIDUAL_PROPHYLAXIS: 0,
+      GROUP_PROPHYLAXIS: 0,
+      INDIVIDUAL_CORRECTION: 0,
+      GROUP_CORRECTION: 0,
+      TRAININGS_SEMINARS: 0,
+      ROW_TOTAL: 0
+    };
+    setCurrentReport({ ...currentReport, ROWS: [...currentReport.ROWS, newRow] });
+  };
+
+  const handleDeleteReportRow = (index: number) => {
+    if (!currentReport) return;
+    if (currentReport.ROWS.length <= 1) {
+      alert('Звіт має містити щонайменше один рядок.');
+      return;
+    }
+    const updatedRows = currentReport.ROWS.filter((_, idx) => idx !== index);
+    setCurrentReport({ ...currentReport, ROWS: updatedRows });
+  };
+
+  const handleAutoFillReport = () => {
+    if (!currentReport) return;
+    const updatedRows = currentReport.ROWS.map(row => {
+      // Basic intelligent calculation based on existing data
+      let indDiag = row.INDIVIDUAL_DIAGNOSTICS;
+      let grpDiag = row.GROUP_DIAGNOSTICS;
+      let indProph = row.INDIVIDUAL_PROPHYLAXIS;
+      let grpProph = row.GROUP_PROPHYLAXIS;
+      let indCorr = row.INDIVIDUAL_CORRECTION;
+      let grpCorr = row.GROUP_CORRECTION;
+      let train = row.TRAININGS_SEMINARS;
+
+      if (row.CATEGORY_NAME.includes('ясельн')) {
+        indDiag = adaptations.filter(a => a.GROUP_NAME.includes('Ясельн') || a.GROUP_NAME.includes('Барвінок')).length;
+        indProph = consultations.filter(c => c.TYPE === 'Консультація з батьками').length;
+      } else if (row.CATEGORY_NAME.includes('старш')) {
+        indDiag = readinessList.length;
+        grpDiag = readinessList.length;
+        grpCorr = adaptations.filter(a => a.ADAPTATION_LEVEL === 'Важка').length;
+      } else if (row.CATEGORY_NAME.includes('Батьки')) {
+        indProph = consultations.filter(c => c.TYPE === 'Консультація з батьками').length;
+        train = consultations.filter(c => c.TYPE === 'Групова').length * 10;
+      } else if (row.CATEGORY_NAME.includes('Педагогічні')) {
+        grpProph = consultations.filter(c => c.TYPE === 'Консультація з вихователем').length;
+        train = consultations.filter(c => c.TYPE === 'Психопрофілактична робота').length * 8;
+      }
+
+      const total = indDiag + grpDiag + indProph + grpProph + indCorr + grpCorr + train;
+
+      return {
+        ...row,
+        INDIVIDUAL_DIAGNOSTICS: indDiag,
+        GROUP_DIAGNOSTICS: grpDiag,
+        INDIVIDUAL_PROPHYLAXIS: indProph,
+        GROUP_PROPHYLAXIS: grpProph,
+        INDIVIDUAL_CORRECTION: indCorr,
+        GROUP_CORRECTION: grpCorr,
+        TRAININGS_SEMINARS: train,
+        ROW_TOTAL: total
+      };
+    });
+
+    setCurrentReport({ ...currentReport, ROWS: updatedRows });
+    alert('Дані звіту автоматично оновлено на основі журналів системи!');
+  };
+
+  const handleSaveCurrentReport = () => {
+    if (!currentReport) return;
+    const updated = savePsychologySummaryReport({
+      ...currentReport,
+      ACADEMIC_YEAR: activeReportYear
+    });
+    setReportsList(updated);
+    alert('Звіт успішно збережено!');
+  };
+
+  const handleExportReportExcel = () => {
+    if (!currentReport) return;
+    const headers = [
+      '№',
+      'Напрями роботи Фахівців',
+      'Індивідуальна діагностика (осіб)',
+      'Групова діагностика / соц.-пед. дослідження (осіб)',
+      'Профілактика індивідуальна (осіб)',
+      'Профілактика групова (осіб)',
+      'Корекційна індивідуальна (осіб)',
+      'Корекційна групова (осіб)',
+      'Проведення ділових ігор, тренінгів (осіб)',
+      'Усього осіб'
+    ];
+
+    const dataRows = currentReport.ROWS.map((r, idx) => [
+      idx + 1,
+      r.CATEGORY_NAME,
+      r.INDIVIDUAL_DIAGNOSTICS,
+      r.GROUP_DIAGNOSTICS,
+      r.INDIVIDUAL_PROPHYLAXIS,
+      r.GROUP_PROPHYLAXIS,
+      r.INDIVIDUAL_CORRECTION,
+      r.GROUP_CORRECTION,
+      r.TRAININGS_SEMINARS,
+      r.ROW_TOTAL
+    ]);
+
+    // Totals row
+    dataRows.push([
+      '',
+      'УСЬОГО',
+      currentReport.ROWS.reduce((s, r) => s + r.INDIVIDUAL_DIAGNOSTICS, 0),
+      currentReport.ROWS.reduce((s, r) => s + r.GROUP_DIAGNOSTICS, 0),
+      currentReport.ROWS.reduce((s, r) => s + r.INDIVIDUAL_PROPHYLAXIS, 0),
+      currentReport.ROWS.reduce((s, r) => s + r.GROUP_PROPHYLAXIS, 0),
+      currentReport.ROWS.reduce((s, r) => s + r.INDIVIDUAL_CORRECTION, 0),
+      currentReport.ROWS.reduce((s, r) => s + r.GROUP_CORRECTION, 0),
+      currentReport.ROWS.reduce((s, r) => s + r.TRAININGS_SEMINARS, 0),
+      currentReport.ROWS.reduce((s, r) => s + r.ROW_TOTAL, 0)
+    ]);
+
+    exportToExcel(`Zvit_Psychologist_2.10_${activeReportYear.replace('/', '_')}`, 'Звіт 2.10', headers, dataRows);
+  };
+
   // Print helper
   const handlePrintReport = () => {
     window.print();
@@ -204,7 +386,7 @@ export const PsychologistModule: React.FC = () => {
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Моніторинг адаптації, готовність до школи, журнал консультацій та висновки
+              Моніторинг адаптації, готовність до школи, журнал консультацій та річні звіти (Форма 2.10)
             </p>
           </div>
         </div>
@@ -272,6 +454,40 @@ export const PsychologistModule: React.FC = () => {
             </button>
           )}
 
+          {activeTab === 'reports' && (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleAutoFillReport}
+                className="flex items-center space-x-1.5 px-3 py-2 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 rounded-xl font-bold text-xs hover:bg-purple-200 transition"
+                title="Автоматично розрахувати з даних консультацій та адаптації"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Автозаповнення</span>
+              </button>
+              <button
+                onClick={handleSaveCurrentReport}
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-md transition"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Зберегти звіт</span>
+              </button>
+              <button
+                onClick={handleExportReportExcel}
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Excel</span>
+              </button>
+              <button
+                onClick={handlePrintReport}
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold text-xs shadow-md transition"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Друкувати А4</span>
+              </button>
+            </div>
+          )}
+
           {activeTab === 'conclusions' && (
             <button
               onClick={handlePrintReport}
@@ -292,7 +508,8 @@ export const PsychologistModule: React.FC = () => {
             { id: 'adaptation', label: 'Картки Адаптації', icon: Smile, badge: adaptations.length },
             { id: 'readiness', label: 'Готовність до Школи', icon: GraduationCap, badge: readinessList.length },
             { id: 'consultations', label: 'Журнал Консультацій', icon: MessageSquare, badge: consultations.length },
-            { id: 'conclusions', label: 'Психологічні Висновки', icon: FileText }
+            { id: 'reports', label: 'Звіти (Форма 2.10)', icon: FileText },
+            { id: 'conclusions', label: 'Психологічні Висновки', icon: Brain }
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -321,7 +538,7 @@ export const PsychologistModule: React.FC = () => {
         </div>
 
         {/* Filters */}
-        {activeTab !== 'overview' && activeTab !== 'conclusions' && (
+        {activeTab !== 'overview' && activeTab !== 'conclusions' && activeTab !== 'reports' && (
           <div className="flex items-center space-x-3">
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
@@ -461,30 +678,28 @@ export const PsychologistModule: React.FC = () => {
                 </button>
               </div>
 
-              {/* Card 3: Consultations */}
+              {/* Card 3: Reports Form 2.10 */}
               <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400 font-bold mb-3">
-                    <MessageSquare className="w-5 h-5" />
-                    <span>Журнал консультацій</span>
+                  <div className="flex items-center space-x-2 text-purple-600 dark:text-purple-400 font-bold mb-3">
+                    <FileText className="w-5 h-5" />
+                    <span>Звіти (Форма 2.10)</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                    Фіксація звернень, індивідуальних і групових зустрічей з батьками, вихователями та вихованцями ЗДО.
+                    Зведені дані щодо роботи працівників психологічної служби за навчальний рік за 8 напрямами роботи.
                   </p>
                   <div className="space-y-1.5 mb-4">
-                    {consultations.slice(0, 2).map(c => (
-                      <div key={c.ID} className="p-2 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs">
-                        <div className="font-semibold text-slate-800 dark:text-slate-200">{c.TOPIC}</div>
-                        <div className="text-[10px] text-slate-500">{c.TARGET_NAME} • {c.DATE}</div>
-                      </div>
-                    ))}
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200">Форма 2.10 («Напрями роботи фахівців»)</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">Інтерактивна таблиця з заповненням, автозаповненням та друком А4</div>
+                    </div>
                   </div>
                 </div>
                 <button
-                  onClick={() => setActiveTab('consultations')}
-                  className="w-full py-2 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 font-semibold rounded-xl text-xs hover:bg-amber-100 transition flex items-center justify-center space-x-1"
+                  onClick={() => setActiveTab('reports')}
+                  className="w-full py-2 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-semibold rounded-xl text-xs hover:bg-purple-100 transition flex items-center justify-center space-x-1"
                 >
-                  <span>Відкрити журнал</span>
+                  <span>Перейти до Звітів</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -717,7 +932,257 @@ export const PsychologistModule: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 5: PRINTABLE PSYCHOLOGICAL CONCLUSION */}
+        {/* TAB 5: REPORTS & FORM 2.10 */}
+        {activeTab === 'reports' && (
+          <div className="space-y-6 max-w-7xl mx-auto">
+            {/* Header controls for reports */}
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
+              <div className="flex items-center space-x-3">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                  Навчальний рік:
+                </label>
+                <select
+                  value={activeReportYear}
+                  onChange={e => {
+                    setActiveReportYear(e.target.value);
+                    const found = reportsList.find(r => r.ACADEMIC_YEAR === e.target.value);
+                    if (found) setCurrentReport(found);
+                    else {
+                      const def = generateDefaultReport210(e.target.value);
+                      setCurrentReport(def);
+                    }
+                  }}
+                  className="py-1.5 px-3 text-xs bg-slate-100 dark:bg-slate-800 border rounded-xl font-bold text-purple-600 dark:text-purple-400"
+                >
+                  <option value="2024/2025 н.р.">2024/2025 н.р.</option>
+                  <option value="2025/2026 н.р.">2025/2026 н.р.</option>
+                  <option value="2026/2027 н.р.">2026/2027 н.р.</option>
+                </select>
+              </div>
+
+              <div className="text-xs text-slate-500">
+                Звіт: <span className="font-bold text-slate-900 dark:text-white">2.10. Зведені дані щодо роботи працівників психологічної служби</span>
+              </div>
+            </div>
+
+            {/* Editable & Printable Table Form 2.10 */}
+            {currentReport && (
+              <div className="bg-white text-slate-900 p-6 md:p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 print:shadow-none print:border-none print:p-0">
+                {/* Official Printable Header */}
+                <div className="text-center mb-6 border-b pb-4">
+                  <h2 className="text-base md:text-lg font-extrabold uppercase tracking-wide text-slate-900">
+                    2.10. Зведені дані щодо роботи працівників психологічної служби у {currentReport.ACADEMIC_YEAR} з дітьми
+                  </h2>
+                  <p className="text-xs text-slate-500 italic mt-1">
+                    Офіційний річний звіт за напрямами діяльності практичного психолога / соціального педагога ЗДО
+                  </p>
+                </div>
+
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse border border-slate-300">
+                    <thead className="bg-slate-100 text-slate-800 font-bold border-b border-slate-300">
+                      <tr>
+                        <th className="border border-slate-300 px-2 py-2 text-center w-8">№</th>
+                        <th className="border border-slate-300 px-3 py-2 min-w-[200px]">
+                          Напрями роботи Фахівців
+                        </th>
+                        <th className="border border-slate-300 px-2 py-2 text-center max-w-[100px]">
+                          Індивідуальна діагностика (осіб)
+                        </th>
+                        <th className="border border-slate-300 px-2 py-2 text-center max-w-[120px]">
+                          Групова діагностика / соц.-пед. дослідження (осіб)
+                        </th>
+                        <th className="border border-slate-300 px-2 py-2 text-center max-w-[100px]">
+                          Профілактика (індивідуальна) (осіб)
+                        </th>
+                        <th className="border border-slate-300 px-2 py-2 text-center max-w-[100px]">
+                          Профілактика (групова) (осіб)
+                        </th>
+                        <th className="border border-slate-300 px-2 py-2 text-center max-w-[100px]">
+                          Корекційна (індивідуальна) (осіб)
+                        </th>
+                        <th className="border border-slate-300 px-2 py-2 text-center max-w-[100px]">
+                          Корекційна (групова) (осіб)
+                        </th>
+                        <th className="border border-slate-300 px-2 py-2 text-center max-w-[110px]">
+                          Проведення ділових ігор, тренінгів (осіб)
+                        </th>
+                        <th className="border border-slate-300 px-2 py-2 text-center font-extrabold bg-purple-50 text-purple-950 w-20">
+                          Усього осіб
+                        </th>
+                        <th className="border border-slate-300 px-2 py-2 text-center no-print w-10">Дії</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentReport.ROWS.map((row, idx) => {
+                        const rowSum = (Number(row.INDIVIDUAL_DIAGNOSTICS) || 0) +
+                                       (Number(row.GROUP_DIAGNOSTICS) || 0) +
+                                       (Number(row.INDIVIDUAL_PROPHYLAXIS) || 0) +
+                                       (Number(row.GROUP_PROPHYLAXIS) || 0) +
+                                       (Number(row.INDIVIDUAL_CORRECTION) || 0) +
+                                       (Number(row.GROUP_CORRECTION) || 0) +
+                                       (Number(row.TRAININGS_SEMINARS) || 0);
+
+                        return (
+                          <tr key={row.ID || idx} className="hover:bg-slate-50">
+                            <td className="border border-slate-300 px-2 py-1.5 text-center font-bold text-slate-500">
+                              {idx + 1}
+                            </td>
+                            <td className="border border-slate-300 px-2 py-1">
+                              <input
+                                type="text"
+                                value={row.CATEGORY_NAME}
+                                onChange={e => handleCellChange(idx, 'CATEGORY_NAME', e.target.value)}
+                                className="w-full bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white px-1 py-0.5 font-medium text-slate-900"
+                              />
+                            </td>
+                            <td className="border border-slate-300 px-1 py-1 text-center">
+                              <input
+                                type="number"
+                                min={0}
+                                value={row.INDIVIDUAL_DIAGNOSTICS}
+                                onChange={e => handleCellChange(idx, 'INDIVIDUAL_DIAGNOSTICS', e.target.value)}
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                              />
+                            </td>
+                            <td className="border border-slate-300 px-1 py-1 text-center">
+                              <input
+                                type="number"
+                                min={0}
+                                value={row.GROUP_DIAGNOSTICS}
+                                onChange={e => handleCellChange(idx, 'GROUP_DIAGNOSTICS', e.target.value)}
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                              />
+                            </td>
+                            <td className="border border-slate-300 px-1 py-1 text-center">
+                              <input
+                                type="number"
+                                min={0}
+                                value={row.INDIVIDUAL_PROPHYLAXIS}
+                                onChange={e => handleCellChange(idx, 'INDIVIDUAL_PROPHYLAXIS', e.target.value)}
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                              />
+                            </td>
+                            <td className="border border-slate-300 px-1 py-1 text-center">
+                              <input
+                                type="number"
+                                min={0}
+                                value={row.GROUP_PROPHYLAXIS}
+                                onChange={e => handleCellChange(idx, 'GROUP_PROPHYLAXIS', e.target.value)}
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                              />
+                            </td>
+                            <td className="border border-slate-300 px-1 py-1 text-center">
+                              <input
+                                type="number"
+                                min={0}
+                                value={row.INDIVIDUAL_CORRECTION}
+                                onChange={e => handleCellChange(idx, 'INDIVIDUAL_CORRECTION', e.target.value)}
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                              />
+                            </td>
+                            <td className="border border-slate-300 px-1 py-1 text-center">
+                              <input
+                                type="number"
+                                min={0}
+                                value={row.GROUP_CORRECTION}
+                                onChange={e => handleCellChange(idx, 'GROUP_CORRECTION', e.target.value)}
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                              />
+                            </td>
+                            <td className="border border-slate-300 px-1 py-1 text-center">
+                              <input
+                                type="number"
+                                min={0}
+                                value={row.TRAININGS_SEMINARS}
+                                onChange={e => handleCellChange(idx, 'TRAININGS_SEMINARS', e.target.value)}
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                              />
+                            </td>
+                            <td className="border border-slate-300 px-2 py-1.5 text-center font-extrabold text-purple-900 bg-purple-50">
+                              {rowSum}
+                            </td>
+                            <td className="border border-slate-300 px-1 py-1 text-center no-print">
+                              <button
+                                onClick={() => handleDeleteReportRow(idx)}
+                                className="p-1 text-rose-500 hover:bg-rose-50 rounded"
+                                title="Видалити рядок"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+
+                    {/* Column totals */}
+                    <tfoot>
+                      <tr className="bg-slate-200 font-extrabold text-slate-900 border-t-2 border-slate-400">
+                        <td colSpan={2} className="border border-slate-300 px-3 py-2 text-right uppercase tracking-wider">
+                          УСЬОГО:
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2 text-center">
+                          {currentReport.ROWS.reduce((s, r) => s + (Number(r.INDIVIDUAL_DIAGNOSTICS) || 0), 0)}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2 text-center">
+                          {currentReport.ROWS.reduce((s, r) => s + (Number(r.GROUP_DIAGNOSTICS) || 0), 0)}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2 text-center">
+                          {currentReport.ROWS.reduce((s, r) => s + (Number(r.INDIVIDUAL_PROPHYLAXIS) || 0), 0)}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2 text-center">
+                          {currentReport.ROWS.reduce((s, r) => s + (Number(r.GROUP_PROPHYLAXIS) || 0), 0)}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2 text-center">
+                          {currentReport.ROWS.reduce((s, r) => s + (Number(r.INDIVIDUAL_CORRECTION) || 0), 0)}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2 text-center">
+                          {currentReport.ROWS.reduce((s, r) => s + (Number(r.GROUP_CORRECTION) || 0), 0)}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2 text-center">
+                          {currentReport.ROWS.reduce((s, r) => s + (Number(r.TRAININGS_SEMINARS) || 0), 0)}
+                        </td>
+                        <td className="border border-slate-300 px-2 py-2 text-center text-purple-950 bg-purple-100 font-black">
+                          {currentReport.ROWS.reduce((s, r) => {
+                            return s + (Number(r.INDIVIDUAL_DIAGNOSTICS) || 0) +
+                                       (Number(r.GROUP_DIAGNOSTICS) || 0) +
+                                       (Number(r.INDIVIDUAL_PROPHYLAXIS) || 0) +
+                                       (Number(r.GROUP_PROPHYLAXIS) || 0) +
+                                       (Number(r.INDIVIDUAL_CORRECTION) || 0) +
+                                       (Number(r.GROUP_CORRECTION) || 0) +
+                                       (Number(r.TRAININGS_SEMINARS) || 0);
+                          }, 0)}
+                        </td>
+                        <td className="border border-slate-300 no-print"></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Button to add row */}
+                <div className="mt-4 no-print flex justify-start">
+                  <button
+                    onClick={handleAddReportRow}
+                    className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 border rounded-xl text-xs font-bold text-slate-700 transition"
+                  >
+                    <Plus className="w-4 h-4 text-purple-600" />
+                    <span>Додати напрям / категорію</span>
+                  </button>
+                </div>
+
+                {/* Printable Signatures footer */}
+                <div className="mt-12 pt-6 border-t border-slate-300 flex justify-between text-xs font-bold font-serif">
+                  <div>Практичний психолог ЗДО: ____________________</div>
+                  <div>Завідувач ЗДО: ____________________</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 6: PRINTABLE PSYCHOLOGICAL CONCLUSION */}
         {activeTab === 'conclusions' && (
           <div className="space-y-6 max-w-4xl mx-auto">
             {/* Child selector */}

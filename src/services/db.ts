@@ -6,7 +6,8 @@ import {
   InvoiceHeader, StockBatch, Institution, SupplierFirm,
   ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage, PropertyItem, PropertyWriteOffRecord,
   SadokGroup, SadokEmployee, SadokChild, DishCostProfile, DishCostHistoryEntry,
-  MenuApproval, DocumentRegistryEntry, PsychologyAdaptationRecord, SchoolReadinessAssessment, PsychologyConsultation
+  MenuApproval, DocumentRegistryEntry, PsychologyAdaptationRecord, SchoolReadinessAssessment, PsychologyConsultation,
+  PsychologyReportRow, PsychologySummaryReport
 } from '../types';
 import {
   planFifoDeductions,
@@ -2666,4 +2667,102 @@ export function deletePsychologyConsultation(id: number): PsychologyConsultation
   localStorage.setItem('sadok_psychology_consultations', JSON.stringify(updated));
   return updated;
 }
+
+// Summary Reports (Form 2.10 and others)
+export const DEFAULT_FORM_210_CATEGORIES = [
+  'Вихованці ясельних груп (1-3 роки)',
+  'Вихованці молодших груп (3-4 роки)',
+  'Вихованці середніх груп (4-5 років)',
+  'Вихованці старших груп (5-6/7 років)',
+  'Діти з особливими освітніми потребами (ООП / Інклюзія)',
+  'Батьки або законні представники вихованців',
+  'Педагогічні працівники ЗДО (вихователі, фахівці)'
+];
+
+export function generateDefaultReport210(academicYear = '2024/2025 н.р.'): PsychologySummaryReport {
+  const rows: PsychologyReportRow[] = DEFAULT_FORM_210_CATEGORIES.map((catName, idx) => ({
+    ID: `row_${idx + 1}`,
+    CATEGORY_NAME: catName,
+    INDIVIDUAL_DIAGNOSTICS: idx === 0 ? 12 : (idx === 1 ? 15 : (idx === 3 ? 24 : 5)),
+    GROUP_DIAGNOSTICS: idx === 0 ? 0 : (idx === 3 ? 24 : 18),
+    INDIVIDUAL_PROPHYLAXIS: idx === 5 ? 14 : 8,
+    GROUP_PROPHYLAXIS: idx === 6 ? 12 : 25,
+    INDIVIDUAL_CORRECTION: idx === 4 ? 6 : 4,
+    GROUP_CORRECTION: idx === 3 ? 10 : 0,
+    TRAININGS_SEMINARS: idx === 5 ? 30 : (idx === 6 ? 18 : 0),
+    ROW_TOTAL: 0
+  })).map(r => ({
+    ...r,
+    ROW_TOTAL: r.INDIVIDUAL_DIAGNOSTICS + r.GROUP_DIAGNOSTICS + r.INDIVIDUAL_PROPHYLAXIS + r.GROUP_PROPHYLAXIS + r.INDIVIDUAL_CORRECTION + r.GROUP_CORRECTION + r.TRAININGS_SEMINARS
+  }));
+
+  return {
+    ID: 1,
+    TITLE: '2.10. Зведені дані щодо роботи працівників психологічної служби',
+    ACADEMIC_YEAR: academicYear,
+    REPORT_TYPE: '2.10_SUMMARY',
+    ROWS: rows,
+    NOTES: 'Автоматично згенерований річний звіт психологічної служби ЗДО',
+    CREATED_AT: new Date().toISOString().split('T')[0],
+    UPDATED_AT: new Date().toISOString().split('T')[0]
+  };
+}
+
+export function getPsychologySummaryReports(): PsychologySummaryReport[] {
+  const saved = localStorage.getItem('sadok_psychology_summary_reports');
+  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+  const defaultReport = generateDefaultReport210('2024/2025 н.р.');
+  const initial = [defaultReport];
+  localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(initial));
+  return initial;
+}
+
+export function savePsychologySummaryReport(report: Partial<PsychologySummaryReport> & { TITLE: string; ROWS: PsychologyReportRow[] }): PsychologySummaryReport[] {
+  const current = getPsychologySummaryReports();
+  let updated: PsychologySummaryReport[];
+  
+  // Recalculate row totals
+  const processedRows = report.ROWS.map(r => ({
+    ...r,
+    ROW_TOTAL: (Number(r.INDIVIDUAL_DIAGNOSTICS) || 0) +
+               (Number(r.GROUP_DIAGNOSTICS) || 0) +
+               (Number(r.INDIVIDUAL_PROPHYLAXIS) || 0) +
+               (Number(r.GROUP_PROPHYLAXIS) || 0) +
+               (Number(r.INDIVIDUAL_CORRECTION) || 0) +
+               (Number(r.GROUP_CORRECTION) || 0) +
+               (Number(r.TRAININGS_SEMINARS) || 0)
+  }));
+
+  if (report.ID) {
+    updated = current.map(item => item.ID === report.ID ? {
+      ...item,
+      ...report,
+      ROWS: processedRows,
+      UPDATED_AT: new Date().toISOString().split('T')[0]
+    } as PsychologySummaryReport : item);
+  } else {
+    const newId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newRecord: PsychologySummaryReport = {
+      ID: newId,
+      TITLE: report.TITLE,
+      ACADEMIC_YEAR: report.ACADEMIC_YEAR || '2024/2025 н.р.',
+      REPORT_TYPE: report.REPORT_TYPE || '2.10_SUMMARY',
+      ROWS: processedRows,
+      NOTES: report.NOTES || '',
+      CREATED_AT: new Date().toISOString().split('T')[0],
+      UPDATED_AT: new Date().toISOString().split('T')[0]
+    };
+    updated = [newRecord, ...current];
+  }
+  localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
+  return updated;
+}
+
+export function deletePsychologySummaryReport(id: number): PsychologySummaryReport[] {
+  const current = getPsychologySummaryReports();
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
+  return updated;
+}
+
 

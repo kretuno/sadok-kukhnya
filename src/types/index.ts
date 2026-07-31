@@ -349,3 +349,28 @@ export interface PsychologyConsultation {
   STATUS: 'Заплановано' | 'Проведено' | 'Перенесено';
 }
 
+export interface PsychologyReportRow {
+  ID: string;
+  CATEGORY_NAME: string; // Напрями роботи / Категорія
+  INDIVIDUAL_DIAGNOSTICS: number;
+  GROUP_DIAGNOSTICS: number;
+  INDIVIDUAL_PROPHYLAXIS: number;
+  GROUP_PROPHYLAXIS: number;
+  INDIVIDUAL_CORRECTION: number;
+  GROUP_CORRECTION: number;
+  TRAININGS_SEMINARS: number;
+  ROW_TOTAL: number;
+}
+
+export interface PsychologySummaryReport {
+  ID: number;
+  TITLE: string;
+  ACADEMIC_YEAR: string; // e.g. "2024/2025 н.р."
+  REPORT_TYPE: '2.10_SUMMARY' | 'ADAPTATION_SUMMARY' | 'SCHOOL_READINESS_SUMMARY';
+  ROWS: PsychologyReportRow[];
+  NOTES?: string;
+  CREATED_AT: string;
+  UPDATED_AT: string;
+}
+
+
