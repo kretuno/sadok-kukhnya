@@ -308,7 +308,7 @@ export const PsychologistModule: React.FC = () => {
       ACADEMIC_YEAR: activeReportYear
     });
     setReportsList(updated);
-    alert('Звіт за 2.10 успішно збережено!');
+    alert('Звіт успішно збережено!');
   };
 
   const handleExportReportExcel = () => {
@@ -947,7 +947,7 @@ export const PsychologistModule: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 5: REPORTS (ЗВІТИ) - EXACT 1 IN 1 GORONO FORMAT */}
+        {/* TAB 5: REPORTS (ЗВІТИ) - EXACT 1 IN 1 GORONO FORMAT WITH CRYSTAL PRINT */}
         {activeTab === 'reports' && (
           <div className="space-y-6 max-w-7xl mx-auto">
             {/* Header selector for reports catalog & academic year */}
@@ -1008,20 +1008,20 @@ export const PsychologistModule: React.FC = () => {
               <div className="bg-white text-slate-900 p-6 md:p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 print:shadow-none print:border-none print:p-0">
                 
                 {/* Official 1-in-1 Header from DOCX */}
-                <div className="mb-6">
-                  <div className="text-xs font-bold text-slate-600 mb-1">
-                    ЗВЕДЕНИЙ ЗВІТ ПСИХОЛОГІЧНОЇ СЛУЖБИ
+                <div className="mb-6 border-b pb-4 print:border-b-2 print:border-black">
+                  <div className="text-xs font-bold text-slate-600 print:text-black mb-1">
+                    ЗВЕДЕНИЙ ЗВІТ ПСИХОЛОГІЧНОЇ СЛУЖБИ ЗДО
                   </div>
-                  <h2 className="text-base md:text-lg font-bold text-slate-900 leading-tight">
+                  <h2 className="text-base md:text-lg font-bold text-slate-900 print:text-black leading-tight">
                     2.10. Зведені дані щодо роботи працівників психологічної служби у {currentReport.ACADEMIC_YEAR} з дітьми
                   </h2>
                 </div>
 
                 {/* Table 1 in 1 as in docx file */}
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse border border-black font-sans">
+                  <table className="w-full text-left text-xs border-collapse border border-black font-sans print:font-serif">
                     <thead>
-                      <tr className="bg-slate-100 text-slate-900 font-bold text-center border-b border-black">
+                      <tr className="bg-slate-100 print:bg-slate-200 text-slate-900 font-bold text-center border-b border-black">
                         <th className="border border-black px-3 py-3 font-bold text-left min-w-[220px]">
                           Напрями роботи Фахівців
                         </th>
@@ -1065,74 +1065,82 @@ export const PsychologistModule: React.FC = () => {
                         return (
                           <tr key={row.ID || idx} className="hover:bg-purple-50/20">
                             <td className="border border-black px-2 py-1.5">
+                              <span className="hidden print:inline font-semibold">{row.CATEGORY_NAME}</span>
                               <input
                                 type="text"
                                 value={row.CATEGORY_NAME}
                                 onChange={e => handleCellChange(idx, 'CATEGORY_NAME', e.target.value)}
-                                className="w-full bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white px-1 py-0.5 font-medium text-slate-900"
+                                className="w-full bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white px-1 py-0.5 font-medium text-slate-900 no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center">
+                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                              <span className="hidden print:inline">{row.INDIVIDUAL_DIAGNOSTICS || 0}</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={row.INDIVIDUAL_DIAGNOSTICS || ''}
                                 onChange={e => handleCellChange(idx, 'INDIVIDUAL_DIAGNOSTICS', e.target.value)}
-                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center">
+                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                              <span className="hidden print:inline">{row.GROUP_DIAGNOSTICS || 0}</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={row.GROUP_DIAGNOSTICS || ''}
                                 onChange={e => handleCellChange(idx, 'GROUP_DIAGNOSTICS', e.target.value)}
-                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center">
+                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                              <span className="hidden print:inline">{row.INDIVIDUAL_PROPHYLAXIS || 0}</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={row.INDIVIDUAL_PROPHYLAXIS || ''}
                                 onChange={e => handleCellChange(idx, 'INDIVIDUAL_PROPHYLAXIS', e.target.value)}
-                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center">
+                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                              <span className="hidden print:inline">{row.GROUP_PROPHYLAXIS || 0}</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={row.GROUP_PROPHYLAXIS || ''}
                                 onChange={e => handleCellChange(idx, 'GROUP_PROPHYLAXIS', e.target.value)}
-                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center">
+                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                              <span className="hidden print:inline">{row.INDIVIDUAL_CORRECTION || 0}</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={row.INDIVIDUAL_CORRECTION || ''}
                                 onChange={e => handleCellChange(idx, 'INDIVIDUAL_CORRECTION', e.target.value)}
-                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center">
+                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                              <span className="hidden print:inline">{row.GROUP_CORRECTION || 0}</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={row.GROUP_CORRECTION || ''}
                                 onChange={e => handleCellChange(idx, 'GROUP_CORRECTION', e.target.value)}
-                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center">
+                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                              <span className="hidden print:inline">{row.TRAININGS_SEMINARS || 0}</span>
                               <input
                                 type="number"
                                 min={0}
                                 value={row.TRAININGS_SEMINARS || ''}
                                 onChange={e => handleCellChange(idx, 'TRAININGS_SEMINARS', e.target.value)}
-                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold"
+                                className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
                             <td className="border border-black px-2 py-1.5 text-center font-extrabold text-purple-950 bg-purple-50/50 no-print">
@@ -1154,7 +1162,7 @@ export const PsychologistModule: React.FC = () => {
 
                     {/* Column totals */}
                     <tfoot>
-                      <tr className="bg-slate-100 font-extrabold text-slate-900 border-t-2 border-black">
+                      <tr className="bg-slate-100 print:bg-slate-200 font-extrabold text-slate-900 border-t-2 border-black">
                         <td className="border border-black px-3 py-2 text-right uppercase tracking-wider">
                           УСЬОГО:
                         </td>

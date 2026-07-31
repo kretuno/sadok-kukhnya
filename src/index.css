@@ -56,6 +56,16 @@
 .print-heading-only { display: none !important; }
 
 @media print {
+  /* Print utilities */
+  .hidden.print\:inline,
+  .print\:inline {
+    display: inline !important;
+  }
+  .hidden.print\:block,
+  .print\:block {
+    display: block !important;
+  }
+
   /* Strictly hide all screen elements */
   .no-print,
   .no-print *,
