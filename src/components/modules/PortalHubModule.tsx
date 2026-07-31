@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { APP_VERSION } from '../../config/version';
 import {
   Utensils,
   Package,
@@ -208,7 +209,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
               <div className="text-xs font-black text-white">Універсальний онлайн-комплекс</div>
               <div className="text-[10px] font-bold text-emerald-300 dark:text-emerald-400 flex items-center space-x-1 mt-0.5">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Версія системи v1.0.44</span>
+                <span>Версія системи v{APP_VERSION}</span>
               </div>
             </div>
           </div>

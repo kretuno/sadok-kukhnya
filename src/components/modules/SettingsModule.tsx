@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { APP_VERSION } from '../../config/version';
 import { Database, Building, HardDrive, CheckCircle2, ShieldCheck, Monitor, Trash2, AlertTriangle, Save, User, Phone, MapPin, Hash, Clock, DollarSign, PackageCheck, Download, Upload, Sliders, Utensils, Plus, Layers, ToggleLeft, ToggleRight, AlertCircle, FileText } from 'lucide-react';
 import { getInstitutions, updateInstitution, addInstitution, deleteInstitution, resetDatabaseToDefaults, exportSqliteFile, importSqliteFile } from '../../services/db';
 import { Institution } from '../../types';
@@ -200,7 +201,7 @@ export const SettingsModule: React.FC = () => {
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-800 dark:text-slate-100">
-                SADOK v1.0.44 (Налаштування системи)
+                SADOK v{APP_VERSION} (Налаштування системи)
               </h2>
               <p className="text-slate-500 dark:text-slate-400 mt-0.5">
                 Параметри закладу дошкільної освіти, реквізити, ліміти вартості та складські правила

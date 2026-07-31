@@ -1,5 +1,6 @@
 import React from 'react';
 import { SadokLogo } from './SadokLogo';
+import { APP_VERSION } from '../config/version';
 import {
   FileText,
   BookOpen,
@@ -96,7 +97,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6 overflow-x-auto max-w-full">
-          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.44' : (isCadresContext ? 'Контингент v1.0.44' : (isPsychologistContext ? 'Психолог v1.0.44' : 'v1.0.44'))} />
+          <SadokLogo size="sm" subtitle={isPropertyContext ? `Майно v${APP_VERSION}` : (isCadresContext ? `Контингент v${APP_VERSION}` : (isPsychologistContext ? `Психолог v${APP_VERSION}` : `v${APP_VERSION}`))} />
           <nav className="flex space-x-4 text-slate-300 overflow-x-auto whitespace-nowrap py-0.5 shrink-0">
             <button onClick={() => setActiveTab('portal')} className="text-amber-400 font-extrabold hover:text-amber-300 transition flex items-center space-x-1"><span>🏠 Головне меню</span></button>
             {isPropertyContext && (

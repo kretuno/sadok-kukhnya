@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { APP_VERSION } from '../../config/version';
 import {
   Brain,
   Plus,
@@ -429,7 +430,7 @@ export const PsychologistModule: React.FC = () => {
                 SADOK Психолог
               </h1>
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                v1.0.44
+                v{APP_VERSION}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
