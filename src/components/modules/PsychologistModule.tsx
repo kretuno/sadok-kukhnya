@@ -17,7 +17,9 @@ import {
   Download,
   Save,
   Sparkles,
-  FolderOpen
+  FolderOpen,
+  Layout,
+  Maximize2
 } from 'lucide-react';
 import {
   getChildren,
@@ -63,6 +65,9 @@ export const PsychologistModule: React.FC = () => {
   const [selectedReportId, setSelectedReportId] = useState<number>(1);
   const [activeReportYear, setActiveReportYear] = useState<string>('2024/2025 н.р.');
   const [currentReport, setCurrentReport] = useState<PsychologySummaryReport | null>(null);
+
+  // Print settings state
+  const [printOrientation, setPrintOrientation] = useState<'landscape' | 'portrait'>('landscape');
 
   // Modals state
   const [isAdaptationModalOpen, setIsAdaptationModalOpen] = useState(false);
@@ -407,6 +412,11 @@ export const PsychologistModule: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 overflow-y-auto md:overflow-hidden">
+      {/* Dynamic Page Print Orientation CSS Injection */}
+      <style dangerouslySetInnerHTML={{
+        __html: `@media print { @page { size: A4 ${printOrientation}; margin: 6mm 8mm; } }`
+      }} />
+
       {/* Module Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 no-print shrink-0 shadow-sm">
         <div className="flex items-center space-x-3">
@@ -419,7 +429,7 @@ export const PsychologistModule: React.FC = () => {
                 SADOK Психолог
               </h1>
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
-                v1.0.43
+                v1.0.44
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
@@ -492,7 +502,37 @@ export const PsychologistModule: React.FC = () => {
           )}
 
           {activeTab === 'reports' && (
-            <div className="flex items-center space-x-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Orientation selector */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setPrintOrientation('landscape')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 ${
+                    printOrientation === 'landscape'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                  title="Альбомна орієнтація (Landscape) - Рекомендовано для 8 колонок"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span>Альбомна</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrintOrientation('portrait')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1 ${
+                    printOrientation === 'portrait'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                  title="Книжна орієнтація (Portrait)"
+                >
+                  <Layout className="w-3.5 h-3.5" />
+                  <span>Книжна</span>
+                </button>
+              </div>
+
               <button
                 onClick={handleCreateNewReport}
                 className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border rounded-xl font-bold text-xs hover:bg-slate-200 transition"
@@ -976,7 +1016,7 @@ export const PsychologistModule: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 5: REPORTS (ЗВІТИ) - EXACT 1 IN 1 GORONO FORMAT WITH MULTI-REPORT STORAGE */}
+        {/* TAB 5: REPORTS (ЗВІТИ) - EXACT 1 IN 1 GORONO FORMAT WITH COMPACT PRINT FIT */}
         {activeTab === 'reports' && (
           <div className="space-y-6 max-w-7xl mx-auto">
             {/* Header selector for reports catalog & academic year */}
@@ -1038,57 +1078,57 @@ export const PsychologistModule: React.FC = () => {
               </div>
 
               <div className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center space-x-1">
-                <span>✓ Всі звіти надійно збережені в базі</span>
+                <span>✓ Повний захист від розриву сторінок при друку</span>
               </div>
             </div>
 
-            {/* Editable & Printable Table Form 2.10 - EXACT REPLICA 1 IN 1 */}
+            {/* Editable & Printable Table Form 2.10 - EXACT REPLICA 1 IN 1 WITH SINGLE PAGE FIT */}
             {currentReport && (
-              <div className="bg-white text-slate-900 p-6 md:p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 print:shadow-none print:border-none print:p-0">
+              <div className="bg-white text-slate-900 p-6 md:p-8 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 print:shadow-none print:border-none print:p-0 print-single-page">
                 
                 {/* Official 1-in-1 Header from DOCX */}
-                <div className="mb-6 border-b pb-4 print:border-b-2 print:border-black">
-                  <div className="text-xs font-bold text-slate-600 print:text-black mb-1">
+                <div className="mb-4 print:mb-2 border-b pb-3 print:pb-1.5 print:border-b-2 print:border-black">
+                  <div className="text-xs font-bold text-slate-600 print:text-black mb-0.5">
                     ЗВЕДЕНИЙ ЗВІТ ПСИХОЛОГІЧНОЇ СЛУЖБИ ЗДО
                   </div>
-                  <h2 className="text-base md:text-lg font-bold text-slate-900 print:text-black leading-tight">
+                  <h2 className="text-base md:text-lg font-bold text-slate-900 print:text-black leading-tight print:text-sm">
                     2.10. Зведені дані щодо роботи працівників психологічної служби у {currentReport.ACADEMIC_YEAR} з дітьми
                   </h2>
                 </div>
 
                 {/* Table 1 in 1 as in docx file */}
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto print:overflow-visible">
                   <table className="w-full text-left text-xs border-collapse border border-black font-sans print:font-serif">
                     <thead>
                       <tr className="bg-slate-100 print:bg-slate-200 text-slate-900 font-bold text-center border-b border-black">
-                        <th className="border border-black px-3 py-3 font-bold text-left min-w-[220px]">
+                        <th className="border border-black px-2 py-2 print:py-1 font-bold text-left min-w-[200px]">
                           Напрями роботи Фахівців
                         </th>
-                        <th className="border border-black px-2 py-3 font-bold text-center max-w-[130px]">
+                        <th className="border border-black px-1 py-2 print:py-1 font-bold text-center max-w-[120px]">
                           Індивідуальна діагностика, охоплено осіб
                         </th>
-                        <th className="border border-black px-2 py-3 font-bold text-center max-w-[170px]">
+                        <th className="border border-black px-1 py-2 print:py-1 font-bold text-center max-w-[150px]">
                           Групова діагностика соціально-психологічні/педагогічні дослідження, охоплено осіб
                         </th>
-                        <th className="border border-black px-2 py-3 font-bold text-center max-w-[130px]">
+                        <th className="border border-black px-1 py-2 print:py-1 font-bold text-center max-w-[120px]">
                           Профілактика (індивідуальна), охоплено осіб
                         </th>
-                        <th className="border border-black px-2 py-3 font-bold text-center max-w-[130px]">
+                        <th className="border border-black px-1 py-2 print:py-1 font-bold text-center max-w-[120px]">
                           Профілактика (групова), охоплено осіб
                         </th>
-                        <th className="border border-black px-2 py-3 font-bold text-center max-w-[130px]">
+                        <th className="border border-black px-1 py-2 print:py-1 font-bold text-center max-w-[120px]">
                           Корекційна (індивідуальна), охоплено осіб
                         </th>
-                        <th className="border border-black px-2 py-3 font-bold text-center max-w-[130px]">
+                        <th className="border border-black px-1 py-2 print:py-1 font-bold text-center max-w-[120px]">
                           Корекційна (групова), охоплено осіб
                         </th>
-                        <th className="border border-black px-2 py-3 font-bold text-center max-w-[150px]">
+                        <th className="border border-black px-1 py-2 print:py-1 font-bold text-center max-w-[140px]">
                           Проведення ділових ігор, тренінгів, охоплено осіб
                         </th>
-                        <th className="border border-black px-2 py-3 text-center font-bold bg-purple-50 text-purple-950 w-24 no-print">
+                        <th className="border border-black px-2 py-2 text-center font-bold bg-purple-50 text-purple-950 w-24 no-print">
                           Разом осіб
                         </th>
-                        <th className="border border-black px-2 py-3 text-center no-print w-10">Дії</th>
+                        <th className="border border-black px-2 py-2 text-center no-print w-10">Дії</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1103,7 +1143,7 @@ export const PsychologistModule: React.FC = () => {
 
                         return (
                           <tr key={row.ID || idx} className="hover:bg-purple-50/20">
-                            <td className="border border-black px-2 py-1.5">
+                            <td className="border border-black px-2 py-1 print:py-0.5">
                               <span className="hidden print:inline font-semibold">{row.CATEGORY_NAME}</span>
                               <input
                                 type="text"
@@ -1112,7 +1152,7 @@ export const PsychologistModule: React.FC = () => {
                                 className="w-full bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white px-1 py-0.5 font-medium text-slate-900 no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                            <td className="border border-black px-1 py-1 print:py-0.5 text-center font-semibold">
                               <span className="hidden print:inline">{row.INDIVIDUAL_DIAGNOSTICS || 0}</span>
                               <input
                                 type="number"
@@ -1122,7 +1162,7 @@ export const PsychologistModule: React.FC = () => {
                                 className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                            <td className="border border-black px-1 py-1 print:py-0.5 text-center font-semibold">
                               <span className="hidden print:inline">{row.GROUP_DIAGNOSTICS || 0}</span>
                               <input
                                 type="number"
@@ -1132,7 +1172,7 @@ export const PsychologistModule: React.FC = () => {
                                 className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                            <td className="border border-black px-1 py-1 print:py-0.5 text-center font-semibold">
                               <span className="hidden print:inline">{row.INDIVIDUAL_PROPHYLAXIS || 0}</span>
                               <input
                                 type="number"
@@ -1142,7 +1182,7 @@ export const PsychologistModule: React.FC = () => {
                                 className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                            <td className="border border-black px-1 py-1 print:py-0.5 text-center font-semibold">
                               <span className="hidden print:inline">{row.GROUP_PROPHYLAXIS || 0}</span>
                               <input
                                 type="number"
@@ -1152,7 +1192,7 @@ export const PsychologistModule: React.FC = () => {
                                 className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                            <td className="border border-black px-1 py-1 print:py-0.5 text-center font-semibold">
                               <span className="hidden print:inline">{row.INDIVIDUAL_CORRECTION || 0}</span>
                               <input
                                 type="number"
@@ -1162,7 +1202,7 @@ export const PsychologistModule: React.FC = () => {
                                 className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                            <td className="border border-black px-1 py-1 print:py-0.5 text-center font-semibold">
                               <span className="hidden print:inline">{row.GROUP_CORRECTION || 0}</span>
                               <input
                                 type="number"
@@ -1172,7 +1212,7 @@ export const PsychologistModule: React.FC = () => {
                                 className="w-full text-center bg-transparent border-b border-transparent hover:border-slate-400 focus:border-purple-600 focus:bg-white font-semibold no-print"
                               />
                             </td>
-                            <td className="border border-black px-1 py-1 text-center font-semibold">
+                            <td className="border border-black px-1 py-1 print:py-0.5 text-center font-semibold">
                               <span className="hidden print:inline">{row.TRAININGS_SEMINARS || 0}</span>
                               <input
                                 type="number"
@@ -1202,31 +1242,31 @@ export const PsychologistModule: React.FC = () => {
                     {/* Column totals */}
                     <tfoot>
                       <tr className="bg-slate-100 print:bg-slate-200 font-extrabold text-slate-900 border-t-2 border-black">
-                        <td className="border border-black px-3 py-2 text-right uppercase tracking-wider">
+                        <td className="border border-black px-2 py-1.5 print:py-1 text-right uppercase tracking-wider">
                           УСЬОГО:
                         </td>
-                        <td className="border border-black px-2 py-2 text-center">
+                        <td className="border border-black px-1 py-1.5 print:py-1 text-center">
                           {currentReport.ROWS.reduce((s, r) => s + (Number(r.INDIVIDUAL_DIAGNOSTICS) || 0), 0)}
                         </td>
-                        <td className="border border-black px-2 py-2 text-center">
+                        <td className="border border-black px-1 py-1.5 print:py-1 text-center">
                           {currentReport.ROWS.reduce((s, r) => s + (Number(r.GROUP_DIAGNOSTICS) || 0), 0)}
                         </td>
-                        <td className="border border-black px-2 py-2 text-center">
+                        <td className="border border-black px-1 py-1.5 print:py-1 text-center">
                           {currentReport.ROWS.reduce((s, r) => s + (Number(r.INDIVIDUAL_PROPHYLAXIS) || 0), 0)}
                         </td>
-                        <td className="border border-black px-2 py-2 text-center">
+                        <td className="border border-black px-1 py-1.5 print:py-1 text-center">
                           {currentReport.ROWS.reduce((s, r) => s + (Number(r.GROUP_PROPHYLAXIS) || 0), 0)}
                         </td>
-                        <td className="border border-black px-2 py-2 text-center">
+                        <td className="border border-black px-1 py-1.5 print:py-1 text-center">
                           {currentReport.ROWS.reduce((s, r) => s + (Number(r.INDIVIDUAL_CORRECTION) || 0), 0)}
                         </td>
-                        <td className="border border-black px-2 py-2 text-center">
+                        <td className="border border-black px-1 py-1.5 print:py-1 text-center">
                           {currentReport.ROWS.reduce((s, r) => s + (Number(r.GROUP_CORRECTION) || 0), 0)}
                         </td>
-                        <td className="border border-black px-2 py-2 text-center">
+                        <td className="border border-black px-1 py-1.5 print:py-1 text-center">
                           {currentReport.ROWS.reduce((s, r) => s + (Number(r.TRAININGS_SEMINARS) || 0), 0)}
                         </td>
-                        <td className="border border-black px-2 py-2 text-center text-purple-950 bg-purple-100 font-black no-print">
+                        <td className="border border-black px-2 py-1.5 text-center text-purple-950 bg-purple-100 font-black no-print">
                           {currentReport.ROWS.reduce((s, r) => {
                             return s + (Number(r.INDIVIDUAL_DIAGNOSTICS) || 0) +
                                        (Number(r.GROUP_DIAGNOSTICS) || 0) +
@@ -1255,7 +1295,7 @@ export const PsychologistModule: React.FC = () => {
                 </div>
 
                 {/* Printable Signatures footer */}
-                <div className="mt-12 pt-6 border-t border-slate-400 flex justify-between text-xs font-bold font-serif">
+                <div className="mt-6 print:mt-4 pt-4 print:pt-2 border-t border-slate-400 flex justify-between text-xs font-bold font-serif">
                   <div>Практичний психолог ЗДО: ____________________</div>
                   <div>Завідувач ЗДО: ____________________</div>
                 </div>

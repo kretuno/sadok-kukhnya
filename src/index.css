@@ -164,9 +164,22 @@
     margin: 0 !important;
   }
 
-  @page {
-    size: A4 landscape;
-    margin: 8mm 10mm 10mm 10mm;
+  /* Single-page fit optimization for GORONO report */
+  .print-single-page {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    max-height: 100% !important;
+  }
+  .print-single-page table {
+    font-size: 8.5pt !important;
+    line-height: 1.15 !important;
+  }
+  .print-single-page th,
+  .print-single-page td {
+    padding-top: 2pt !important;
+    padding-bottom: 2pt !important;
+    padding-left: 3pt !important;
+    padding-right: 3pt !important;
   }
 
   .print-portrait {
@@ -175,7 +188,7 @@
 
   @page portrait-document {
     size: A4 portrait;
-    margin: 10mm;
+    margin: 8mm 10mm;
   }
 
   /* Document Header */
