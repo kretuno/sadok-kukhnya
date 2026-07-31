@@ -32,6 +32,7 @@ import {
   deletePsychologyConsultation,
   getPsychologySummaryReports,
   savePsychologySummaryReport,
+  deletePsychologySummaryReport,
   generateDefaultReport210
 } from '../../services/db';
 import { exportToExcel } from '../../services/export';
@@ -303,12 +304,32 @@ export const PsychologistModule: React.FC = () => {
 
   const handleSaveCurrentReport = () => {
     if (!currentReport) return;
-    const updated = savePsychologySummaryReport({
+    const reportToSave: PsychologySummaryReport = {
       ...currentReport,
       ACADEMIC_YEAR: activeReportYear
-    });
-    setReportsList(updated);
-    alert('Звіт успішно збережено!');
+    };
+    const updatedList = savePsychologySummaryReport(reportToSave);
+    setReportsList(updatedList);
+    setCurrentReport(reportToSave);
+    setSelectedReportId(reportToSave.ID);
+    alert(`Звіт «${reportToSave.TITLE}» успішно збережено!`);
+  };
+
+  const handleDeleteSelectedReport = () => {
+    if (!currentReport) return;
+    if (reportsList.length <= 1) {
+      alert('Неможливо видалити єдиний звіт.');
+      return;
+    }
+    if (confirm(`Ви впевнені, що хочете видалити звіт «${currentReport.TITLE}»?`)) {
+      const updated = deletePsychologySummaryReport(currentReport.ID);
+      setReportsList(updated);
+      if (updated.length > 0) {
+        setCurrentReport(updated[0]);
+        setSelectedReportId(updated[0].ID);
+        setActiveReportYear(updated[0].ACADEMIC_YEAR);
+      }
+    }
   };
 
   const handleExportReportExcel = () => {
@@ -351,17 +372,25 @@ export const PsychologistModule: React.FC = () => {
   };
 
   const handleCreateNewReport = () => {
-    const title = prompt('Введіть назву нового звіту:', '2.10. Зведені дані щодо роботи працівників психологічної служби');
+    const title = prompt('Введіть назву нового звіту:', `Форма 2.10 (Звіт №${reportsList.length + 1})`);
     if (!title) return;
     const year = prompt('Введіть навчальний рік:', activeReportYear) || activeReportYear;
+    
+    // First, auto-save the current report if modified
+    if (currentReport) {
+      savePsychologySummaryReport(currentReport);
+    }
+
     const newRep = generateDefaultReport210(year);
     newRep.ID = Date.now();
     newRep.TITLE = title;
+
     const updated = savePsychologySummaryReport(newRep);
     setReportsList(updated);
     setCurrentReport(newRep);
     setSelectedReportId(newRep.ID);
     setActiveReportYear(year);
+    alert(`Створено новий звіт «${title}»! Всі ваші попередні звіти збережені у списку.`);
   };
 
   // Print helper
@@ -947,16 +976,16 @@ export const PsychologistModule: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 5: REPORTS (ЗВІТИ) - EXACT 1 IN 1 GORONO FORMAT WITH CRYSTAL PRINT */}
+        {/* TAB 5: REPORTS (ЗВІТИ) - EXACT 1 IN 1 GORONO FORMAT WITH MULTI-REPORT STORAGE */}
         {activeTab === 'reports' && (
           <div className="space-y-6 max-w-7xl mx-auto">
             {/* Header selector for reports catalog & academic year */}
             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 no-print">
-              <div className="flex flex-wrap items-center gap-4">
+              <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center space-x-2">
                   <FolderOpen className="w-4 h-4 text-purple-600" />
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Оберіть звіт:
+                    Реєстр збережених звітів ({reportsList.length}):
                   </label>
                   <select
                     value={selectedReportId}
@@ -996,10 +1025,20 @@ export const PsychologistModule: React.FC = () => {
                     <option value="2026/2027 н.р.">2026/2027 н.р.</option>
                   </select>
                 </div>
+
+                {reportsList.length > 1 && (
+                  <button
+                    onClick={handleDeleteSelectedReport}
+                    className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl border border-rose-200 dark:border-rose-900 transition"
+                    title="Видалити цей звіт із реєстру"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               <div className="text-xs text-emerald-600 dark:text-emerald-400 font-bold flex items-center space-x-1">
-                <span>✓ Офіційна форма ГОРОНО</span>
+                <span>✓ Всі звіти надійно збережені в базі</span>
               </div>
             </div>
 
@@ -1632,7 +1671,7 @@ export const PsychologistModule: React.FC = () => {
               <div className="pt-3 flex justify-end space-x-2 border-t">
                 <button
                   type="button"
-                  onClick={() => setIsConsultationModalOpen(false)}
+                  onClick={() => setIsAdaptationModalOpen(false)}
                   className="px-4 py-2 bg-slate-200 dark:bg-slate-800 font-bold rounded-xl"
                 >
                   Скасувати

@@ -2733,7 +2733,9 @@ export function savePsychologySummaryReport(report: Partial<PsychologySummaryRep
                (Number(r.TRAININGS_SEMINARS) || 0)
   }));
 
-  if (report.ID) {
+  const existingIndex = report.ID ? current.findIndex(item => item.ID === report.ID) : -1;
+
+  if (existingIndex >= 0) {
     updated = current.map(item => item.ID === report.ID ? {
       ...item,
       ...report,
@@ -2741,7 +2743,7 @@ export function savePsychologySummaryReport(report: Partial<PsychologySummaryRep
       UPDATED_AT: new Date().toISOString().split('T')[0]
     } as PsychologySummaryReport : item);
   } else {
-    const newId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newId = report.ID || (current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : Date.now());
     const newRecord: PsychologySummaryReport = {
       ID: newId,
       TITLE: report.TITLE,
