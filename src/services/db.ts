@@ -6,7 +6,7 @@ import {
   InvoiceHeader, StockBatch, Institution, SupplierFirm,
   ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage, PropertyItem, PropertyWriteOffRecord,
   SadokGroup, SadokEmployee, SadokChild, DishCostProfile, DishCostHistoryEntry,
-  MenuApproval, DocumentRegistryEntry
+  MenuApproval, DocumentRegistryEntry, PsychologyAdaptationRecord, SchoolReadinessAssessment, PsychologyConsultation
 } from '../types';
 import {
   planFifoDeductions,
@@ -2441,3 +2441,229 @@ export function restoreArchivedRecord(archiveId: string): void {
   markArchiveRestored(archiveId);
   saveDatabaseToDisk();
 }
+
+// -----------------------------------------------------------------
+// PSYCHOLOGIST MODULE STORAGE & HELPERS
+// -----------------------------------------------------------------
+
+const INITIAL_PSYCHOLOGY_ADAPTATION: PsychologyAdaptationRecord[] = [
+  {
+    ID: 1,
+    CHILD_ID: 1,
+    CHILD_NAME: 'Петренко Тарас Іванович',
+    GROUP_NAME: 'Група «Сонечко» (Молодша)',
+    START_DATE: '2026-09-01',
+    WEEK_NUMBER: 2,
+    EMOTIONAL_STATE: 'Позитивний',
+    ANXIETY_LEVEL: 'Низький',
+    APPETITE: 'Хороший',
+    SLEEP: 'Спокійний',
+    SOCIAL_INTERACTION: 'Активна',
+    ADAPTATION_LEVEL: 'Легка',
+    RECOMMENDATIONS: 'Дитина добре адаптується, активно спілкується з однолітками.',
+    UPDATED_AT: '2026-09-14'
+  },
+  {
+    ID: 2,
+    CHILD_ID: 2,
+    CHILD_NAME: 'Коваленко Софія Олексіївна',
+    GROUP_NAME: 'Група «Барвінок» (Ясельна)',
+    START_DATE: '2026-09-01',
+    WEEK_NUMBER: 1,
+    EMOTIONAL_STATE: 'Нестійкий',
+    ANXIETY_LEVEL: 'Середній',
+    APPETITE: 'Вибірковий',
+    SLEEP: 'Неспокійний',
+    SOCIAL_INTERACTION: 'Пасивна',
+    ADAPTATION_LEVEL: 'Середня',
+    RECOMMENDATIONS: 'Рекомендовано скорочений час перебування на першому тижні, м’який режим.',
+    UPDATED_AT: '2026-09-07'
+  }
+];
+
+const INITIAL_SCHOOL_READINESS: SchoolReadinessAssessment[] = [
+  {
+    ID: 1,
+    CHILD_ID: 3,
+    CHILD_NAME: 'Шевченко Богдан Вікторович',
+    GROUP_NAME: 'Група «Калинка» (Старша)',
+    ASSESSMENT_DATE: '2026-04-15',
+    AGE_YEARS: 6,
+    MOTIVATIONAL_SCORE: 5,
+    INTELLECTUAL_SCORE: 5,
+    EMOTIONAL_VOLITIONAL_SCORE: 4,
+    SOCIAL_SCORE: 5,
+    TOTAL_SCORE: 19,
+    READINESS_STATUS: 'Високий (Готовий до школи)',
+    PSYCHOLOGIST_CONCLUSION: 'Дитина виявляє високу навчальну мотивацію, гарний рівень саморегуляції та мислення.',
+    RECOMMENDATIONS_PARENTS: 'Підтримувати пізнавальний інтерес, читати разом книжки.',
+    RECOMMENDATIONS_TEACHERS: 'Залучати до рольових та інтелектуальних ігор у групі.'
+  }
+];
+
+const INITIAL_PSYCHOLOGY_CONSULTATIONS: PsychologyConsultation[] = [
+  {
+    ID: 1,
+    DATE: '2026-09-10',
+    TYPE: 'Консультація з батьками',
+    TARGET_NAME: 'Коваленко Олена (мати Коваленко Софії)',
+    CHILD_ID: 2,
+    GROUP_NAME: 'Група «Барвінок»',
+    TOPIC: 'Особливості адаптації дитини ясельного віку',
+    SUMMARY_NOTES: 'Окреслено режим дня вдома та в ЗДО, обговорено реакцію дитини на розлуку.',
+    RECOMMENDATIONS: 'Приносити улюблену іграшку з дому, дотримуватися єдиного ритуалу прощання.',
+    STATUS: 'Проведено'
+  },
+  {
+    ID: 2,
+    DATE: '2026-09-18',
+    TYPE: 'Консультація з вихователем',
+    TARGET_NAME: 'Вихователі групи «Калинка»',
+    GROUP_NAME: 'Група «Калинка»',
+    TOPIC: 'Результати первинного моніторингу готовності старших до школи',
+    SUMMARY_NOTES: 'Презентовано зведений аналіз пізнавальної сфери вихованців.',
+    RECOMMENDATIONS: 'Впровадити вправи на розвиток дрібної моторики та уваги.',
+    STATUS: 'Проведено'
+  }
+];
+
+// Adaptation Records
+export function getPsychologyAdaptations(): PsychologyAdaptationRecord[] {
+  const saved = localStorage.getItem('sadok_psychology_adaptations');
+  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+  localStorage.setItem('sadok_psychology_adaptations', JSON.stringify(INITIAL_PSYCHOLOGY_ADAPTATION));
+  return INITIAL_PSYCHOLOGY_ADAPTATION;
+}
+
+export function savePsychologyAdaptation(rec: Partial<PsychologyAdaptationRecord> & { CHILD_ID: number; CHILD_NAME: string }): PsychologyAdaptationRecord[] {
+  const current = getPsychologyAdaptations();
+  let updated: PsychologyAdaptationRecord[];
+  if (rec.ID) {
+    updated = current.map(item => item.ID === rec.ID ? { ...item, ...rec, UPDATED_AT: new Date().toISOString().split('T')[0] } as PsychologyAdaptationRecord : item);
+  } else {
+    const newId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newRecord: PsychologyAdaptationRecord = {
+      ID: newId,
+      CHILD_ID: rec.CHILD_ID,
+      CHILD_NAME: rec.CHILD_NAME,
+      GROUP_NAME: rec.GROUP_NAME || 'Група «Сонечко»',
+      START_DATE: rec.START_DATE || new Date().toISOString().split('T')[0],
+      WEEK_NUMBER: rec.WEEK_NUMBER || 1,
+      EMOTIONAL_STATE: rec.EMOTIONAL_STATE || 'Позитивний',
+      ANXIETY_LEVEL: rec.ANXIETY_LEVEL || 'Низький',
+      APPETITE: rec.APPETITE || 'Хороший',
+      SLEEP: rec.SLEEP || 'Спокійний',
+      SOCIAL_INTERACTION: rec.SOCIAL_INTERACTION || 'Активна',
+      ADAPTATION_LEVEL: rec.ADAPTATION_LEVEL || 'Легка',
+      RECOMMENDATIONS: rec.RECOMMENDATIONS || '',
+      UPDATED_AT: new Date().toISOString().split('T')[0]
+    };
+    updated = [newRecord, ...current];
+  }
+  localStorage.setItem('sadok_psychology_adaptations', JSON.stringify(updated));
+  return updated;
+}
+
+export function deletePsychologyAdaptation(id: number): PsychologyAdaptationRecord[] {
+  const current = getPsychologyAdaptations();
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_psychology_adaptations', JSON.stringify(updated));
+  return updated;
+}
+
+// School Readiness Assessments
+export function getSchoolReadinessAssessments(): SchoolReadinessAssessment[] {
+  const saved = localStorage.getItem('sadok_school_readiness');
+  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+  localStorage.setItem('sadok_school_readiness', JSON.stringify(INITIAL_SCHOOL_READINESS));
+  return INITIAL_SCHOOL_READINESS;
+}
+
+export function saveSchoolReadinessAssessment(rec: Partial<SchoolReadinessAssessment> & { CHILD_ID: number; CHILD_NAME: string }): SchoolReadinessAssessment[] {
+  const current = getSchoolReadinessAssessments();
+  let updated: SchoolReadinessAssessment[];
+  const total = (rec.MOTIVATIONAL_SCORE || 5) + (rec.INTELLECTUAL_SCORE || 5) + (rec.EMOTIONAL_VOLITIONAL_SCORE || 5) + (rec.SOCIAL_SCORE || 5);
+  let status: SchoolReadinessAssessment['READINESS_STATUS'] = 'Високий (Готовий до школи)';
+  if (total < 10) status = 'Низький (Не готовий)';
+  else if (total < 14) status = 'Потребує додаткового супроводу';
+  else if (total < 17) status = 'Достатній (Переважно готовий)';
+
+  if (rec.ID) {
+    updated = current.map(item => item.ID === rec.ID ? {
+      ...item,
+      ...rec,
+      TOTAL_SCORE: total,
+      READINESS_STATUS: status
+    } as SchoolReadinessAssessment : item);
+  } else {
+    const newId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newRecord: SchoolReadinessAssessment = {
+      ID: newId,
+      CHILD_ID: rec.CHILD_ID,
+      CHILD_NAME: rec.CHILD_NAME,
+      GROUP_NAME: rec.GROUP_NAME || 'Група «Калинка»',
+      ASSESSMENT_DATE: rec.ASSESSMENT_DATE || new Date().toISOString().split('T')[0],
+      AGE_YEARS: rec.AGE_YEARS || 6,
+      MOTIVATIONAL_SCORE: rec.MOTIVATIONAL_SCORE || 5,
+      INTELLECTUAL_SCORE: rec.INTELLECTUAL_SCORE || 5,
+      EMOTIONAL_VOLITIONAL_SCORE: rec.EMOTIONAL_VOLITIONAL_SCORE || 5,
+      SOCIAL_SCORE: rec.SOCIAL_SCORE || 5,
+      TOTAL_SCORE: total,
+      READINESS_STATUS: status,
+      PSYCHOLOGIST_CONCLUSION: rec.PSYCHOLOGIST_CONCLUSION || 'Вікові норми розвитку відповідають нормі.',
+      RECOMMENDATIONS_PARENTS: rec.RECOMMENDATIONS_PARENTS || '',
+      RECOMMENDATIONS_TEACHERS: rec.RECOMMENDATIONS_TEACHERS || ''
+    };
+    updated = [newRecord, ...current];
+  }
+  localStorage.setItem('sadok_school_readiness', JSON.stringify(updated));
+  return updated;
+}
+
+export function deleteSchoolReadinessAssessment(id: number): SchoolReadinessAssessment[] {
+  const current = getSchoolReadinessAssessments();
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_school_readiness', JSON.stringify(updated));
+  return updated;
+}
+
+// Consultations Log
+export function getPsychologyConsultations(): PsychologyConsultation[] {
+  const saved = localStorage.getItem('sadok_psychology_consultations');
+  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+  localStorage.setItem('sadok_psychology_consultations', JSON.stringify(INITIAL_PSYCHOLOGY_CONSULTATIONS));
+  return INITIAL_PSYCHOLOGY_CONSULTATIONS;
+}
+
+export function savePsychologyConsultation(rec: Partial<PsychologyConsultation> & { TARGET_NAME: string; TOPIC: string }): PsychologyConsultation[] {
+  const current = getPsychologyConsultations();
+  let updated: PsychologyConsultation[];
+  if (rec.ID) {
+    updated = current.map(item => item.ID === rec.ID ? { ...item, ...rec } as PsychologyConsultation : item);
+  } else {
+    const newId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newRecord: PsychologyConsultation = {
+      ID: newId,
+      DATE: rec.DATE || new Date().toISOString().split('T')[0],
+      TYPE: rec.TYPE || 'Індивідуальна',
+      TARGET_NAME: rec.TARGET_NAME,
+      CHILD_ID: rec.CHILD_ID,
+      GROUP_NAME: rec.GROUP_NAME,
+      TOPIC: rec.TOPIC,
+      SUMMARY_NOTES: rec.SUMMARY_NOTES || '',
+      RECOMMENDATIONS: rec.RECOMMENDATIONS || '',
+      STATUS: rec.STATUS || 'Проведено'
+    };
+    updated = [newRecord, ...current];
+  }
+  localStorage.setItem('sadok_psychology_consultations', JSON.stringify(updated));
+  return updated;
+}
+
+export function deletePsychologyConsultation(id: number): PsychologyConsultation[] {
+  const current = getPsychologyConsultations();
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_psychology_consultations', JSON.stringify(updated));
+  return updated;
+}
+

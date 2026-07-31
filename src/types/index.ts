@@ -297,3 +297,55 @@ export interface SadokChild {
   HEALTH_NOTES?: string;
   PSYCHOLOGY_NOTES?: string;
 }
+
+export interface PsychologyAdaptationRecord {
+  ID: number;
+  CHILD_ID: number;
+  CHILD_NAME: string;
+  GROUP_NAME: string;
+  START_DATE: string;
+  WEEK_NUMBER: number; // 1 to 4
+  EMOTIONAL_STATE: 'Позитивний' | 'Нестійкий' | 'Негативний' | 'Агресивний / Пригнічений';
+  ANXIETY_LEVEL: 'Низький' | 'Середній' | 'Високий';
+  APPETITE: 'Хороший' | 'Вибірковий' | 'Поганий / Відмова';
+  SLEEP: 'Спокійний' | 'Неспокійний' | 'Порушений';
+  SOCIAL_INTERACTION: 'Активна' | 'Пасивна' | 'Уникає';
+  ADAPTATION_LEVEL: 'Легка' | 'Середня' | 'Важка';
+  RECOMMENDATIONS?: string;
+  UPDATED_AT: string;
+}
+
+export interface SchoolReadinessAssessment {
+  ID: number;
+  CHILD_ID: number;
+  CHILD_NAME: string;
+  GROUP_NAME: string;
+  ASSESSMENT_DATE: string;
+  AGE_YEARS: number;
+  
+  // 4 Core Development Spheres (scores 1-5)
+  MOTIVATIONAL_SCORE: number;
+  INTELLECTUAL_SCORE: number;
+  EMOTIONAL_VOLITIONAL_SCORE: number;
+  SOCIAL_SCORE: number;
+
+  TOTAL_SCORE: number; // Max 20
+  READINESS_STATUS: 'Високий (Готовий до школи)' | 'Достатній (Переважно готовий)' | 'Потребує додаткового супроводу' | 'Низький (Не готовий)';
+  PSYCHOLOGIST_CONCLUSION: string;
+  RECOMMENDATIONS_PARENTS: string;
+  RECOMMENDATIONS_TEACHERS: string;
+}
+
+export interface PsychologyConsultation {
+  ID: number;
+  DATE: string;
+  TYPE: 'Індивідуальна' | 'Групова' | 'Консультація з батьками' | 'Консультація з вихователем' | 'Психопрофілактична робота';
+  TARGET_NAME: string; // ФІО дитини, батьків або назва групи/педагогів
+  CHILD_ID?: number;
+  GROUP_NAME?: string;
+  TOPIC: string;
+  SUMMARY_NOTES: string;
+  RECOMMENDATIONS: string;
+  STATUS: 'Заплановано' | 'Проведено' | 'Перенесено';
+}
+

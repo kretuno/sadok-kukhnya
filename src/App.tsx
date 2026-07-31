@@ -15,6 +15,7 @@ import { PortalHubModule } from './components/modules/PortalHubModule';
 import { PropertyManagementModule } from './components/modules/PropertyManagementModule';
 import { StructureRegistryModule } from './components/modules/StructureRegistryModule';
 import { PrintCenterModule } from './components/modules/PrintCenterModule';
+import { PsychologistModule } from './components/modules/PsychologistModule';
 import { GovernanceError } from './services/governance';
 
 export function App() {
@@ -133,6 +134,7 @@ export function App() {
             {activeTab === 'menu_planner' && <MenuPlannerModule />}
             {activeTab === 'property' && <PropertyManagementModule />}
             {activeTab === 'cadres' && <StructureRegistryModule />}
+            {activeTab === 'psychologist' && <PsychologistModule />}
             {activeTab === 'recipes' && <RecipeCatalogModule />}
             {activeTab === 'products' && <ProductsModule />}
             {activeTab === 'sanpin' && <SanpinNormsModule />}

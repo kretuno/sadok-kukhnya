@@ -17,7 +17,8 @@ import {
   Sparkles,
   LayoutGrid,
   Users,
-  BookOpenCheck
+  BookOpenCheck,
+  Brain
 } from 'lucide-react';
 
 interface HeaderNavbarProps {
@@ -39,6 +40,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
 }) => {
   const isPropertyContext = activeTab === 'property';
   const isCadresContext = activeTab === 'cadres';
+  const isPsychologistContext = activeTab === 'psychologist';
   const isPortalContext = activeTab === 'portal';
 
   const kitchenNavItems = [
@@ -68,6 +70,13 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
     { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
   ];
 
+  const psychologistNavItems = [
+    { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
+    { id: 'psychologist', label: 'Психолог ДНЗ', icon: Brain, hotkey: 'F12' },
+    { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
+    { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
+  ];
+
   const portalNavItems = [
     { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
     { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
@@ -78,14 +87,16 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
     ? propertyNavItems 
     : (isCadresContext 
       ? cadresNavItems 
-      : (isPortalContext ? portalNavItems : kitchenNavItems));
+      : (isPsychologistContext
+        ? psychologistNavItems
+        : (isPortalContext ? portalNavItems : kitchenNavItems)));
 
   return (
     <header className="bg-slate-800 text-white dark:bg-slate-900 border-b border-slate-700 shadow-md no-print">
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6 overflow-x-auto max-w-full">
-          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.43' : (isCadresContext ? 'Контингент v1.0.43' : 'v1.0.43')} />
+          <SadokLogo size="sm" subtitle={isPropertyContext ? 'Майно v1.0.43' : (isCadresContext ? 'Контингент v1.0.43' : (isPsychologistContext ? 'Психолог v1.0.43' : 'v1.0.43'))} />
           <nav className="flex space-x-4 text-slate-300 overflow-x-auto whitespace-nowrap py-0.5 shrink-0">
             <button onClick={() => setActiveTab('portal')} className="text-amber-400 font-extrabold hover:text-amber-300 transition flex items-center space-x-1"><span>🏠 Головне меню</span></button>
             {isPropertyContext && (
@@ -99,7 +110,12 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
                 <button onClick={() => setActiveTab('cadres')} className="hover:text-white transition font-bold text-amber-300">Контингент та Кадри</button>
               </>
             )}
-            {!isPropertyContext && !isCadresContext && !isPortalContext && (
+            {isPsychologistContext && (
+              <>
+                <button onClick={() => setActiveTab('psychologist')} className="hover:text-white transition font-bold text-purple-300">Психологічний супровід</button>
+              </>
+            )}
+            {!isPropertyContext && !isCadresContext && !isPsychologistContext && !isPortalContext && (
               <>
                 <button onClick={() => setActiveTab('menu_planner')} className="hover:text-white transition">Файл</button>
                 <button onClick={() => setActiveTab('products')} className="hover:text-white transition">Довідники</button>

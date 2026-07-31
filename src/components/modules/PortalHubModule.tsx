@@ -113,9 +113,9 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
       name: 'SADOK',
       subtitle: 'Психолог',
       badgeLetter: 'S',
-      gradient: 'from-slate-950 via-slate-900 to-black shadow-slate-900/50',
+      gradient: 'from-purple-700 via-purple-800 to-indigo-900 shadow-purple-600/40',
       icon: Brain,
-      status: 'in_dev',
+      status: 'active',
       description: 'Моніторинг психологічного розвитку вихованців, діагностичні картки спостереження та рекомендації для батьків і вихователів.',
       features: [
         'Карти психологічної готовності дитини до школи',
