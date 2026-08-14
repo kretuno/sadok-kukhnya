@@ -66,6 +66,17 @@
   overflow-y: auto;
 }
 
+/* Short confirmation and selection dialogs do not benefit from a blank full-screen canvas.
+   Keep them centered while the option is active; large edit forms still use the workspace mode. */
+.sadok-fullscreen-modals .fixed.inset-0:not(.print-preview-shell) > :first-child[class*="max-w-sm"],
+.sadok-fullscreen-modals .fixed.inset-0:not(.print-preview-shell) > :first-child[class*="max-w-md"] {
+  width: min(calc(100vw - 2rem), 42rem) !important;
+  height: auto !important;
+  max-height: calc(100vh - 2rem) !important;
+  align-self: center !important;
+  border-radius: 0.75rem !important;
+}
+
 /* ================================================================
    PRINT STYLES — Чистий та чіткий друк для державного закладу України
    ================================================================ */

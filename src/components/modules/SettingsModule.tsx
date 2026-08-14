@@ -270,10 +270,10 @@ export const SettingsModule: React.FC = () => {
                 <Monitor className="mt-0.5 h-5 w-5 shrink-0 text-violet-600 dark:text-violet-400" />
                 <div>
                   <span className="block text-sm font-extrabold text-slate-800 dark:text-slate-100">
-                    Повноекранні спливаючі вікна
+                    Повноекранні великі форми
                   </span>
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Форми додавання, редагування та перегляду відкриватимуться на всю робочу область.
+                    Великі картки й таблиці відкриватимуться на всю робочу область. Компактні вікна вибору залишаються зручного розміру.
                   </span>
                 </div>
               </div>
