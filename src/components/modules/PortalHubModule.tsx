@@ -1,3 +1,4 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState } from 'react';
 import { APP_VERSION } from '../../config/version';
 import {
@@ -403,7 +404,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
                 <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
                   Тема звернення
                 </label>
-                <select
+                <SearchableSelect
                   value={feedbackCategory}
                   onChange={(e) => setFeedbackCategory(e.target.value)}
                   className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -412,7 +413,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
                   <option value="Пропозиція щодо покращення">Пропозиція щодо покращення</option>
                   <option value="Повідомити про помилку">Повідомити про помилку</option>
                   <option value="Консультація розробника">Консультація розробника</option>
-                </select>
+                </SearchableSelect>
               </div>
             </div>
 

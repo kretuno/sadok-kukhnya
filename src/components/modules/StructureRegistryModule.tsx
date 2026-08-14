@@ -1,3 +1,4 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { SadokGroup, SadokEmployee, SadokChild } from '../../types';
 import { 
@@ -617,7 +618,7 @@ export const StructureRegistryModule: React.FC = () => {
                             )}
                           </td>
                           <td className="text-center">
-                            <select 
+                            <SearchableSelect
                               value={c.STATUS}
                               onChange={(e) => handleQuickStatusChange(c, e.target.value as any)}
                               className={`px-2 py-1 rounded-lg font-bold text-[11px] border cursor-pointer ${
@@ -630,7 +631,7 @@ export const StructureRegistryModule: React.FC = () => {
                               <option value="Вибув">🔴 Вибув</option>
                               <option value="Тимчасово відсутній">🟡 Тимчасово відсутній</option>
                               <option value="Випускник">🎓 Випускник</option>
-                            </select>
+                            </SearchableSelect>
                           </td>
                           <td className="text-center">
                             <div className="flex items-center justify-center space-x-1">
@@ -799,7 +800,7 @@ export const StructureRegistryModule: React.FC = () => {
               {/* QUICK STATUS SWITCHER INSIDE MODAL */}
               <div className="p-3 bg-slate-100 dark:bg-slate-800 border rounded-xl flex items-center justify-between">
                 <span className="font-bold text-slate-800 dark:text-slate-200">Поточний статус у закладі:</span>
-                <select 
+                <SearchableSelect
                   value={viewingChild.STATUS}
                   onChange={(e) => handleQuickStatusChange(viewingChild, e.target.value as any)}
                   className="px-3 py-1 bg-white dark:bg-slate-900 border rounded-lg font-bold text-xs"
@@ -808,7 +809,7 @@ export const StructureRegistryModule: React.FC = () => {
                   <option value="Вибув">🔴 Вибув</option>
                   <option value="Тимчасово відсутній">🟡 Тимчасово відсутній</option>
                   <option value="Випускник">🎓 Випускник</option>
-                </select>
+                </SearchableSelect>
               </div>
 
               <div className="pt-2 flex justify-between items-center shrink-0">
@@ -910,13 +911,13 @@ export const StructureRegistryModule: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold mb-1">Вікова категорія</label>
-                  <select value={groupAgeCategory} onChange={(e) => setGroupAgeCategory(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg">
+                  <SearchableSelect value={groupAgeCategory} onChange={(e) => setGroupAgeCategory(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg">
                     <option value="Ясла (1-3 роки)">Ясла (1-3 роки)</option>
                     <option value="Молодша (3-4 роки)">Молодша (3-4 роки)</option>
                     <option value="Середня (4-5 років)">Середня (4-5 років)</option>
                     <option value="Старша (5-7 років)">Старша (5-7 років)</option>
                     <option value="Спеціалізоване приміщення">Спеціалізоване приміщення</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
                 <div>
                   <label className="block font-bold mb-1">Кімната №</label>
@@ -957,9 +958,9 @@ export const StructureRegistryModule: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold mb-1">Закріплена група / локація</label>
-                  <select value={empGroupName} onChange={(e) => setEmpGroupName(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg">
+                  <SearchableSelect value={empGroupName} onChange={(e) => setEmpGroupName(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg">
                     {groups.map(g => <option key={g.ID} value={g.NAME}>{g.NAME}</option>)}
-                  </select>
+                  </SearchableSelect>
                 </div>
                 <div className="flex items-center pt-5">
                   <label className="flex items-center space-x-2 font-bold text-amber-600 dark:text-amber-400 cursor-pointer">
@@ -1002,10 +1003,10 @@ export const StructureRegistryModule: React.FC = () => {
                   </div>
                   <div>
                     <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Стать</label>
-                    <select value={childGender} onChange={(e) => setChildGender(e.target.value as any)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold">
+                    <SearchableSelect value={childGender} onChange={(e) => setChildGender(e.target.value as any)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold">
                       <option value="Чоловіча">Чоловіча</option>
                       <option value="Жіноча">Жіноча</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div>
                     <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Свідоцтво про народж.</label>
@@ -1015,20 +1016,20 @@ export const StructureRegistryModule: React.FC = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Закріплена група *</label>
-                    <select value={childGroupName} onChange={(e) => setChildGroupName(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold text-blue-600">
+                    <SearchableSelect value={childGroupName} onChange={(e) => setChildGroupName(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold text-blue-600">
                       {groups.map(g => <option key={g.ID} value={g.NAME}>{g.NAME}</option>)}
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div>
                     <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Пільгова категорія</label>
-                    <select value={childBenefitCategory} onChange={(e) => setChildBenefitCategory(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold">
+                    <SearchableSelect value={childBenefitCategory} onChange={(e) => setChildBenefitCategory(e.target.value)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold">
                       <option value="Загальна підстава">Загальна підстава</option>
                       <option value="Діти УБД">Діти УБД (Учасників бойових дій)</option>
                       <option value="ВПО (Внутрішньо переміщена особа)">ВПО (Внутрішньо переміщена особа)</option>
                       <option value="Багатодітна сім’я">Багатодітна сім’я</option>
                       <option value="Діти-сироти / опіка">Діти-сироти / опіка</option>
                       <option value="Дитина з інвалідністю">Дитина з інвалідністю</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
               </div>
@@ -1072,12 +1073,12 @@ export const StructureRegistryModule: React.FC = () => {
                 <div className="grid grid-cols-3 gap-3">
                   <div>
                     <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Поточний статус *</label>
-                    <select value={childStatus} onChange={(e) => setChildStatus(e.target.value as any)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold">
+                    <SearchableSelect value={childStatus} onChange={(e) => setChildStatus(e.target.value as any)} className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-lg font-bold">
                       <option value="Навчається">🟢 Навчається</option>
                       <option value="Вибув">🔴 Вибув</option>
                       <option value="Тимчасово відсутній">🟡 Тимчасово відсутній</option>
                       <option value="Випускник">🎓 Випускник</option>
-                    </select>
+                    </SearchableSelect>
                   </div>
                   <div>
                     <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Дата зарахування</label>

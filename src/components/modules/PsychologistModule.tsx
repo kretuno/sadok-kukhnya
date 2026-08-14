@@ -1,3 +1,4 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { APP_VERSION } from '../../config/version';
 import {
@@ -635,7 +636,7 @@ export const PsychologistModule: React.FC = () => {
                 className="pl-8 pr-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 w-48"
               />
             </div>
-            <select
+            <SearchableSelect
               value={selectedGroup}
               onChange={e => setSelectedGroup(e.target.value)}
               className="py-1.5 px-3 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -644,7 +645,7 @@ export const PsychologistModule: React.FC = () => {
               {groupsList.map(g => (
                 <option key={g} value={g}>{g}</option>
               ))}
-            </select>
+            </SearchableSelect>
           </div>
         )}
       </div>
@@ -1028,7 +1029,7 @@ export const PsychologistModule: React.FC = () => {
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Реєстр збережених звітів ({reportsList.length}):
                   </label>
-                  <select
+                  <SearchableSelect
                     value={selectedReportId}
                     onChange={e => {
                       const id = Number(e.target.value);
@@ -1044,14 +1045,14 @@ export const PsychologistModule: React.FC = () => {
                     {reportsList.map(r => (
                       <option key={r.ID} value={r.ID}>{r.TITLE} ({r.ACADEMIC_YEAR})</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 <div className="flex items-center space-x-2">
                   <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Навчальний рік:
                   </label>
-                  <select
+                  <SearchableSelect
                     value={activeReportYear}
                     onChange={e => {
                       setActiveReportYear(e.target.value);
@@ -1064,7 +1065,7 @@ export const PsychologistModule: React.FC = () => {
                     <option value="2024/2025 н.р.">2024/2025 н.р.</option>
                     <option value="2025/2026 н.р.">2025/2026 н.р.</option>
                     <option value="2026/2027 н.р.">2026/2027 н.р.</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 {reportsList.length > 1 && (
@@ -1313,7 +1314,7 @@ export const PsychologistModule: React.FC = () => {
               <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 Оберіть вихованця для формування Картки психологічного супроводу:
               </label>
-              <select
+              <SearchableSelect
                 value={selectedChildForReport?.ID || ''}
                 onChange={e => {
                   const ch = children.find(c => c.ID === Number(e.target.value));
@@ -1324,7 +1325,7 @@ export const PsychologistModule: React.FC = () => {
                 {children.map(c => (
                   <option key={c.ID} value={c.ID}>{c.FULL_NAME} ({c.GROUP_NAME})</option>
                 ))}
-              </select>
+              </SearchableSelect>
             </div>
 
             {/* A4 Printable Document Area */}
@@ -1439,7 +1440,7 @@ export const PsychologistModule: React.FC = () => {
             <form onSubmit={handleSaveAdaptation} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold mb-1">Вихованець</label>
-                <select
+                <SearchableSelect
                   value={editingAdaptation?.CHILD_ID || ''}
                   onChange={e => setEditingAdaptation(prev => ({ ...prev, CHILD_ID: Number(e.target.value) }))}
                   className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
@@ -1448,7 +1449,7 @@ export const PsychologistModule: React.FC = () => {
                   {children.map(c => (
                     <option key={c.ID} value={c.ID}>{c.FULL_NAME} ({c.GROUP_NAME})</option>
                   ))}
-                </select>
+                </SearchableSelect>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1465,7 +1466,7 @@ export const PsychologistModule: React.FC = () => {
                 </div>
                 <div>
                   <label className="block font-bold mb-1">Рівень адаптації</label>
-                  <select
+                  <SearchableSelect
                     value={editingAdaptation?.ADAPTATION_LEVEL || 'Легка'}
                     onChange={e => setEditingAdaptation(prev => ({ ...prev, ADAPTATION_LEVEL: e.target.value as any }))}
                     className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl font-bold"
@@ -1473,14 +1474,14 @@ export const PsychologistModule: React.FC = () => {
                     <option value="Легка">Легка</option>
                     <option value="Середня">Середня</option>
                     <option value="Важка">Важка</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold mb-1">Емоційний стан</label>
-                  <select
+                  <SearchableSelect
                     value={editingAdaptation?.EMOTIONAL_STATE || 'Позитивний'}
                     onChange={e => setEditingAdaptation(prev => ({ ...prev, EMOTIONAL_STATE: e.target.value as any }))}
                     className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
@@ -1489,11 +1490,11 @@ export const PsychologistModule: React.FC = () => {
                     <option value="Нестійкий">Нестійкий</option>
                     <option value="Негативний">Негативний</option>
                     <option value="Агресивний / Пригнічений">Агресивний / Пригнічений</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
                 <div>
                   <label className="block font-bold mb-1">Рівень тривожності</label>
-                  <select
+                  <SearchableSelect
                     value={editingAdaptation?.ANXIETY_LEVEL || 'Низький'}
                     onChange={e => setEditingAdaptation(prev => ({ ...prev, ANXIETY_LEVEL: e.target.value as any }))}
                     className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
@@ -1501,7 +1502,7 @@ export const PsychologistModule: React.FC = () => {
                     <option value="Низький">Низький</option>
                     <option value="Середній">Середній</option>
                     <option value="Високий">Високий</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
 
@@ -1552,7 +1553,7 @@ export const PsychologistModule: React.FC = () => {
             <form onSubmit={handleSaveReadiness} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold mb-1">Вихованець</label>
-                <select
+                <SearchableSelect
                   value={editingReadiness?.CHILD_ID || ''}
                   onChange={e => setEditingReadiness(prev => ({ ...prev, CHILD_ID: Number(e.target.value) }))}
                   className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
@@ -1561,7 +1562,7 @@ export const PsychologistModule: React.FC = () => {
                   {children.map(c => (
                     <option key={c.ID} value={c.ID}>{c.FULL_NAME} ({c.GROUP_NAME})</option>
                   ))}
-                </select>
+                </SearchableSelect>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1661,7 +1662,7 @@ export const PsychologistModule: React.FC = () => {
                 </div>
                 <div>
                   <label className="block font-bold mb-1">Тип консультації</label>
-                  <select
+                  <SearchableSelect
                     value={editingConsultation?.TYPE || 'Індивідуальна'}
                     onChange={e => setEditingConsultation(prev => ({ ...prev, TYPE: e.target.value as any }))}
                     className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
@@ -1671,7 +1672,7 @@ export const PsychologistModule: React.FC = () => {
                     <option value="Консультація з батьками">Консультація з батьками</option>
                     <option value="Консультація з вихователем">Консультація з вихователем</option>
                     <option value="Психопрофілактична робота">Психопрофілактична робота</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
 

@@ -48,6 +48,24 @@
   @apply bg-slate-900/90 border-slate-800 shadow-none text-slate-100;
 }
 
+/* Optional workspace mode: every modal surface fills the available screen. */
+.sadok-fullscreen-modals .fixed.inset-0:not(.print-preview-shell) {
+  align-items: stretch !important;
+  padding: 0 !important;
+}
+
+.sadok-fullscreen-modals .fixed.inset-0:not(.print-preview-shell) > :first-child {
+  width: 100vw !important;
+  max-width: none !important;
+  height: 100vh !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+}
+
+.sadok-fullscreen-modals .fixed.inset-0:not(.print-preview-shell) > :first-child > :not(:first-child):not(:last-child) {
+  overflow-y: auto;
+}
+
 /* ================================================================
    PRINT STYLES — Чистий та чіткий друк для державного закладу України
    ================================================================ */
@@ -74,7 +92,8 @@
   nav,
   button,
   input,
-  select {
+  select,
+  [role="listbox"] {
     display: none !important;
   }
 

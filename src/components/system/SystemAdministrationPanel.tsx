@@ -1,3 +1,4 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Archive, CheckCircle2, CloudOff, CloudUpload, DatabaseBackup,
@@ -198,7 +199,7 @@ export const SystemAdministrationPanel: React.FC = () => {
               <p className="mb-3 text-[10px] text-amber-700 dark:text-amber-300">
                 Тестовий режим: перемикання без пароля. Після підключення сервера тут буде звичайний вхід.
               </p>
-              <select
+              <SearchableSelect
                 data-testid="current-user-select"
                 value={currentUser.id}
                 onChange={event => runAction(
@@ -212,7 +213,7 @@ export const SystemAdministrationPanel: React.FC = () => {
                     {user.displayName} — {ROLE_LABELS[user.role]}
                   </option>
                 ))}
-              </select>
+              </SearchableSelect>
 
               {canManageUsers && (
                 <div className="mt-4 space-y-2 border-t border-slate-200 pt-4 dark:border-slate-800">
@@ -222,13 +223,13 @@ export const SystemAdministrationPanel: React.FC = () => {
                     placeholder="ПІБ нового користувача"
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950"
                   />
-                  <select
+                  <SearchableSelect
                     value={newUserRole}
                     onChange={event => setNewUserRole(event.target.value as UserRole)}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950"
                   >
                     {ALL_ROLES.map(role => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
-                  </select>
+                  </SearchableSelect>
                   <button
                     onClick={() => runAction(() => {
                       if (!newUserName.trim()) throw new Error('Введіть ім’я користувача');
@@ -285,14 +286,26 @@ export const SystemAdministrationPanel: React.FC = () => {
               />
               <div className="max-h-[480px] overflow-auto rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
                 {filteredAudit.map(entry => (
-                  <div key={entry.id} className="grid gap-1 border-b border-slate-100 p-3 last:border-0 dark:border-slate-800 md:grid-cols-[150px_180px_1fr_90px]">
-                    <span className="text-[10px] text-slate-500">{formatDate(entry.occurredAt)}</span>
-                    <span className="font-bold text-slate-700 dark:text-slate-200">{entry.userName}</span>
-                    <span>{entry.summary}</span>
-                    <span className={`text-right text-[10px] font-bold ${entry.syncStatus === 'synced' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                      {entry.syncStatus === 'synced' ? 'Синхр.' : 'Очікує'}
-                    </span>
-                  </div>
+                  <details key={entry.id} className="group border-b border-slate-100 last:border-0 dark:border-slate-800">
+                    <summary className="grid cursor-pointer list-none gap-1 p-3 md:grid-cols-[150px_180px_1fr_90px]">
+                      <span className="text-[10px] text-slate-500">{formatDate(entry.occurredAt)}</span>
+                      <span className="font-bold text-slate-700 dark:text-slate-200">{entry.userName}</span>
+                      <span>{entry.summary}</span>
+                      <span className={`text-right text-[10px] font-bold ${entry.syncStatus === 'synced' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        {entry.syncStatus === 'synced' ? 'Синхр.' : 'Очікує'}
+                      </span>
+                    </summary>
+                    <div className="grid gap-2 px-3 pb-3 md:grid-cols-2">
+                      <div className="min-w-0 rounded-lg bg-slate-50 p-2 dark:bg-slate-950">
+                        <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">До зміни</div>
+                        <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-[10px] text-slate-600 dark:text-slate-300">{entry.before === undefined ? '—' : JSON.stringify(entry.before, null, 2)}</pre>
+                      </div>
+                      <div className="min-w-0 rounded-lg bg-slate-50 p-2 dark:bg-slate-950">
+                        <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">Після зміни</div>
+                        <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words text-[10px] text-slate-600 dark:text-slate-300">{entry.after === undefined ? '—' : JSON.stringify(entry.after, null, 2)}</pre>
+                      </div>
+                    </div>
+                  </details>
                 ))}
                 {filteredAudit.length === 0 && <div className="p-6 text-center text-slate-400">Записів поки немає.</div>}
               </div>
@@ -365,14 +378,14 @@ export const SystemAdministrationPanel: React.FC = () => {
 
           <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <h4 className="mb-2 font-black">Підключення центрального сервера</h4>
-            <select
+            <SearchableSelect
               value={syncForm.mode}
               onChange={event => setSyncForm(current => ({ ...current, mode: event.target.value as SyncState['mode'] }))}
               className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
             >
               <option value="local-only">Лише локальна робота</option>
               <option value="server">Центральний сервер</option>
-            </select>
+            </SearchableSelect>
             <input
               value={syncForm.endpoint}
               onChange={event => setSyncForm(current => ({ ...current, endpoint: event.target.value }))}

@@ -1,3 +1,4 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { Product, ProductCategory } from '../../types';
 import { getProducts, getProductCategories, addProduct, updateProduct, deleteProduct } from '../../services/db';
@@ -203,17 +204,17 @@ export const ProductsModule: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Група продуктів</label>
-                  <select
+                  <SearchableSelect
                     value={editingProduct.ID_GRUPPI_PRODUKTOV || 1}
                     onChange={(e) => setEditingProduct({ ...editingProduct, ID_GRUPPI_PRODUKTOV: Number(e.target.value) })}
                     className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs"
                   >
                     {categories.map(c => <option key={c.ID} value={c.ID}>{c.NAME}</option>)}
-                  </select>
+                  </SearchableSelect>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Одиниця виміру</label>
-                  <select
+                  <SearchableSelect
                     value={editingProduct.EDINICA_IZMERENIA || 'кг'}
                     onChange={(e) => setEditingProduct({ ...editingProduct, EDINICA_IZMERENIA: e.target.value })}
                     className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold text-blue-600"
@@ -221,7 +222,7 @@ export const ProductsModule: React.FC = () => {
                     <option value="кг">кг (кілограм)</option>
                     <option value="л">л (літр)</option>
                     <option value="шт">шт (штук)</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
               </div>
 

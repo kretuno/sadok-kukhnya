@@ -17,6 +17,7 @@ import { StructureRegistryModule } from './components/modules/StructureRegistryM
 import { PrintCenterModule } from './components/modules/PrintCenterModule';
 import { PsychologistModule } from './components/modules/PsychologistModule';
 import { GovernanceError } from './services/governance';
+import { applyFullscreenModals, getFullscreenModals, UI_PREFERENCES_EVENT } from './services/uiPreferences';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('portal');
@@ -37,6 +38,13 @@ export function App() {
     }
     localStorage.setItem('sadok_dark_mode', String(darkMode));
   }, [darkMode]);
+
+  useEffect(() => {
+    const applyPreference = () => applyFullscreenModals(getFullscreenModals());
+    applyPreference();
+    window.addEventListener(UI_PREFERENCES_EVENT, applyPreference);
+    return () => window.removeEventListener(UI_PREFERENCES_EVENT, applyPreference);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

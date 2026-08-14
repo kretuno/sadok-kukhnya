@@ -1,3 +1,4 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { PropertyItem, PropertyLocationDistribution, PropertyWriteOffRecord } from '../../types';
 import { 
@@ -591,7 +592,7 @@ export const PropertyManagementModule: React.FC = () => {
                   {/* Filter by Location */}
                   <div className="flex items-center space-x-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1">
                     <MapPin className="w-3.5 h-3.5 text-blue-500" />
-                    <select
+                    <SearchableSelect
                       value={selectedLocation}
                       onChange={(e) => setSelectedLocation(e.target.value)}
                       className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
@@ -600,13 +601,13 @@ export const PropertyManagementModule: React.FC = () => {
                       {allLocations.map(loc => (
                         <option key={loc} value={loc}>{loc}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
 
                   {/* Filter by Condition */}
                   <div className="flex items-center space-x-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg px-2.5 py-1">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                    <select
+                    <SearchableSelect
                       value={selectedCondition}
                       onChange={(e) => setSelectedCondition(e.target.value)}
                       className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
@@ -615,7 +616,7 @@ export const PropertyManagementModule: React.FC = () => {
                       {PROPERTY_CONDITIONS.map(cond => (
                         <option key={cond} value={cond}>{cond}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                   </div>
                 </div>
               </div>
@@ -1041,7 +1042,7 @@ export const PropertyManagementModule: React.FC = () => {
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Категорія майна
                   </label>
-                  <select
+                  <SearchableSelect
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1049,7 +1050,7 @@ export const PropertyManagementModule: React.FC = () => {
                     {PROPERTY_CATEGORIES.filter(c => c !== 'Всі категорії').map(cat => (
                       <option key={cat} value={cat}>{cat}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 {/* Condition */}
@@ -1057,7 +1058,7 @@ export const PropertyManagementModule: React.FC = () => {
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Стан експлуатації
                   </label>
-                  <select
+                  <SearchableSelect
                     value={formCondition}
                     onChange={(e) => setFormCondition(e.target.value as any)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1065,7 +1066,7 @@ export const PropertyManagementModule: React.FC = () => {
                     {PROPERTY_CONDITIONS.map(cond => (
                       <option key={cond} value={cond}>{cond}</option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 {/* Year Commissioned */}
@@ -1121,7 +1122,7 @@ export const PropertyManagementModule: React.FC = () => {
                     <div key={loc.id} className="grid grid-cols-12 gap-2 p-2.5 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 items-center">
                       <div className="col-span-5">
                         <label className="block text-[10px] font-semibold text-slate-400 mb-0.5">Група / Приміщення</label>
-                        <select
+                        <SearchableSelect
                           value={loc.locationName}
                           onChange={(e) => handleLocationChange(loc.id, 'locationName', e.target.value)}
                           className="w-full px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded text-xs font-bold text-slate-800 dark:text-slate-200"
@@ -1134,12 +1135,12 @@ export const PropertyManagementModule: React.FC = () => {
                           <option value="Музична зала">Музична зала</option>
                           <option value="Методичний кабінет">Методичний кабінет</option>
                           <option value="Загальна територія ДНЗ">Загальна територія ДНЗ</option>
-                        </select>
+                        </SearchableSelect>
                       </div>
 
                       <div className="col-span-5">
                         <label className="block text-[10px] font-semibold text-slate-400 mb-0.5">Матеріально відповідальна особа (МВО)</label>
-                        <select
+                        <SearchableSelect
                           value={loc.responsiblePerson}
                           onChange={(e) => handleLocationChange(loc.id, 'responsiblePerson', e.target.value)}
                           className="w-full px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded text-xs font-medium text-slate-800 dark:text-slate-200"
@@ -1148,7 +1149,7 @@ export const PropertyManagementModule: React.FC = () => {
                           {availableEmployees.map(e => (
                             <option key={e} value={e}>{e}</option>
                           ))}
-                        </select>
+                        </SearchableSelect>
                       </div>
 
                       <div className="col-span-2 flex items-center space-x-1">
@@ -1235,7 +1236,7 @@ export const PropertyManagementModule: React.FC = () => {
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Об'єкт майна для списання *
                   </label>
-                  <select
+                  <SearchableSelect
                     value={targetWriteOffItem.ID}
                     onChange={(e) => handleWriteOffItemChange(Number(e.target.value))}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold"
@@ -1250,7 +1251,7 @@ export const PropertyManagementModule: React.FC = () => {
                           #{item.INVENTAR_NUMBER} — {item.NAME} (наявність: {item.TOTAL_QUANTITY} шт)
                         </option>
                       ))}
-                  </select>
+                  </SearchableSelect>
                   <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
                     Після проведення акта кількість автоматично зменшиться у вибраній локації та в реєстрі майна.
                   </p>
@@ -1294,7 +1295,7 @@ export const PropertyManagementModule: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Списати з локації *</label>
-                  <select
+                  <SearchableSelect
                     value={woLocation}
                     onChange={(e) => {
                       setWoLocation(e.target.value);
@@ -1308,7 +1309,7 @@ export const PropertyManagementModule: React.FC = () => {
                         {l.locationName} (Наявність: {l.quantity} шт)
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 <div>
@@ -1326,7 +1327,7 @@ export const PropertyManagementModule: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Причина списання з балансу *</label>
-                <select
+                <SearchableSelect
                   value={woReason}
                   onChange={(e) => setWoReason(e.target.value)}
                   className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium"
@@ -1334,7 +1335,7 @@ export const PropertyManagementModule: React.FC = () => {
                   {WRITE_OFF_REASONS.map(r => (
                     <option key={r} value={r}>{r}</option>
                   ))}
-                </select>
+                </SearchableSelect>
               </div>
 
               <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">

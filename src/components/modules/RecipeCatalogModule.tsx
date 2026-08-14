@@ -1,6 +1,7 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { Dish, DishCategory, RecipeComponent, RecipeNutritionProfile, EaterCategory, Product, DishCostProfile, DishCostHistoryEntry } from '../../types';
-import { getDishes, getDishCategories, getRecipeComponents, getDishNutritionProfiles, getEaterCategories, getProducts, addDish, updateDish, deleteDish, addRecipeComponent, deleteRecipeComponent, getDishCostProfiles, getDishCostHistory } from '../../services/db';
+import { getDishes, getDishCategories, getRecipeComponents, getDishNutritionProfiles, getEaterCategories, getProducts, addDish, updateDish, deleteDish, addRecipeComponent, updateRecipeComponent, deleteRecipeComponent, upsertDishNutritionProfile, getDishCostProfiles, getDishCostHistory } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
 import { Utensils, Plus, Trash2, Edit, Layers, Coins, TrendingUp, AlertTriangle } from 'lucide-react';
@@ -21,10 +22,9 @@ export const RecipeCatalogModule: React.FC = () => {
 
   const [isDishModalOpen, setIsDishModalOpen] = useState<boolean>(false);
   const [editingDish, setEditingDish] = useState<Partial<Dish>>({});
+  const [editingNutritionProfiles, setEditingNutritionProfiles] = useState<RecipeNutritionProfile[]>([]);
   const [isCompModalOpen, setIsCompModalOpen] = useState<boolean>(false);
-  const [newProdId, setNewProdId] = useState<number>(1);
-  const [newGrosso, setNewGrosso] = useState<number>(20);
-  const [newNetto, setNewNetto] = useState<number>(16);
+  const [editingComponent, setEditingComponent] = useState<Partial<RecipeComponent>>({});
 
   useEffect(() => { loadData(); }, []);
   useEffect(() => {
@@ -74,11 +74,55 @@ export const RecipeCatalogModule: React.FC = () => {
     selectedCost && selectedCostLimit > 0 && selectedCost.costPerPortion > selectedCostLimit
   );
 
+  const openDishEditor = (dish?: Dish) => {
+    const draft: Partial<Dish> = dish || {
+      ID_GRUPPI_BLUD: selectedCatId || 1,
+      VYXOD: 200,
+      BELKI: 0,
+      ZIRI: 0,
+      UGLEVODI: 0,
+      KALORII: 0,
+      PORRDOK_SLEDOVANIR_BLUD: dishes.length + 1,
+      NOTES: '',
+      SOURCE_FILE: '',
+      SOURCE_FORMAT: '',
+      SOURCE_REF: '',
+      ALLERGENS: '',
+      QUALITY_REQUIREMENTS: '',
+      STORAGE_CONDITIONS: '',
+      SERVING_METHOD: '',
+      DISH_CHARACTERISTICS: '',
+    };
+    const existingProfiles = dish ? getDishNutritionProfiles(dish.ID) : [];
+    setEditingDish(draft);
+    setEditingNutritionProfiles(eaterCategories.map(category => {
+      const existing = existingProfiles.find(profile => profile.ID_KATEGORII_DETEJ === category.ID);
+      return existing || {
+        ID: 0,
+        ID_BLUDA: dish?.ID || 0,
+        ID_KATEGORII_DETEJ: category.ID,
+        VYXOD_GR: draft.VYXOD || 0,
+        BELKI: draft.BELKI || 0,
+        ZIRI: draft.ZIRI || 0,
+        UGLEVODI: draft.UGLEVODI || 0,
+        KALORII: draft.KALORII || 0,
+        categoryName: category.NAME,
+      };
+    }));
+    setIsDishModalOpen(true);
+  };
+
   const handleSaveDish = () => {
     if (!editingDish.NAME) return;
-    if (editingDish.ID) updateDish(editingDish as Dish);
-    else addDish(editingDish);
+    const dishId = editingDish.ID
+      ? (updateDish(editingDish as Dish), editingDish.ID)
+      : addDish(editingDish);
+    editingNutritionProfiles.forEach(profile => upsertDishNutritionProfile({
+      ...profile,
+      ID_BLUDA: dishId,
+    }));
     loadData();
+    setSelectedDishId(dishId);
     setIsDishModalOpen(false);
   };
 
@@ -90,9 +134,34 @@ export const RecipeCatalogModule: React.FC = () => {
     }
   };
 
-  const handleAddComp = () => {
+  const openComponentEditor = (component?: RecipeComponent) => {
+    setEditingComponent(component || {
+      ID_BLUDA: selectedDishId || 0,
+      ID_PRODUKTA: products[0]?.ID || 1,
+      ID_KATEGORII_DETEJ: selectedEaterCategoryId,
+      GROSSO_GR: 20,
+      NETTO_GR: 16,
+      NOMER_ID_LINII_V_TABLICE: components.length + 1,
+      SOURCE_NAME: '',
+      ALLERGENS: '',
+      QUALITY_REQUIREMENTS: '',
+      IS_ALTERNATIVE: 0,
+    });
+    setIsCompModalOpen(true);
+  };
+
+  const handleSaveComp = () => {
     if (!selectedDishId) return;
-    addRecipeComponent({ ID_BLUDA: selectedDishId, ID_PRODUKTA: Number(newProdId), ID_KATEGORII_DETEJ: selectedEaterCategoryId, GROSSO_GR: Number(newGrosso), NETTO_GR: Number(newNetto) });
+    const component = {
+      ...editingComponent,
+      ID_BLUDA: selectedDishId,
+      ID_PRODUKTA: Number(editingComponent.ID_PRODUKTA),
+      ID_KATEGORII_DETEJ: Number(editingComponent.ID_KATEGORII_DETEJ || selectedEaterCategoryId),
+      GROSSO_GR: Number(editingComponent.GROSSO_GR || 0),
+      NETTO_GR: Number(editingComponent.NETTO_GR || 0),
+    };
+    if (component.ID) updateRecipeComponent(component as RecipeComponent);
+    else addRecipeComponent(component);
     setComponents(getRecipeComponents(selectedDishId, selectedEaterCategoryId));
     setIsCompModalOpen(false);
   };
@@ -117,10 +186,7 @@ export const RecipeCatalogModule: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950">
       <QuickToolbar
-        onAdd={() => {
-          setEditingDish({ ID_GRUPPI_BLUD: selectedCatId || 1, VYXOD: 200, BELKI: 0, ZIRI: 0, UGLEVODI: 0, KALORII: 0 });
-          setIsDishModalOpen(true);
-        }}
+        onAdd={() => openDishEditor()}
         onRefresh={loadData}
         onExportExcel={handleExportExcel}
         onExportPDF={handleExportPDF}
@@ -193,7 +259,7 @@ export const RecipeCatalogModule: React.FC = () => {
                     <td className="font-semibold text-amber-600 dark:text-amber-400">{d.KALORII}</td>
                     <td className="text-center">
                       <div className="flex items-center justify-center space-x-1">
-                        <button onClick={(e) => { e.stopPropagation(); setEditingDish(d); setIsDishModalOpen(true); }} className="p-1 text-slate-500 hover:text-blue-600">
+                        <button onClick={(e) => { e.stopPropagation(); openDishEditor(d); }} className="p-1 text-slate-500 hover:text-blue-600" title="Редагувати всю технологічну карту">
                           <Edit className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={(e) => { e.stopPropagation(); handleDeleteDish(d.ID); }} className="p-1 text-slate-500 hover:text-rose-600">
@@ -214,11 +280,16 @@ export const RecipeCatalogModule: React.FC = () => {
             <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
               {selectedDish ? `Склад: ${selectedDish.NAME}` : 'Оберіть страву'}
             </span>
-            {selectedDishId && (
-              <button onClick={() => setIsCompModalOpen(true)} className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-medium flex items-center space-x-1">
-                <Plus className="w-3 h-3" />
-                <span>Інгредієнт</span>
-              </button>
+            {selectedDish && (
+              <div className="flex items-center gap-1">
+                <button onClick={() => openDishEditor(selectedDish)} className="flex items-center gap-1 rounded bg-slate-200 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-300 dark:bg-slate-700 dark:text-slate-100">
+                  <Edit className="h-3 w-3" /> Картка
+                </button>
+                <button onClick={() => openComponentEditor()} className="px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[11px] font-medium flex items-center space-x-1">
+                  <Plus className="w-3 h-3" />
+                  <span>Інгредієнт</span>
+                </button>
+              </div>
             )}
           </div>
 
@@ -338,9 +409,14 @@ export const RecipeCatalogModule: React.FC = () => {
                         <td className="font-bold text-blue-600 dark:text-blue-400">{c.GROSSO_GR} г</td>
                         <td className="text-slate-600 dark:text-slate-400">{c.NETTO_GR} г</td>
                         <td>
-                          <button onClick={() => handleDeleteComp(c.ID)} className="text-rose-500 hover:text-rose-700">
-                            <Trash2 className="w-3 h-3" />
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => openComponentEditor(c)} className="text-blue-500 hover:text-blue-700" title="Редагувати інгредієнт">
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            <button onClick={() => handleDeleteComp(c.ID)} className="text-rose-500 hover:text-rose-700" title="Видалити інгредієнт">
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -376,14 +452,16 @@ export const RecipeCatalogModule: React.FC = () => {
       {/* Dish Add/Edit Modal */}
       {isDishModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+          <div className="flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-slate-300 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="p-4 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
               <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
                 {editingDish.ID ? 'Редагування страви' : 'Створення нової страви'}
               </h3>
               <button onClick={() => setIsDishModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <div className="p-4 space-y-3">
+            <div className="flex-1 space-y-5 overflow-y-auto p-4">
+              <section className="space-y-3 rounded-xl border border-slate-200 p-4 dark:border-slate-800">
+                <h4 className="font-bold text-slate-800 dark:text-slate-100">Основні дані</h4>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Найменування страви</label>
                 <input type="text" value={editingDish.NAME || ''} onChange={(e) => setEditingDish({ ...editingDish, NAME: e.target.value })} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-medium" />
@@ -391,25 +469,63 @@ export const RecipeCatalogModule: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Категорія</label>
-                  <select value={editingDish.ID_GRUPPI_BLUD || 1} onChange={(e) => setEditingDish({ ...editingDish, ID_GRUPPI_BLUD: Number(e.target.value) })} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs">
+                  <SearchableSelect value={editingDish.ID_GRUPPI_BLUD || 1} onChange={(e) => setEditingDish({ ...editingDish, ID_GRUPPI_BLUD: Number(e.target.value) })} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs">
                     {categories.map(c => <option key={c.ID} value={c.ID}>{c.NAME}</option>)}
-                  </select>
+                  </SearchableSelect>
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Вихід страви (грам)</label>
-                  <input type="number" value={editingDish.VYXOD || 200} onChange={(e) => setEditingDish({ ...editingDish, VYXOD: Number(e.target.value) })} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-medium" />
+                  <input type="number" min="0" step="0.01" value={editingDish.VYXOD ?? 200} onChange={(e) => setEditingDish({ ...editingDish, VYXOD: Number(e.target.value) })} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-medium" />
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-2">
-                <div><label className="block text-[10px] text-slate-500">Білки (г)</label><input type="number" step="0.1" value={editingDish.BELKI || 0} onChange={(e) => setEditingDish({ ...editingDish, BELKI: Number(e.target.value) })} className="w-full p-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs" /></div>
-                <div><label className="block text-[10px] text-slate-500">Жири (г)</label><input type="number" step="0.1" value={editingDish.ZIRI || 0} onChange={(e) => setEditingDish({ ...editingDish, ZIRI: Number(e.target.value) })} className="w-full p-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs" /></div>
-                <div><label className="block text-[10px] text-slate-500">Вуглеводи (г)</label><input type="number" step="0.1" value={editingDish.UGLEVODI || 0} onChange={(e) => setEditingDish({ ...editingDish, UGLEVODI: Number(e.target.value) })} className="w-full p-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs" /></div>
-                <div><label className="block text-[10px] text-slate-500">Калорії (ккал)</label><input type="number" value={editingDish.KALORII || 0} onChange={(e) => setEditingDish({ ...editingDish, KALORII: Number(e.target.value) })} className="w-full p-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-bold text-amber-600" /></div>
+                <div><label className="block text-[10px] text-slate-500">Білки (г)</label><input type="number" min="0" step="0.01" value={editingDish.BELKI ?? 0} onChange={(e) => setEditingDish({ ...editingDish, BELKI: Number(e.target.value) })} className="w-full p-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs" /></div>
+                <div><label className="block text-[10px] text-slate-500">Жири (г)</label><input type="number" min="0" step="0.01" value={editingDish.ZIRI ?? 0} onChange={(e) => setEditingDish({ ...editingDish, ZIRI: Number(e.target.value) })} className="w-full p-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs" /></div>
+                <div><label className="block text-[10px] text-slate-500">Вуглеводи (г)</label><input type="number" min="0" step="0.01" value={editingDish.UGLEVODI ?? 0} onChange={(e) => setEditingDish({ ...editingDish, UGLEVODI: Number(e.target.value) })} className="w-full p-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs" /></div>
+                <div><label className="block text-[10px] text-slate-500">Калорії (ккал)</label><input type="number" min="0" step="0.01" value={editingDish.KALORII ?? 0} onChange={(e) => setEditingDish({ ...editingDish, KALORII: Number(e.target.value) })} className="w-full p-1 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-bold text-amber-600" /></div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Технологія приготування</label>
                 <textarea rows={3} value={editingDish.NOTES || ''} onChange={(e) => setEditingDish({ ...editingDish, NOTES: e.target.value })} className="w-full p-2 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs" />
               </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div><label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Алергени</label><textarea rows={2} value={editingDish.ALLERGENS || ''} onChange={e => setEditingDish({ ...editingDish, ALLERGENS: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 p-2 text-xs dark:border-slate-700 dark:bg-slate-950" /></div>
+                <div><label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Характеристика готової страви</label><textarea rows={2} value={editingDish.DISH_CHARACTERISTICS || ''} onChange={e => setEditingDish({ ...editingDish, DISH_CHARACTERISTICS: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 p-2 text-xs dark:border-slate-700 dark:bg-slate-950" /></div>
+                <div><label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Вимоги до якості сировини</label><textarea rows={3} value={editingDish.QUALITY_REQUIREMENTS || ''} onChange={e => setEditingDish({ ...editingDish, QUALITY_REQUIREMENTS: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 p-2 text-xs dark:border-slate-700 dark:bg-slate-950" /></div>
+                <div><label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Умови зберігання</label><textarea rows={3} value={editingDish.STORAGE_CONDITIONS || ''} onChange={e => setEditingDish({ ...editingDish, STORAGE_CONDITIONS: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 p-2 text-xs dark:border-slate-700 dark:bg-slate-950" /></div>
+                <div><label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Спосіб подачі</label><textarea rows={3} value={editingDish.SERVING_METHOD || ''} onChange={e => setEditingDish({ ...editingDish, SERVING_METHOD: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 p-2 text-xs dark:border-slate-700 dark:bg-slate-950" /></div>
+                <div><label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Нормативне джерело</label><textarea rows={3} value={editingDish.SOURCE_REF || ''} onChange={e => setEditingDish({ ...editingDish, SOURCE_REF: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 p-2 text-xs dark:border-slate-700 dark:bg-slate-950" /></div>
+              </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div><label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Файл-джерело</label><input value={editingDish.SOURCE_FILE || ''} onChange={e => setEditingDish({ ...editingDish, SOURCE_FILE: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950" /></div>
+                <div><label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Формат джерела</label><input value={editingDish.SOURCE_FORMAT || ''} onChange={e => setEditingDish({ ...editingDish, SOURCE_FORMAT: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950" /></div>
+                <div><label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Порядок у довіднику</label><input type="number" min="0" value={editingDish.PORRDOK_SLEDOVANIR_BLUD ?? 0} onChange={e => setEditingDish({ ...editingDish, PORRDOK_SLEDOVANIR_BLUD: Number(e.target.value) })} className="w-full rounded border border-slate-300 bg-slate-50 px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950" /></div>
+              </div>
+              </section>
+
+              <section className="space-y-3 rounded-xl border border-blue-200 p-4 dark:border-blue-900">
+                <div>
+                  <h4 className="font-bold text-slate-800 dark:text-slate-100">Вихід і харчова цінність за віковими категоріями</h4>
+                  <p className="text-[10px] text-slate-500">Кожен профіль зберігається окремо та записується до журналу змін.</p>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-xs">
+                    <thead className="bg-slate-100 text-slate-600 dark:bg-slate-950 dark:text-slate-300"><tr><th className="p-2 text-left">Категорія</th><th>Вихід, г</th><th>Білки</th><th>Жири</th><th>Вуглеводи</th><th>Ккал</th></tr></thead>
+                    <tbody>
+                      {editingNutritionProfiles.map((profile, profileIndex) => (
+                        <tr key={profile.ID_KATEGORII_DETEJ} className="border-t border-slate-200 dark:border-slate-800">
+                          <td className="p-2 font-semibold">{profile.categoryName || eaterCategories.find(category => category.ID === profile.ID_KATEGORII_DETEJ)?.NAME}</td>
+                          {(['VYXOD_GR', 'BELKI', 'ZIRI', 'UGLEVODI', 'KALORII'] as const).map(field => (
+                            <td key={field} className="p-1">
+                              <input type="number" min="0" step="0.01" value={profile[field] ?? 0} onChange={event => setEditingNutritionProfiles(current => current.map((item, index) => index === profileIndex ? { ...item, [field]: Number(event.target.value) } : item))} className="w-full min-w-24 rounded border border-slate-300 bg-white px-2 py-1.5 text-right dark:border-slate-700 dark:bg-slate-950" />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
             </div>
             <div className="p-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2">
               <button onClick={() => setIsDishModalOpen(false)} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded text-xs">Скасувати</button>
@@ -419,35 +535,67 @@ export const RecipeCatalogModule: React.FC = () => {
         </div>
       )}
 
-      {/* Ingredient Add Modal */}
+      {/* Ingredient Add/Edit Modal */}
       {isCompModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+          <div className="flex max-h-[95vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-slate-300 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="p-4 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">Додати інгредієнт</h3>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                {editingComponent.ID ? 'Редагувати інгредієнт' : 'Додати інгредієнт'}
+              </h3>
               <button onClick={() => setIsCompModalOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
-            <div className="p-4 space-y-3">
+            <div className="flex-1 space-y-3 overflow-y-auto p-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Продукт</label>
-                <select value={newProdId} onChange={(e) => setNewProdId(Number(e.target.value))} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs">
+                <SearchableSelect value={editingComponent.ID_PRODUKTA || products[0]?.ID || 1} onChange={(e) => setEditingComponent({ ...editingComponent, ID_PRODUKTA: Number(e.target.value) })} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs">
                   {products.map(p => <option key={p.ID} value={p.ID}>{p.NAME} ({p.EDINICA_IZMERENIA})</option>)}
-                </select>
+                </SearchableSelect>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Вікова категорія</label>
+                <SearchableSelect value={editingComponent.ID_KATEGORII_DETEJ || selectedEaterCategoryId} onChange={(e) => setEditingComponent({ ...editingComponent, ID_KATEGORII_DETEJ: Number(e.target.value) })} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs">
+                  {eaterCategories.map(category => <option key={category.ID} value={category.ID}>{category.NAME}</option>)}
+                </SearchableSelect>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Брутто (г)</label>
-                  <input type="number" value={newGrosso} onChange={(e) => setNewGrosso(Number(e.target.value))} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold text-blue-600" />
+                  <input type="number" min="0" step="0.01" value={editingComponent.GROSSO_GR ?? 0} onChange={(e) => setEditingComponent({ ...editingComponent, GROSSO_GR: Number(e.target.value) })} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold text-blue-600" />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Нетто (г)</label>
-                  <input type="number" value={newNetto} onChange={(e) => setNewNetto(Number(e.target.value))} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold" />
+                  <input type="number" min="0" step="0.01" value={editingComponent.NETTO_GR ?? 0} onChange={(e) => setEditingComponent({ ...editingComponent, NETTO_GR: Number(e.target.value) })} className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold" />
                 </div>
               </div>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Назва у джерелі</label>
+                  <input value={editingComponent.SOURCE_NAME || ''} onChange={e => setEditingComponent({ ...editingComponent, SOURCE_NAME: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Порядок у рецептурі</label>
+                  <input type="number" min="0" value={editingComponent.NOMER_ID_LINII_V_TABLICE ?? 0} onChange={e => setEditingComponent({ ...editingComponent, NOMER_ID_LINII_V_TABLICE: Number(e.target.value) })} className="w-full rounded border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-950" />
+                </div>
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Алергени</label>
+                <textarea rows={2} value={editingComponent.ALLERGENS || ''} onChange={e => setEditingComponent({ ...editingComponent, ALLERGENS: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 p-2 text-xs dark:border-slate-700 dark:bg-slate-950" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-400">Вимоги до якості</label>
+                <textarea rows={3} value={editingComponent.QUALITY_REQUIREMENTS || ''} onChange={e => setEditingComponent({ ...editingComponent, QUALITY_REQUIREMENTS: e.target.value })} className="w-full rounded border border-slate-300 bg-slate-50 p-2 text-xs dark:border-slate-700 dark:bg-slate-950" />
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 rounded border border-slate-200 p-2 text-xs dark:border-slate-800">
+                <input type="checkbox" checked={Boolean(editingComponent.IS_ALTERNATIVE)} onChange={e => setEditingComponent({ ...editingComponent, IS_ALTERNATIVE: e.target.checked ? 1 : 0 })} />
+                Альтернативний інгредієнт
+              </label>
             </div>
             <div className="p-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2">
               <button onClick={() => setIsCompModalOpen(false)} className="px-3 py-1.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded text-xs">Скасувати</button>
-              <button onClick={handleAddComp} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold">Додати</button>
+              <button onClick={handleSaveComp} className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold">
+                {editingComponent.ID ? 'Зберегти' : 'Додати'}
+              </button>
             </div>
           </div>
         </div>

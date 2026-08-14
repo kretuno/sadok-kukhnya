@@ -1,3 +1,4 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { APP_VERSION } from '../../config/version';
 import { Database, Building, HardDrive, CheckCircle2, ShieldCheck, Monitor, Trash2, AlertTriangle, Save, User, Phone, MapPin, Hash, Clock, DollarSign, PackageCheck, Download, Upload, Sliders, Utensils, Plus, Layers, ToggleLeft, ToggleRight, AlertCircle, FileText } from 'lucide-react';
@@ -5,6 +6,7 @@ import { getInstitutions, updateInstitution, addInstitution, deleteInstitution, 
 import { Institution } from '../../types';
 import { SystemAdministrationPanel } from '../system/SystemAdministrationPanel';
 import { recordAudit } from '../../services/governance';
+import { getFullscreenModals, getShowMenuMacros, setFullscreenModals, setShowMenuMacros } from '../../services/uiPreferences';
 
 export const SettingsModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'general' | 'nutrition' | 'warehouse' | 'database' | 'system'>('general');
@@ -47,6 +49,8 @@ export const SettingsModule: React.FC = () => {
     expiryDaysAlert: 3,
     minStockAlert: true,
   });
+  const [fullscreenModals, setFullscreenModalsEnabled] = useState(getFullscreenModals);
+  const [showMenuMacros, setShowMenuMacrosEnabled] = useState(getShowMenuMacros);
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [savedOk, setSavedOk] = useState(false);
@@ -156,11 +160,13 @@ export const SettingsModule: React.FC = () => {
     localStorage.setItem('medsestra_cost_limits', JSON.stringify(costLimits));
     localStorage.setItem('medsestra_meal_schedule', JSON.stringify(mealSchedule));
     localStorage.setItem('medsestra_warehouse_rules', JSON.stringify(warehouseRules));
+    setFullscreenModals(fullscreenModals);
+    setShowMenuMacros(showMenuMacros);
     recordAudit({
       action: 'update',
       entityType: 'application_settings',
       summary: 'Змінено параметри харчування, розкладу та складських правил',
-      after: { costLimits, mealSchedule, warehouseRules },
+      after: { costLimits, mealSchedule, warehouseRules, fullscreenModals, showMenuMacros },
     });
 
     loadData();
@@ -174,6 +180,8 @@ export const SettingsModule: React.FC = () => {
       costLimits,
       mealSchedule,
       warehouseRules,
+      fullscreenModals,
+      showMenuMacros,
       exportedAt: new Date().toISOString(),
     };
     const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
@@ -257,6 +265,38 @@ export const SettingsModule: React.FC = () => {
         {/* TAB 1: GENERAL INSTITUTION REQUISITES & PROFILES */}
         {activeTab === 'general' && (
           <div className="card-glass p-5 rounded-xl space-y-5 shadow-sm">
+            <div className="flex flex-col gap-3 rounded-xl border border-violet-200 bg-violet-50/70 p-4 dark:border-violet-800 dark:bg-violet-950/30 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <Monitor className="mt-0.5 h-5 w-5 shrink-0 text-violet-600 dark:text-violet-400" />
+                <div>
+                  <span className="block text-sm font-extrabold text-slate-800 dark:text-slate-100">
+                    Повноекранні спливаючі вікна
+                  </span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Форми додавання, редагування та перегляду відкриватимуться на всю робочу область.
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={fullscreenModals}
+                onClick={() => {
+                  const enabled = !fullscreenModals;
+                  setFullscreenModalsEnabled(enabled);
+                  setFullscreenModals(enabled);
+                }}
+                className={`flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2 font-bold transition ${
+                  fullscreenModals
+                    ? 'border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300'
+                    : 'border-slate-300 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+                }`}
+              >
+                {fullscreenModals ? <ToggleRight className="h-5 w-5" /> : <ToggleLeft className="h-5 w-5" />}
+                <span>{fullscreenModals ? 'Увімкнено' : 'Вимкнено'}</span>
+              </button>
+            </div>
+
             {/* PROFILE SWITCHER & MANAGEMENT BAR */}
             <div className="p-4 bg-blue-50/70 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800 space-y-3">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -274,7 +314,7 @@ export const SettingsModule: React.FC = () => {
 
                 <div className="flex items-center space-x-2 w-full sm:w-auto">
                   {/* SELECT PROFILE DROPDOWN */}
-                  <select
+                  <SearchableSelect
                     value={selectedInstId}
                     onChange={(e) => handleSelectProfile(Number(e.target.value))}
                     className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded-lg text-xs font-bold text-blue-900 dark:text-blue-200 focus:ring-2 focus:ring-blue-500 cursor-pointer flex-1 sm:w-60"
@@ -284,7 +324,7 @@ export const SettingsModule: React.FC = () => {
                         {inst.NAME} {inst.IS_SEPARATE_WAREHOUSE ? ' (Окремий склад)' : ' (Спільний склад)'}
                       </option>
                     ))}
-                  </select>
+                  </SearchableSelect>
 
                   {/* ADD NEW PROFILE BUTTON */}
                   <button
@@ -452,6 +492,34 @@ export const SettingsModule: React.FC = () => {
         {/* TAB 2: NUTRITION & COST LIMITS */}
         {activeTab === 'nutrition' && (
           <div className="space-y-6">
+            <div className="card-glass rounded-xl p-5 shadow-sm">
+              <div className="flex items-center justify-between gap-5">
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
+                    <Sliders className="h-4 w-4 text-blue-500" />
+                    Відображення БЖВ у меню
+                  </h3>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Керує колонками «Білки», «Жири» та «Вуглеводи» у меню, друці й експорті. Калорійність залишається видимою.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={showMenuMacros}
+                  onClick={() => {
+                    const enabled = !showMenuMacros;
+                    setShowMenuMacrosEnabled(enabled);
+                    setShowMenuMacros(enabled);
+                  }}
+                  className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 font-bold text-white transition ${showMenuMacros ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-500 hover:bg-slate-600'}`}
+                >
+                  {showMenuMacros ? <ToggleRight className="h-5 w-5" /> : <ToggleLeft className="h-5 w-5" />}
+                  <span>{showMenuMacros ? 'БЖВ показуються' : 'БЖВ приховано'}</span>
+                </button>
+              </div>
+            </div>
+
             {/* Daily Cost Limits */}
             <div className="card-glass p-5 rounded-xl space-y-4 shadow-sm">
               <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2">

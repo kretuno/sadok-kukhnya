@@ -1,3 +1,4 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { MenuHeader, Dish, EaterCategory, Product, RecipeComponent, Institution, MenuApproval } from '../../types';
 import { getMenuEntries, addMenuEntry, deleteMenuEntry, getDishes, getEaterCategories, getProducts, getRecipeComponents, getDishNutritionProfiles, getInstitutions, updateDish, deductStockFIFO, getMenuEntriesRange, copyMenuPeriod, replaceMenuDish, getStockBatches, approveMenu, getMenuApproval, getDishCostProfiles } from '../../services/db';
@@ -17,6 +18,8 @@ import {
   isDishAvailable,
   matchesNutritionNorm,
 } from '../../domain/menuPlanning';
+import { getShowMenuMacros, UI_PREFERENCES_EVENT } from '../../services/uiPreferences';
+import { parseNonNegativeDecimalDraft } from '../../domain/decimalInput';
 
 const MEAL_TYPES = ['Сніданок', '2-й сніданок', 'Обід', 'Полуденок', 'Вечеря'];
 
@@ -55,6 +58,7 @@ export const MenuPlannerModule: React.FC = () => {
   const [selectedMealType, setSelectedMealType] = useState<string>('Всі');
   const [products, setProducts] = useState<Product[]>([]);
   const [showCategoryCost, setShowCategoryCost] = useState<boolean>(false);
+  const [showMenuMacros, setShowMenuMacros] = useState(getShowMenuMacros);
   const [isConstructorOpen, setIsConstructorOpen] = useState(false);
   const [planningPeriod, setPlanningPeriod] = useState<PlanningPeriod>('week');
   const [approval, setApproval] = useState<MenuApproval | null>(null);
@@ -67,6 +71,7 @@ export const MenuPlannerModule: React.FC = () => {
 
   // Per-category dish yields: dishCatYields[dishId][catId] = portion weight in grams
   const [dishCatYields, setDishCatYields] = useState<{ [dishId: number]: { [catId: number]: number } }>({});
+  const [dishCatYieldInputs, setDishCatYieldInputs] = useState<{ [dishId: number]: { [catId: number]: string } }>({});
 
   const [counts, setCounts] = useState<{ [catId: number]: number }>(DEFAULT_EATER_COUNTS);
 
@@ -75,6 +80,11 @@ export const MenuPlannerModule: React.FC = () => {
   const [newMealType, setNewMealType] = useState<string>('Обід');
 
   useEffect(() => { loadData(); }, [selectedDate, selectedInstitution]);
+  useEffect(() => {
+    const refreshPreference = () => setShowMenuMacros(getShowMenuMacros());
+    window.addEventListener(UI_PREFERENCES_EVENT, refreshPreference);
+    return () => window.removeEventListener(UI_PREFERENCES_EVENT, refreshPreference);
+  }, []);
 
   const loadData = () => {
     setMenuItems(getMenuEntries(selectedDate));
@@ -121,8 +131,15 @@ export const MenuPlannerModule: React.FC = () => {
   };
 
   // Dish weight / yield update handler PER CATEGORY for tuning menu cost
-  const handleCatYieldChange = (dishId: number, catId: number, newYield: number) => {
-    if (newYield <= 0 || isNaN(newYield)) return;
+  const handleCatYieldChange = (dishId: number, catId: number, rawValue: string) => {
+    const parsed = parseNonNegativeDecimalDraft(rawValue);
+    if (!parsed.accepted) return;
+    setDishCatYieldInputs(prev => ({
+      ...prev,
+      [dishId]: { ...(prev[dishId] || {}), [catId]: rawValue },
+    }));
+    if (!parsed.complete || parsed.value === undefined) return;
+    const newYield = parsed.value;
     setDishCatYields(prev => ({
       ...prev,
       [dishId]: {
@@ -130,7 +147,16 @@ export const MenuPlannerModule: React.FC = () => {
         [catId]: newYield
       }
     }));
-    if (catId === 3) {
+  };
+
+  const handleCatYieldCommit = (dishId: number, catId: number) => {
+    const rawValue = dishCatYieldInputs[dishId]?.[catId];
+    if (rawValue === undefined || rawValue === '' || rawValue.endsWith('.') || rawValue.endsWith(',')) {
+      setDishCatYieldInputs(prev => ({ ...prev, [dishId]: { ...(prev[dishId] || {}), [catId]: String(getDishYieldForCat(dishId, catId)) } }));
+      return;
+    }
+    const newYield = Number(rawValue.replace(',', '.'));
+    if (catId === 3 && Number.isFinite(newYield) && newYield >= 0) {
       const dish = dishes.find(d => d.ID === dishId);
       if (dish) updateDish({ ...dish, VYXOD: newYield });
     }
@@ -419,21 +445,21 @@ export const MenuPlannerModule: React.FC = () => {
   };
 
   const handleExportExcel = () => {
-    const headers = ['Прийом їжі', 'Найменування страви', ...categories.map(c => `Вихід ${translateCatName(c.NAME)} (г)`), 'Білки (г)', 'Жири (г)', 'Вуглеводи (г)', 'Калорії (ккал)'];
+    const headers = ['Прийом їжі', 'Найменування страви', ...categories.map(c => `Вихід ${translateCatName(c.NAME)} (г)`), ...(showMenuMacros ? ['Білки (г)', 'Жири (г)', 'Вуглеводи (г)'] : []), 'Калорії (ккал)'];
     const rows = menuItems.map(m => {
       const d = dishes.find(dish => dish.ID === m.ID_BLUDA);
       const catYields = categories.map(c => getDishYieldForCat(m.ID_BLUDA, c.ID));
-      return [m.MEAL_TYPE, m.NAME_BLUDA, ...catYields, d?.BELKI || 0, d?.ZIRI || 0, d?.UGLEVODI || 0, d?.KALORII || 0];
+      return [m.MEAL_TYPE, m.NAME_BLUDA, ...catYields, ...(showMenuMacros ? [d?.BELKI || 0, d?.ZIRI || 0, d?.UGLEVODI || 0] : []), d?.KALORII || 0];
     });
     exportToExcel(`Меню_розкладка_${selectedDate}`, 'Меню', headers, rows);
   };
 
   const handleExportPDF = () => {
-    const headers = ['Прийом їжі', 'Найменування страви', ...categories.map(c => `Вихід ${translateCatName(c.NAME)} (г)`), 'Білки (г)', 'Жири (г)', 'Вуглеводи (г)', 'Калорії (ккал)'];
+    const headers = ['Прийом їжі', 'Найменування страви', ...categories.map(c => `Вихід ${translateCatName(c.NAME)} (г)`), ...(showMenuMacros ? ['Білки (г)', 'Жири (г)', 'Вуглеводи (г)'] : []), 'Калорії (ккал)'];
     const rows = menuItems.map(m => {
       const d = dishes.find(dish => dish.ID === m.ID_BLUDA);
       const catYields = categories.map(c => getDishYieldForCat(m.ID_BLUDA, c.ID));
-      return [m.MEAL_TYPE, m.NAME_BLUDA, ...catYields, d?.BELKI || 0, d?.ZIRI || 0, d?.UGLEVODI || 0, d?.KALORII || 0];
+      return [m.MEAL_TYPE, m.NAME_BLUDA, ...catYields, ...(showMenuMacros ? [d?.BELKI || 0, d?.ZIRI || 0, d?.UGLEVODI || 0] : []), d?.KALORII || 0];
     });
     exportToPDF(`Меню-розкладка на ${formatDate(selectedDate)}`, headers, rows);
   };
@@ -562,7 +588,7 @@ export const MenuPlannerModule: React.FC = () => {
               onChange={(e) => setSelectedDate(e.target.value)}
               className="w-36 min-w-[140px] px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs focus:ring-1 focus:ring-blue-500 font-bold text-slate-800 dark:text-slate-100"
             />
-            <select
+            <SearchableSelect
               value={selectedInstitution}
               onChange={(e) => setSelectedInstitution(Number(e.target.value))}
               className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold text-slate-800 dark:text-slate-100 truncate"
@@ -570,7 +596,7 @@ export const MenuPlannerModule: React.FC = () => {
               {institutions.map(inst => (
                 <option key={inst.ID} value={inst.ID}>{inst.NAME}</option>
               ))}
-            </select>
+            </SearchableSelect>
           </div>
 
           <div className="flex items-center gap-2">
@@ -753,9 +779,7 @@ export const MenuPlannerModule: React.FC = () => {
                   {categories.map(cat => (
                     <th key={cat.ID} className="text-center">{translateCatName(cat.NAME)} (г) ✏️</th>
                   ))}
-                  <th>Білки</th>
-                  <th>Жири</th>
-                  <th>Вуглеводи</th>
+                  {showMenuMacros && <><th>Білки</th><th>Жири</th><th>Вуглеводи</th></>}
                   <th>Ккал</th>
                   <th className="w-12 text-center">Дії</th>
                 </tr>
@@ -763,7 +787,7 @@ export const MenuPlannerModule: React.FC = () => {
               <tbody>
                 {filteredMenuItems.length === 0 ? (
                   <tr>
-                    <td colSpan={6 + categories.length} className="text-center py-8 text-slate-400 italic">
+                    <td colSpan={categories.length + (showMenuMacros ? 7 : 4)} className="text-center py-8 text-slate-400 italic">
                       На обрану дату меню не сформовано. Натисніть «Додати» для вибору страв з технологічної карти.
                     </td>
                   </tr>
@@ -834,9 +858,11 @@ export const MenuPlannerModule: React.FC = () => {
                               </span>
                             </div>
                           </td>
-                          <td className="text-xs text-blue-900 dark:text-blue-200 font-extrabold">{group.totalB.toFixed(1)}</td>
-                          <td className="text-xs text-blue-900 dark:text-blue-200 font-extrabold">{group.totalZ.toFixed(1)}</td>
-                          <td className="text-xs text-blue-900 dark:text-blue-200 font-extrabold">{group.totalU.toFixed(1)}</td>
+                          {showMenuMacros && <>
+                            <td className="text-xs text-blue-900 dark:text-blue-200 font-extrabold">{group.totalB.toFixed(1)}</td>
+                            <td className="text-xs text-blue-900 dark:text-blue-200 font-extrabold">{group.totalZ.toFixed(1)}</td>
+                            <td className="text-xs text-blue-900 dark:text-blue-200 font-extrabold">{group.totalU.toFixed(1)}</td>
+                          </>}
                           <td className="text-xs text-amber-600 dark:text-amber-400 font-black">{group.totalKcal}</td>
                           <td></td>
                         </tr>
@@ -871,10 +897,11 @@ export const MenuPlannerModule: React.FC = () => {
                                   <td key={cat.ID} className="text-center">
                                     <div className="flex items-center justify-center space-x-0.5">
                                       <input
-                                        type="number"
-                                        min="1"
-                                        value={yieldVal}
-                                        onChange={(e) => handleCatYieldChange(item.ID_BLUDA, cat.ID, Number(e.target.value))}
+                                        type="text"
+                                        inputMode="decimal"
+                                        value={dishCatYieldInputs[item.ID_BLUDA]?.[cat.ID] ?? String(yieldVal)}
+                                        onChange={(e) => handleCatYieldChange(item.ID_BLUDA, cat.ID, e.target.value)}
+                                        onBlur={() => handleCatYieldCommit(item.ID_BLUDA, cat.ID)}
                                         className="w-14 px-1 py-0.5 text-center bg-white dark:bg-slate-900 border border-blue-300 dark:border-blue-700 rounded text-xs font-bold text-blue-600 dark:text-blue-400 focus:ring-2 focus:ring-blue-500"
                                         title={`Змінити вагу виходу для ${translateCatName(cat.NAME)}`}
                                       />
@@ -884,9 +911,11 @@ export const MenuPlannerModule: React.FC = () => {
                                 );
                               })}
 
-                              <td>{((dish?.BELKI || 0) * avgRatio).toFixed(1)}</td>
-                              <td>{((dish?.ZIRI || 0) * avgRatio).toFixed(1)}</td>
-                              <td>{((dish?.UGLEVODI || 0) * avgRatio).toFixed(1)}</td>
+                              {showMenuMacros && <>
+                                <td>{((dish?.BELKI || 0) * avgRatio).toFixed(1)}</td>
+                                <td>{((dish?.ZIRI || 0) * avgRatio).toFixed(1)}</td>
+                                <td>{((dish?.UGLEVODI || 0) * avgRatio).toFixed(1)}</td>
+                              </>}
                               <td className="font-semibold text-amber-600 dark:text-amber-400">{Math.round((dish?.KALORII || 0) * avgRatio)}</td>
                               <td className="text-center">
                                 <button
@@ -1087,9 +1116,11 @@ export const MenuPlannerModule: React.FC = () => {
                         Вихід {translateCatName(cat.NAME)} (г)
                       </th>
                     ))}
-                    <th className="border border-black p-1 text-center w-16">Білки (г)</th>
-                    <th className="border border-black p-1 text-center w-16">Жири (г)</th>
-                    <th className="border border-black p-1 text-center w-16">Вуглеводи (г)</th>
+                    {showMenuMacros && <>
+                      <th className="border border-black p-1 text-center w-16">Білки (г)</th>
+                      <th className="border border-black p-1 text-center w-16">Жири (г)</th>
+                      <th className="border border-black p-1 text-center w-16">Вуглеводи (г)</th>
+                    </>}
                     <th className="border border-black p-1 text-center w-16 font-bold">Ккал</th>
                   </tr>
                 </thead>
@@ -1116,9 +1147,11 @@ export const MenuPlannerModule: React.FC = () => {
                             {getDishYieldForCat(item.ID_BLUDA, cat.ID)} г
                           </td>
                         ))}
-                        <td className="border border-black p-1 text-center">{((d?.BELKI || 0) * avgRatio).toFixed(1)}</td>
-                        <td className="border border-black p-1 text-center">{((d?.ZIRI || 0) * avgRatio).toFixed(1)}</td>
-                        <td className="border border-black p-1 text-center">{((d?.UGLEVODI || 0) * avgRatio).toFixed(1)}</td>
+                        {showMenuMacros && <>
+                          <td className="border border-black p-1 text-center">{((d?.BELKI || 0) * avgRatio).toFixed(1)}</td>
+                          <td className="border border-black p-1 text-center">{((d?.ZIRI || 0) * avgRatio).toFixed(1)}</td>
+                          <td className="border border-black p-1 text-center">{((d?.UGLEVODI || 0) * avgRatio).toFixed(1)}</td>
+                        </>}
                         <td className="border border-black p-1 text-center font-bold">{Math.round((d?.KALORII || 0) * avgRatio)}</td>
                       </tr>
                     );
@@ -1135,9 +1168,11 @@ export const MenuPlannerModule: React.FC = () => {
             <thead>
               <tr className="bg-gray-200 font-bold">
                 <th className="border border-black p-1 text-left">Разом за день</th>
-                <th className="border border-black p-1 text-center w-16">Білки (г)</th>
-                <th className="border border-black p-1 text-center w-16">Жири (г)</th>
-                <th className="border border-black p-1 text-center w-16">Вуглеводи (г)</th>
+                {showMenuMacros && <>
+                  <th className="border border-black p-1 text-center w-16">Білки (г)</th>
+                  <th className="border border-black p-1 text-center w-16">Жири (г)</th>
+                  <th className="border border-black p-1 text-center w-16">Вуглеводи (г)</th>
+                </>}
                 <th className="border border-black p-1 text-center w-16">Калорії (ккал)</th>
                 <th className="border border-black p-1 text-center w-28">Вартість (грн)</th>
               </tr>
@@ -1145,15 +1180,17 @@ export const MenuPlannerModule: React.FC = () => {
             <tbody>
               <tr className="font-bold">
                 <td className="border border-black p-1">ПІДСУМОК</td>
-                <td className="border border-black p-1 text-center">{totalProteins.toFixed(1)}</td>
-                <td className="border border-black p-1 text-center">{totalFats.toFixed(1)}</td>
-                <td className="border border-black p-1 text-center">{totalCarbs.toFixed(1)}</td>
+                {showMenuMacros && <>
+                  <td className="border border-black p-1 text-center">{totalProteins.toFixed(1)}</td>
+                  <td className="border border-black p-1 text-center">{totalFats.toFixed(1)}</td>
+                  <td className="border border-black p-1 text-center">{totalCarbs.toFixed(1)}</td>
+                </>}
                 <td className="border border-black p-1 text-center">{totalCalories.toFixed(0)}</td>
                 <td className="border border-black p-1 text-center text-sm font-extrabold">{totalCost.toFixed(2)}</td>
               </tr>
               <tr className="font-semibold text-[11px] bg-gray-50">
                 <td className="border border-black p-1 font-bold">НА 1 ЧОЛОВІКА (ВАРТІСТЬ)</td>
-                <td colSpan={4} className="border border-black p-1 text-center">
+                <td colSpan={showMenuMacros ? 4 : 1} className="border border-black p-1 text-center">
                   {categories.map(c => {
                     const cnt = counts[c.ID] || 0;
                     const cCost = totalCostPerCat[c.ID] || 0;
@@ -1413,17 +1450,17 @@ export const MenuPlannerModule: React.FC = () => {
             <div className="p-4 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Прийом їжі</label>
-                <select
+                <SearchableSelect
                   value={newMealType}
                   onChange={(e) => setNewMealType(e.target.value)}
                   className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-medium"
                 >
                   {MEAL_TYPES.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
+                </SearchableSelect>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Оберіть страву з технологічної карти</label>
-                <select
+                <SearchableSelect
                   value={newDishId}
                   onChange={(e) => setNewDishId(Number(e.target.value))}
                   className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-medium"
@@ -1431,7 +1468,7 @@ export const MenuPlannerModule: React.FC = () => {
                   {dishes.map(d => (
                     <option key={d.ID} value={d.ID}>{d.NAME} ({d.VYXOD}г - {d.KALORII} ккал)</option>
                   ))}
-                </select>
+                </SearchableSelect>
               </div>
             </div>
             <div className="p-3 bg-slate-50 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2">

@@ -1340,21 +1340,28 @@ export function deleteProduct(id: number) {
   saveDatabaseToDisk();
 }
 
-export function addDish(d: Partial<Dish>) {
-  if (!db) return;
+export function addDish(d: Partial<Dish>): number {
+  if (!db) return 0;
   requirePermission('recipes.write');
-  db.run(`INSERT INTO KARTOTEKA_BLUD (NAME, NOTES, ID_GRUPPI_BLUD, VYXOD, BELKI, ZIRI, UGLEVODI, KALORII)
+  db.run(`INSERT INTO KARTOTEKA_BLUD
+      (NAME, NOTES, ID_GRUPPI_BLUD, VYXOD, BELKI, ZIRI, UGLEVODI, KALORII,
+       PORRDOK_SLEDOVANIR_BLUD, SOURCE_FILE, SOURCE_FORMAT, SOURCE_REF, ALLERGENS,
+       QUALITY_REQUIREMENTS, STORAGE_CONDITIONS, SERVING_METHOD, DISH_CHARACTERISTICS)
      VALUES ('${esc(d.NAME!)}', '${esc(d.NOTES || '')}', ${d.ID_GRUPPI_BLUD || 1},
-             ${d.VYXOD || 0}, ${d.BELKI || 0}, ${d.ZIRI || 0}, ${d.UGLEVODI || 0}, ${d.KALORII || 0})`);
-  const id = String(db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] || '');
+             ${d.VYXOD || 0}, ${d.BELKI || 0}, ${d.ZIRI || 0}, ${d.UGLEVODI || 0}, ${d.KALORII || 0},
+             ${d.PORRDOK_SLEDOVANIR_BLUD || 0}, '${esc(d.SOURCE_FILE || '')}', '${esc(d.SOURCE_FORMAT || '')}',
+             '${esc(d.SOURCE_REF || '')}', '${esc(d.ALLERGENS || '')}', '${esc(d.QUALITY_REQUIREMENTS || '')}',
+             '${esc(d.STORAGE_CONDITIONS || '')}', '${esc(d.SERVING_METHOD || '')}', '${esc(d.DISH_CHARACTERISTICS || '')}')`);
+  const id = Number(db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] || 0);
   recordAudit({
     action: 'create',
     entityType: 'dish',
-    entityId: id,
+    entityId: String(id),
     summary: `Створено страву «${d.NAME}»`,
     after: d,
   });
   saveDatabaseToDisk();
+  return id;
 }
 
 export function updateDish(d: Dish) {
@@ -1363,7 +1370,14 @@ export function updateDish(d: Dish) {
   const before = queryAll<Dish>(`SELECT * FROM KARTOTEKA_BLUD WHERE ID = ${d.ID}`)[0];
   db.run(`UPDATE KARTOTEKA_BLUD SET NAME='${esc(d.NAME)}', NOTES='${esc(d.NOTES || '')}',
        ID_GRUPPI_BLUD=${d.ID_GRUPPI_BLUD}, VYXOD=${d.VYXOD}, BELKI=${d.BELKI},
-       ZIRI=${d.ZIRI}, UGLEVODI=${d.UGLEVODI}, KALORII=${d.KALORII}
+       ZIRI=${d.ZIRI}, UGLEVODI=${d.UGLEVODI}, KALORII=${d.KALORII},
+       PORRDOK_SLEDOVANIR_BLUD=${d.PORRDOK_SLEDOVANIR_BLUD || 0},
+       SOURCE_FILE='${esc(d.SOURCE_FILE || '')}', SOURCE_FORMAT='${esc(d.SOURCE_FORMAT || '')}',
+       SOURCE_REF='${esc(d.SOURCE_REF || '')}', ALLERGENS='${esc(d.ALLERGENS || '')}',
+       QUALITY_REQUIREMENTS='${esc(d.QUALITY_REQUIREMENTS || '')}',
+       STORAGE_CONDITIONS='${esc(d.STORAGE_CONDITIONS || '')}',
+       SERVING_METHOD='${esc(d.SERVING_METHOD || '')}',
+       DISH_CHARACTERISTICS='${esc(d.DISH_CHARACTERISTICS || '')}'
      WHERE ID = ${d.ID}`);
   recordAudit({
     action: 'update',
@@ -1397,9 +1411,12 @@ export function addRecipeComponent(c: Partial<RecipeComponent>) {
   if (!db) return;
   requirePermission('recipes.write');
   db.run(`INSERT INTO KOMPONENTI_KARTOTEKI
-      (ID_BLUDA, ID_PRODUKTA, ID_KATEGORII_DETEJ, GROSSO_GR, NETTO_GR, SOURCE_NAME)
+      (ID_BLUDA, ID_PRODUKTA, ID_KATEGORII_DETEJ, GROSSO_GR, NETTO_GR,
+       NOMER_ID_LINII_V_TABLICE, SOURCE_NAME, ALLERGENS, QUALITY_REQUIREMENTS, IS_ALTERNATIVE)
      VALUES (${c.ID_BLUDA}, ${c.ID_PRODUKTA}, ${c.ID_KATEGORII_DETEJ || 1},
-             ${c.GROSSO_GR || 0}, ${c.NETTO_GR || 0}, '${esc(c.SOURCE_NAME || '')}')`);
+             ${c.GROSSO_GR || 0}, ${c.NETTO_GR || 0}, ${c.NOMER_ID_LINII_V_TABLICE || 0},
+             '${esc(c.SOURCE_NAME || '')}', '${esc(c.ALLERGENS || '')}',
+             '${esc(c.QUALITY_REQUIREMENTS || '')}', ${c.IS_ALTERNATIVE ? 1 : 0})`);
   const id = String(db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] || '');
   recordAudit({
     action: 'create',
@@ -1407,6 +1424,55 @@ export function addRecipeComponent(c: Partial<RecipeComponent>) {
     entityId: id,
     summary: `Додано компонент рецептури для страви №${c.ID_BLUDA}`,
     after: c,
+  });
+  saveDatabaseToDisk();
+}
+
+export function updateRecipeComponent(c: RecipeComponent) {
+  if (!db) return;
+  requirePermission('recipes.write');
+  const before = queryAll<RecipeComponent>(`SELECT * FROM KOMPONENTI_KARTOTEKI WHERE ID = ${c.ID}`)[0];
+  if (!before) return;
+  db.run(`UPDATE KOMPONENTI_KARTOTEKI SET
+      ID_PRODUKTA=${c.ID_PRODUKTA}, ID_KATEGORII_DETEJ=${c.ID_KATEGORII_DETEJ},
+      GROSSO_GR=${c.GROSSO_GR || 0}, NETTO_GR=${c.NETTO_GR || 0},
+      NOMER_ID_LINII_V_TABLICE=${c.NOMER_ID_LINII_V_TABLICE || 0},
+      SOURCE_NAME='${esc(c.SOURCE_NAME || '')}', ALLERGENS='${esc(c.ALLERGENS || '')}',
+      QUALITY_REQUIREMENTS='${esc(c.QUALITY_REQUIREMENTS || '')}',
+      IS_ALTERNATIVE=${c.IS_ALTERNATIVE ? 1 : 0}
+    WHERE ID=${c.ID}`);
+  recordAudit({
+    action: 'update',
+    entityType: 'recipe_component',
+    entityId: String(c.ID),
+    summary: `Змінено компонент рецептури для страви №${c.ID_BLUDA}`,
+    before,
+    after: c,
+  });
+  saveDatabaseToDisk();
+}
+
+export function upsertDishNutritionProfile(profile: Omit<RecipeNutritionProfile, 'ID'> & { ID?: number }) {
+  if (!db) return;
+  requirePermission('recipes.write');
+  const before = queryAll<RecipeNutritionProfile>(`
+    SELECT * FROM TECH_CARD_NUTRITION
+    WHERE ID_BLUDA=${profile.ID_BLUDA} AND ID_KATEGORII_DETEJ=${profile.ID_KATEGORII_DETEJ}
+  `)[0];
+  db.run(`INSERT INTO TECH_CARD_NUTRITION
+      (ID_BLUDA, ID_KATEGORII_DETEJ, VYXOD_GR, BELKI, ZIRI, UGLEVODI, KALORII)
+    VALUES (${profile.ID_BLUDA}, ${profile.ID_KATEGORII_DETEJ}, ${profile.VYXOD_GR || 0},
+      ${profile.BELKI || 0}, ${profile.ZIRI || 0}, ${profile.UGLEVODI || 0}, ${profile.KALORII || 0})
+    ON CONFLICT(ID_BLUDA, ID_KATEGORII_DETEJ) DO UPDATE SET
+      VYXOD_GR=excluded.VYXOD_GR, BELKI=excluded.BELKI, ZIRI=excluded.ZIRI,
+      UGLEVODI=excluded.UGLEVODI, KALORII=excluded.KALORII`);
+  recordAudit({
+    action: before ? 'update' : 'create',
+    entityType: 'dish_nutrition_profile',
+    entityId: `${profile.ID_BLUDA}:${profile.ID_KATEGORII_DETEJ}`,
+    summary: `${before ? 'Змінено' : 'Створено'} харчовий профіль страви №${profile.ID_BLUDA}`,
+    before,
+    after: profile,
   });
   saveDatabaseToDisk();
 }
@@ -2766,5 +2832,4 @@ export function deletePsychologySummaryReport(id: number): PsychologySummaryRepo
   localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
   return updated;
 }
-
 

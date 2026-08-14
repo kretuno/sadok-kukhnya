@@ -1,3 +1,4 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useMemo, useState } from 'react';
 import {
   FileSpreadsheet, FileText, Printer, RefreshCw, Search, Settings2,
@@ -215,13 +216,13 @@ export const PrintCenterModule: React.FC = () => {
       <div className="no-print grid grid-cols-1 gap-3 border-b border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-4">
         <label className="space-y-1">
           <span className="flex items-center gap-1 font-semibold text-slate-500"><Settings2 className="h-3.5 w-3.5" /> Документ</span>
-          <select
+          <SearchableSelect
             value={documentType}
             onChange={event => { setDocumentType(event.target.value as PrintDocumentType); setDocumentNumber(''); }}
             className="w-full rounded border border-slate-300 bg-slate-50 p-2 font-semibold dark:border-slate-700 dark:bg-slate-950"
           >
             {Object.entries(DOCUMENT_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-          </select>
+          </SearchableSelect>
         </label>
         <label className="space-y-1">
           <span className="flex items-center gap-1 font-semibold text-slate-500"><CalendarRange className="h-3.5 w-3.5" /> Період з</span>
@@ -233,9 +234,9 @@ export const PrintCenterModule: React.FC = () => {
         </label>
         <label className="space-y-1">
           <span className="font-semibold text-slate-500">Заклад і підписанти</span>
-          <select value={institutionId} onChange={event => setInstitutionId(Number(event.target.value))} className="w-full rounded border border-slate-300 bg-slate-50 p-2 font-semibold dark:border-slate-700 dark:bg-slate-950">
+          <SearchableSelect value={institutionId} onChange={event => setInstitutionId(Number(event.target.value))} className="w-full rounded border border-slate-300 bg-slate-50 p-2 font-semibold dark:border-slate-700 dark:bg-slate-950">
             {institutions.map(item => <option key={item.ID} value={item.ID}>{item.NAME}</option>)}
-          </select>
+          </SearchableSelect>
         </label>
       </div>
 

@@ -1,3 +1,4 @@
+import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { InvoiceHeader, StockBatch, SupplierFirm, Product } from '../../types';
 import {
@@ -671,7 +672,7 @@ export const WarehouseModule: React.FC = () => {
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Постачальник (Фірма) *</label>
                   <div className="flex space-x-1">
-                    <select
+                    <SearchableSelect
                       value={invForm.firmId}
                       onChange={(e) => setInvForm({ ...invForm, firmId: Number(e.target.value) })}
                       className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold text-slate-800 dark:text-slate-100 truncate"
@@ -679,7 +680,7 @@ export const WarehouseModule: React.FC = () => {
                       {suppliers.map(s => (
                         <option key={s.ID} value={s.ID}>{s.NAME}</option>
                       ))}
-                    </select>
+                    </SearchableSelect>
                     <button
                       type="button"
                       onClick={() => setIsSupplierModalOpen(true)}
@@ -721,7 +722,7 @@ export const WarehouseModule: React.FC = () => {
                     <div key={idx} className="grid grid-cols-12 gap-2 items-center p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
                       {/* Product Select + '+' Button */}
                       <div className="col-span-4 flex space-x-1">
-                        <select
+                        <SearchableSelect
                           value={item.productId}
                           onChange={(e) => {
                             const newItems = [...invForm.items];
@@ -738,7 +739,7 @@ export const WarehouseModule: React.FC = () => {
                           {products.map(p => (
                             <option key={p.ID} value={p.ID}>{p.NAME} ({p.EDINICA_IZMERENIA})</option>
                           ))}
-                        </select>
+                        </SearchableSelect>
                         <button
                           type="button"
                           onClick={() => handleOpenQuickProductModal(idx)}
@@ -975,7 +976,7 @@ export const WarehouseModule: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1">Одиниця виміру</label>
-                  <select
+                  <SearchableSelect
                     value={quickProdForm.EDINICA_IZMERENIA}
                     onChange={(e) => setQuickProdForm({ ...quickProdForm, EDINICA_IZMERENIA: e.target.value })}
                     className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded text-xs font-semibold text-blue-600"
@@ -983,7 +984,7 @@ export const WarehouseModule: React.FC = () => {
                     <option value="кг">кг (кілограм)</option>
                     <option value="л">л (літр)</option>
                     <option value="шт">шт (штук)</option>
-                  </select>
+                  </SearchableSelect>
                 </div>
 
                 <div>
