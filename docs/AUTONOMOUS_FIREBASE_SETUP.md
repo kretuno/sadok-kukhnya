@@ -12,6 +12,16 @@ SADOK працює за принципом local-first: локальна SQLite-
 - Firebase SDK завантажується лише після ввімкнення хмарного режиму;
 - Firestore Rules забороняють доступ користувачам, які не є активними членами закладу.
 
+## Поточний хмарний проєкт
+
+- Firebase project ID: `sadok-kzdo-145`;
+- тариф: Spark без підключеного платіжного акаунта;
+- Firestore: Standard, регіон `eur3`, захист від видалення ввімкнений;
+- Firebase Authentication: Email/Password увімкнено;
+- Google Analytics: вимкнено;
+- Firestore Rules та індекси опубліковано;
+- реєстрація Web App і підключення production-середовища ще не виконані.
+
 ## Підключення окремого закладу
 
 1. Створити Firebase-проєкт і Firestore у production mode.
