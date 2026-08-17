@@ -27,12 +27,18 @@ import {
   requirePermission,
 } from './governance';
 import { scheduleDurableLocalState } from './durableStorage';
+import {
+  queueEntityMutation,
+  type RemoteEntityDocument,
+  type SyncEntityType,
+} from './entitySyncQueue';
 
 // -----------------------------------------------------------------
 // Singleton DB instance (sql.js Database object)
 // -----------------------------------------------------------------
 let db: any = null;
-export const CURRENT_DATABASE_SCHEMA_VERSION = 6;
+export const CURRENT_DATABASE_SCHEMA_VERSION = 7;
+export const DATABASE_SYNC_EVENT = 'sadok-database-sync-change';
 const BROWSER_DATABASE_NAME = 'sadok_persistent_storage';
 const BROWSER_DATABASE_STORE = 'state';
 
@@ -510,6 +516,40 @@ export function runDatabaseMigrations(): number {
         'CREATE INDEX IF NOT EXISTS IDX_DOCUMENT_REGISTRY_TYPE ON DOCUMENT_REGISTRY(DOCUMENT_TYPE, CREATED_AT)',
       ],
     },
+    {
+      version: 7,
+      name: 'Stable entity identities for multi-device synchronization',
+      sql: [
+        `CREATE TABLE IF NOT EXISTS SADOK_ENTITY_SYNC_META (
+          ENTITY_TYPE TEXT NOT NULL,
+          LOCAL_ID TEXT NOT NULL,
+          SYNC_ID TEXT NOT NULL UNIQUE,
+          REMOTE_REVISION INTEGER NOT NULL DEFAULT 0,
+          UPDATED_AT TEXT NOT NULL,
+          DEVICE_ID TEXT NOT NULL DEFAULT '',
+          DELETED INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (ENTITY_TYPE, LOCAL_ID)
+        )`,
+        `INSERT OR IGNORE INTO SADOK_ENTITY_SYNC_META
+          (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+          SELECT 'product', CAST(ID AS TEXT), 'product-legacy-' || ID, 0,
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '', 0 FROM PRODUKTS`,
+        `INSERT OR IGNORE INTO SADOK_ENTITY_SYNC_META
+          (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+          SELECT 'dish', CAST(ID AS TEXT), 'dish-legacy-' || ID, 0,
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '', 0 FROM KARTOTEKA_BLUD`,
+        `INSERT OR IGNORE INTO SADOK_ENTITY_SYNC_META
+          (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+          SELECT 'recipe_component', CAST(ID AS TEXT), 'component-legacy-' || ID, 0,
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '', 0 FROM KOMPONENTI_KARTOTEKI`,
+        `INSERT OR IGNORE INTO SADOK_ENTITY_SYNC_META
+          (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+          SELECT 'dish_nutrition_profile', CAST(ID_BLUDA AS TEXT) || ':' || CAST(ID_KATEGORII_DETEJ AS TEXT),
+            'nutrition-legacy-' || ID_BLUDA || '-' || ID_KATEGORII_DETEJ, 0,
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '', 0 FROM TECH_CARD_NUTRITION`,
+        'CREATE INDEX IF NOT EXISTS IDX_ENTITY_SYNC_REMOTE ON SADOK_ENTITY_SYNC_META(SYNC_ID, REMOTE_REVISION)',
+      ],
+    },
   ];
 
   for (const migration of migrations) {
@@ -803,6 +843,295 @@ function queryAll<T>(sql: string): T[] {
     columns.forEach((col: string, i: number) => (obj[col] = row[i]));
     return obj as T;
   });
+}
+
+interface SyncMetadataRow {
+  ENTITY_TYPE: SyncEntityType;
+  LOCAL_ID: string;
+  SYNC_ID: string;
+  REMOTE_REVISION: number;
+  UPDATED_AT: string;
+  DEVICE_ID: string;
+  DELETED: number;
+}
+
+export interface LocalSyncEntity {
+  entityType: SyncEntityType;
+  localId: string;
+  syncId: string;
+  revision: number;
+  payload: Record<string, unknown>;
+}
+
+const syncSqlEscape = (value: string) => value.replace(/'/g, "''");
+
+function newSyncId(entityType: SyncEntityType): string {
+  const suffix = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${entityType}-${suffix}`;
+}
+
+function legacySyncId(entityType: SyncEntityType, localId: string): string {
+  if (entityType === 'recipe_component') return `component-legacy-${localId}`;
+  if (entityType === 'dish_nutrition_profile') {
+    return `nutrition-legacy-${localId.replace(':', '-')}`;
+  }
+  return `${entityType}-legacy-${localId}`;
+}
+
+function getSyncMetadataByLocalId(
+  entityType: SyncEntityType,
+  localId: string,
+): SyncMetadataRow | undefined {
+  return queryAll<SyncMetadataRow>(`
+    SELECT * FROM SADOK_ENTITY_SYNC_META
+    WHERE ENTITY_TYPE='${syncSqlEscape(entityType)}' AND LOCAL_ID='${syncSqlEscape(localId)}'
+  `)[0];
+}
+
+function getSyncMetadataBySyncId(syncId: string): SyncMetadataRow | undefined {
+  return queryAll<SyncMetadataRow>(`
+    SELECT * FROM SADOK_ENTITY_SYNC_META WHERE SYNC_ID='${syncSqlEscape(syncId)}'
+  `)[0];
+}
+
+function ensureSyncMetadata(
+  entityType: SyncEntityType,
+  localId: string,
+  createdLocally = false,
+): SyncMetadataRow {
+  const existing = getSyncMetadataByLocalId(entityType, localId);
+  if (existing) return existing;
+  const now = new Date().toISOString();
+  const syncId = createdLocally ? newSyncId(entityType) : legacySyncId(entityType, localId);
+  db.run(
+    `INSERT INTO SADOK_ENTITY_SYNC_META
+      (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+     VALUES (?, ?, ?, 0, ?, '', 0)`,
+    [entityType, localId, syncId, now],
+  );
+  return getSyncMetadataByLocalId(entityType, localId)!;
+}
+
+function getRawSyncRow(entityType: SyncEntityType, localId: string): Record<string, unknown> | undefined {
+  if (entityType === 'product') {
+    return queryAll<Record<string, unknown>>(`SELECT * FROM PRODUKTS WHERE ID=${Number(localId)}`)[0];
+  }
+  if (entityType === 'dish') {
+    return queryAll<Record<string, unknown>>(`SELECT * FROM KARTOTEKA_BLUD WHERE ID=${Number(localId)}`)[0];
+  }
+  if (entityType === 'recipe_component') {
+    return queryAll<Record<string, unknown>>(`SELECT * FROM KOMPONENTI_KARTOTEKI WHERE ID=${Number(localId)}`)[0];
+  }
+  const [dishId, categoryId] = localId.split(':').map(Number);
+  return queryAll<Record<string, unknown>>(`
+    SELECT * FROM TECH_CARD_NUTRITION
+    WHERE ID_BLUDA=${dishId} AND ID_KATEGORII_DETEJ=${categoryId}
+  `)[0];
+}
+
+function buildSyncPayload(
+  entityType: SyncEntityType,
+  localId: string,
+): Record<string, unknown> | undefined {
+  const row = getRawSyncRow(entityType, localId);
+  if (!row) return undefined;
+  if (entityType === 'recipe_component') {
+    const dishId = String(row.ID_BLUDA);
+    const productId = String(row.ID_PRODUKTA);
+    return {
+      row,
+      dishSyncId: ensureSyncMetadata('dish', dishId).SYNC_ID,
+      productSyncId: ensureSyncMetadata('product', productId).SYNC_ID,
+    };
+  }
+  if (entityType === 'dish_nutrition_profile') {
+    return {
+      row,
+      dishSyncId: ensureSyncMetadata('dish', String(row.ID_BLUDA)).SYNC_ID,
+    };
+  }
+  return { row };
+}
+
+function queueCurrentSyncEntity(
+  entityType: SyncEntityType,
+  localId: string,
+  operation: 'upsert' | 'delete' = 'upsert',
+  createdLocally = false,
+  deletedPayload?: Record<string, unknown>,
+): void {
+  const metadata = ensureSyncMetadata(entityType, localId, createdLocally);
+  const payload = operation === 'delete' ? (deletedPayload || null) : (buildSyncPayload(entityType, localId) || null);
+  queueEntityMutation({
+    entityType,
+    syncId: metadata.SYNC_ID,
+    operation,
+    payload,
+    baseRevision: Number(metadata.REMOTE_REVISION || 0),
+  });
+  db.run(`UPDATE SADOK_ENTITY_SYNC_META SET UPDATED_AT=?, DELETED=? WHERE SYNC_ID=?`, [
+    new Date().toISOString(),
+    operation === 'delete' ? 1 : 0,
+    metadata.SYNC_ID,
+  ]);
+}
+
+function ensureAllSyncMetadata(): void {
+  queryAll<{ ID: number }>('SELECT ID FROM PRODUKTS').forEach(row =>
+    ensureSyncMetadata('product', String(row.ID))
+  );
+  queryAll<{ ID: number }>('SELECT ID FROM KARTOTEKA_BLUD').forEach(row =>
+    ensureSyncMetadata('dish', String(row.ID))
+  );
+  queryAll<{ ID: number }>('SELECT ID FROM KOMPONENTI_KARTOTEKI').forEach(row =>
+    ensureSyncMetadata('recipe_component', String(row.ID))
+  );
+  queryAll<{ ID_BLUDA: number; ID_KATEGORII_DETEJ: number }>(
+    'SELECT ID_BLUDA, ID_KATEGORII_DETEJ FROM TECH_CARD_NUTRITION'
+  ).forEach(row => ensureSyncMetadata(
+    'dish_nutrition_profile',
+    `${row.ID_BLUDA}:${row.ID_KATEGORII_DETEJ}`,
+  ));
+}
+
+export function exportLocalSyncEntities(): LocalSyncEntity[] {
+  ensureAllSyncMetadata();
+  return queryAll<SyncMetadataRow>(`
+    SELECT * FROM SADOK_ENTITY_SYNC_META WHERE DELETED=0
+    ORDER BY CASE ENTITY_TYPE
+      WHEN 'product' THEN 1 WHEN 'dish' THEN 2
+      WHEN 'recipe_component' THEN 3 ELSE 4 END, LOCAL_ID
+  `).flatMap(metadata => {
+    const payload = buildSyncPayload(metadata.ENTITY_TYPE, metadata.LOCAL_ID);
+    return payload ? [{
+      entityType: metadata.ENTITY_TYPE,
+      localId: metadata.LOCAL_ID,
+      syncId: metadata.SYNC_ID,
+      revision: Number(metadata.REMOTE_REVISION || 0),
+      payload,
+    }] : [];
+  });
+}
+
+export function markLocalSyncEntityRevision(
+  syncId: string,
+  revision: number,
+  updatedAt: string,
+  deviceId: string,
+  deleted: boolean,
+): void {
+  db.run(`UPDATE SADOK_ENTITY_SYNC_META
+    SET REMOTE_REVISION=?, UPDATED_AT=?, DEVICE_ID=?, DELETED=? WHERE SYNC_ID=?`, [
+    revision, updatedAt, deviceId, deleted ? 1 : 0, syncId,
+  ]);
+}
+
+function tableColumns(table: string): Set<string> {
+  const result = db.exec(`PRAGMA table_info(${table})`)[0]?.values || [];
+  return new Set(result.map((row: unknown[]) => String(row[1])));
+}
+
+function insertRemoteRow(table: string, row: Record<string, unknown>): string {
+  const allowed = tableColumns(table);
+  const entries = Object.entries(row).filter(([key]) => key !== 'ID' && allowed.has(key));
+  const columns = entries.map(([key]) => key);
+  db.run(
+    `INSERT INTO ${table} (${columns.join(',')}) VALUES (${columns.map(() => '?').join(',')})`,
+    entries.map(([, value]) => value ?? null),
+  );
+  return String(db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] || '');
+}
+
+function updateRemoteRow(table: string, localId: string, row: Record<string, unknown>): void {
+  const allowed = tableColumns(table);
+  const entries = Object.entries(row).filter(([key]) => key !== 'ID' && allowed.has(key));
+  if (entries.length === 0) return;
+  db.run(
+    `UPDATE ${table} SET ${entries.map(([key]) => `${key}=?`).join(',')} WHERE ID=?`,
+    [...entries.map(([, value]) => value ?? null), Number(localId)],
+  );
+}
+
+function resolveRemoteRelation(syncId: unknown, expectedType: SyncEntityType): string {
+  const metadata = getSyncMetadataBySyncId(String(syncId || ''));
+  if (!metadata || metadata.ENTITY_TYPE !== expectedType || metadata.DELETED) {
+    throw new Error(`Не знайдено пов’язаний запис ${expectedType}: ${String(syncId || '')}`);
+  }
+  return metadata.LOCAL_ID;
+}
+
+function saveRemoteMetadata(
+  remote: RemoteEntityDocument,
+  localId: string,
+): void {
+  db.run(`INSERT INTO SADOK_ENTITY_SYNC_META
+    (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(SYNC_ID) DO UPDATE SET
+      ENTITY_TYPE=excluded.ENTITY_TYPE, LOCAL_ID=excluded.LOCAL_ID,
+      REMOTE_REVISION=excluded.REMOTE_REVISION, UPDATED_AT=excluded.UPDATED_AT,
+      DEVICE_ID=excluded.DEVICE_ID, DELETED=excluded.DELETED`, [
+    remote.entityType, localId, remote.syncId, remote.revision, remote.updatedAt,
+    remote.deviceId, remote.deleted ? 1 : 0,
+  ]);
+}
+
+export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
+  const existing = getSyncMetadataBySyncId(remote.syncId);
+  const payload = remote.payload || {};
+  const rawRow = (payload.row || {}) as Record<string, unknown>;
+
+  if (remote.deleted) {
+    if (existing && !existing.DELETED) {
+      if (remote.entityType === 'product') db.run('DELETE FROM PRODUKTS WHERE ID=?', [Number(existing.LOCAL_ID)]);
+      if (remote.entityType === 'dish') db.run('DELETE FROM KARTOTEKA_BLUD WHERE ID=?', [Number(existing.LOCAL_ID)]);
+      if (remote.entityType === 'recipe_component') db.run('DELETE FROM KOMPONENTI_KARTOTEKI WHERE ID=?', [Number(existing.LOCAL_ID)]);
+      if (remote.entityType === 'dish_nutrition_profile') {
+        const [dishId, categoryId] = existing.LOCAL_ID.split(':').map(Number);
+        db.run('DELETE FROM TECH_CARD_NUTRITION WHERE ID_BLUDA=? AND ID_KATEGORII_DETEJ=?', [dishId, categoryId]);
+      }
+      saveRemoteMetadata(remote, existing.LOCAL_ID);
+    }
+    return;
+  }
+
+  if (remote.entityType === 'product' || remote.entityType === 'dish') {
+    const table = remote.entityType === 'product' ? 'PRODUKTS' : 'KARTOTEKA_BLUD';
+    const localId = existing?.LOCAL_ID || insertRemoteRow(table, rawRow);
+    if (existing) updateRemoteRow(table, localId, rawRow);
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'recipe_component') {
+    const row = {
+      ...rawRow,
+      ID_BLUDA: Number(resolveRemoteRelation(payload.dishSyncId, 'dish')),
+      ID_PRODUKTA: Number(resolveRemoteRelation(payload.productSyncId, 'product')),
+    };
+    const localId = existing?.LOCAL_ID || insertRemoteRow('KOMPONENTI_KARTOTEKI', row);
+    if (existing) updateRemoteRow('KOMPONENTI_KARTOTEKI', localId, row);
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  const dishId = Number(resolveRemoteRelation(payload.dishSyncId, 'dish'));
+  const categoryId = Number(rawRow.ID_KATEGORII_DETEJ || 1);
+  const current = queryAll<{ ID: number }>(`
+    SELECT ID FROM TECH_CARD_NUTRITION
+    WHERE ID_BLUDA=${dishId} AND ID_KATEGORII_DETEJ=${categoryId}
+  `)[0];
+  const row = { ...rawRow, ID_BLUDA: dishId, ID_KATEGORII_DETEJ: categoryId };
+  if (current) updateRemoteRow('TECH_CARD_NUTRITION', String(current.ID), row);
+  else insertRemoteRow('TECH_CARD_NUTRITION', row);
+  saveRemoteMetadata(remote, `${dishId}:${categoryId}`);
+}
+
+export function persistRemoteSyncEntities(): void {
+  saveDatabaseToDisk();
+  window.dispatchEvent(new CustomEvent(DATABASE_SYNC_EVENT));
 }
 
 // -----------------------------------------------------------------
@@ -1303,6 +1632,7 @@ export function addProduct(p: Partial<Product>): number {
     summary: `Створено продукт «${p.NAME}»`,
     after: p,
   });
+  queueCurrentSyncEntity('product', String(id), 'upsert', true);
   saveDatabaseToDisk();
   return id;
 }
@@ -1323,6 +1653,7 @@ export function updateProduct(p: Product) {
     before,
     after: p,
   });
+  queueCurrentSyncEntity('product', String(p.ID));
   saveDatabaseToDisk();
 }
 
@@ -1337,6 +1668,7 @@ export function deleteProduct(id: number) {
     label: before.NAME,
     payload: before,
   });
+  queueCurrentSyncEntity('product', String(id), 'delete', false, { row: before });
   db.run(`DELETE FROM PRODUKTS WHERE ID = ${id}`);
   saveDatabaseToDisk();
 }
@@ -1361,6 +1693,7 @@ export function addDish(d: Partial<Dish>): number {
     summary: `Створено страву «${d.NAME}»`,
     after: d,
   });
+  queueCurrentSyncEntity('dish', String(id), 'upsert', true);
   saveDatabaseToDisk();
   return id;
 }
@@ -1388,6 +1721,7 @@ export function updateDish(d: Dish) {
     before,
     after: d,
   });
+  queueCurrentSyncEntity('dish', String(d.ID));
   saveDatabaseToDisk();
 }
 
@@ -1403,8 +1737,22 @@ export function deleteDish(id: number) {
     label: dish.NAME,
     payload: { dish, components },
   });
+  const profiles = queryAll<RecipeNutritionProfile>(`SELECT * FROM TECH_CARD_NUTRITION WHERE ID_BLUDA = ${id}`);
+  components.forEach(component => queueCurrentSyncEntity(
+    'recipe_component', String(component.ID), 'delete', false,
+    buildSyncPayload('recipe_component', String(component.ID)),
+  ));
+  profiles.forEach(profile => {
+    const localId = `${profile.ID_BLUDA}:${profile.ID_KATEGORII_DETEJ}`;
+    queueCurrentSyncEntity(
+      'dish_nutrition_profile', localId, 'delete', false,
+      buildSyncPayload('dish_nutrition_profile', localId),
+    );
+  });
+  queueCurrentSyncEntity('dish', String(id), 'delete', false, { row: dish });
   db.run(`DELETE FROM KARTOTEKA_BLUD WHERE ID = ${id}`);
   db.run(`DELETE FROM KOMPONENTI_KARTOTEKI WHERE ID_BLUDA = ${id}`);
+  db.run(`DELETE FROM TECH_CARD_NUTRITION WHERE ID_BLUDA = ${id}`);
   saveDatabaseToDisk();
 }
 
@@ -1426,6 +1774,7 @@ export function addRecipeComponent(c: Partial<RecipeComponent>) {
     summary: `Додано компонент рецептури для страви №${c.ID_BLUDA}`,
     after: c,
   });
+  queueCurrentSyncEntity('recipe_component', id, 'upsert', true);
   saveDatabaseToDisk();
 }
 
@@ -1450,6 +1799,7 @@ export function updateRecipeComponent(c: RecipeComponent) {
     before,
     after: c,
   });
+  queueCurrentSyncEntity('recipe_component', String(c.ID));
   saveDatabaseToDisk();
 }
 
@@ -1475,6 +1825,8 @@ export function upsertDishNutritionProfile(profile: Omit<RecipeNutritionProfile,
     before,
     after: profile,
   });
+  const nutritionLocalId = `${profile.ID_BLUDA}:${profile.ID_KATEGORII_DETEJ}`;
+  queueCurrentSyncEntity('dish_nutrition_profile', nutritionLocalId, 'upsert', !before);
   saveDatabaseToDisk();
 }
 
@@ -1489,6 +1841,10 @@ export function deleteRecipeComponent(id: number) {
     label: `Компонент рецептури №${id}`,
     payload: before,
   });
+  queueCurrentSyncEntity(
+    'recipe_component', String(id), 'delete', false,
+    buildSyncPayload('recipe_component', String(id)),
+  );
   db.run(`DELETE FROM KOMPONENTI_KARTOTEKI WHERE ID = ${id}`);
   saveDatabaseToDisk();
 }
@@ -2452,15 +2808,21 @@ export function restoreArchivedRecord(archiveId: string): void {
       break;
     case 'product':
       restoreSqlRow('PRODUKTS', payload);
+      queueCurrentSyncEntity('product', String(payload.ID));
       break;
     case 'dish':
       restoreSqlRow('KARTOTEKA_BLUD', payload.dish);
       (payload.components || []).forEach((row: Record<string, unknown>) =>
         restoreSqlRow('KOMPONENTI_KARTOTEKI', row)
       );
+      queueCurrentSyncEntity('dish', String(payload.dish.ID));
+      (payload.components || []).forEach((row: Record<string, unknown>) =>
+        queueCurrentSyncEntity('recipe_component', String(row.ID))
+      );
       break;
     case 'recipe_component':
       restoreSqlRow('KOMPONENTI_KARTOTEKI', payload);
+      queueCurrentSyncEntity('recipe_component', String(payload.ID));
       break;
     case 'institution':
       restoreSqlRow('SADIKI', payload.institution);

@@ -1,7 +1,7 @@
 import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { Dish, DishCategory, RecipeComponent, RecipeNutritionProfile, EaterCategory, Product, DishCostProfile, DishCostHistoryEntry } from '../../types';
-import { getDishes, getDishCategories, getRecipeComponents, getDishNutritionProfiles, getEaterCategories, getProducts, addDish, updateDish, deleteDish, addRecipeComponent, updateRecipeComponent, deleteRecipeComponent, upsertDishNutritionProfile, getDishCostProfiles, getDishCostHistory } from '../../services/db';
+import { DATABASE_SYNC_EVENT, getDishes, getDishCategories, getRecipeComponents, getDishNutritionProfiles, getEaterCategories, getProducts, addDish, updateDish, deleteDish, addRecipeComponent, updateRecipeComponent, deleteRecipeComponent, upsertDishNutritionProfile, getDishCostProfiles, getDishCostHistory } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
 import { Utensils, Plus, Trash2, Edit, Layers, Coins, TrendingUp, AlertTriangle } from 'lucide-react';
@@ -26,7 +26,11 @@ export const RecipeCatalogModule: React.FC = () => {
   const [isCompModalOpen, setIsCompModalOpen] = useState<boolean>(false);
   const [editingComponent, setEditingComponent] = useState<Partial<RecipeComponent>>({});
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    window.addEventListener(DATABASE_SYNC_EVENT, loadData);
+    return () => window.removeEventListener(DATABASE_SYNC_EVENT, loadData);
+  }, []);
   useEffect(() => {
     if (selectedDishId) {
       setComponents(getRecipeComponents(selectedDishId, selectedEaterCategoryId));

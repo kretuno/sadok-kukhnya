@@ -69,6 +69,19 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (dbStatus !== 'ready') return;
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+    void import('./services/firebaseSync').then(module => {
+      if (!cancelled) cleanup = module.startAutomaticFirebaseSync();
+    });
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, [dbStatus]);
+
+  useEffect(() => {
     const handleGovernanceError = (event: ErrorEvent) => {
       if (event.error instanceof GovernanceError) {
         event.preventDefault();

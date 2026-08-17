@@ -18,6 +18,13 @@ service cloud.firestore {
       return isMember(orgId) && membership(orgId).data.role in roles;
     }
 
+    function canWriteEntity(orgId, entityType) {
+      return hasRole(orgId, ['admin', 'director', 'nurse'])
+        || (entityType == 'product' && hasRole(orgId, ['warehouse']))
+        || (entityType in ['dish', 'recipe_component', 'dish_nutrition_profile']
+          && hasRole(orgId, ['cook']));
+    }
+
     match /organizations/{orgId} {
       allow read: if isMember(orgId);
       allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
@@ -37,6 +44,23 @@ service cloud.firestore {
           && request.resource.data.id == eventId;
         allow update: if isMember(orgId)
           && request.resource.data == resource.data;
+        allow delete: if false;
+      }
+
+      match /entities/{entityId} {
+        allow read: if isMember(orgId);
+        allow create: if canWriteEntity(orgId, request.resource.data.entityType)
+          && request.resource.data.syncId == entityId
+          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.revision == 1
+          && request.resource.data.entityType in [
+            'product', 'dish', 'recipe_component', 'dish_nutrition_profile'
+          ];
+        allow update: if canWriteEntity(orgId, resource.data.entityType)
+          && request.resource.data.syncId == resource.data.syncId
+          && request.resource.data.entityType == resource.data.entityType
+          && request.resource.data.updatedBy == request.auth.uid
+          && request.resource.data.revision == resource.data.revision + 1;
         allow delete: if false;
       }
 

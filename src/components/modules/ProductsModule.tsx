@@ -1,7 +1,7 @@
 import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { Product, ProductCategory } from '../../types';
-import { getProducts, getProductCategories, addProduct, updateProduct, deleteProduct } from '../../services/db';
+import { DATABASE_SYNC_EVENT, getProducts, getProductCategories, addProduct, updateProduct, deleteProduct } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
 import { ProductHistoryModal } from '../modals/ProductHistoryModal';
@@ -16,7 +16,11 @@ export const ProductsModule: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Partial<Product>>({});
   const [selectedHistoryProductId, setSelectedHistoryProductId] = useState<number | null>(null);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    window.addEventListener(DATABASE_SYNC_EVENT, loadData);
+    return () => window.removeEventListener(DATABASE_SYNC_EVENT, loadData);
+  }, []);
 
   const loadData = () => {
     setProducts(getProducts());

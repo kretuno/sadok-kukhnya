@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  CheckCircle2, CloudOff, CloudUpload, Download, HardDrive,
+  AlertTriangle, CheckCircle2, CloudOff, CloudUpload, Download, HardDrive,
   Loader2, LogIn, LogOut, ShieldCheck, Wifi, WifiOff,
 } from 'lucide-react';
 import { SearchableSelect } from '../common/SearchableSelect';
@@ -22,8 +22,15 @@ import {
   getFirebaseUser,
   signInToFirebase,
   signOutFromFirebase,
-  synchronizePendingAudit,
+  resolveEntitySyncConflict,
+  synchronizeAllPending,
 } from '../../services/firebaseSync';
+import {
+  getEntitySyncConflicts,
+  getPendingEntityMutationCount,
+  isEntityBootstrapComplete,
+  subscribeEntitySyncState,
+} from '../../services/entitySyncQueue';
 
 interface AutonomousSyncPanelProps {
   pendingCount: number;
@@ -60,6 +67,7 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [entityRevision, setEntityRevision] = useState(0);
 
   const refreshReadiness = useCallback(() => {
     setInstalled(isApplicationInstalled());
@@ -86,6 +94,15 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
       window.removeEventListener(OFFLINE_READY_EVENT, refreshReadiness);
     };
   }, [capability.configured, refreshReadiness]);
+
+  useEffect(() => subscribeEntitySyncState(() => {
+    setEntityRevision(value => value + 1);
+  }), []);
+
+  const pendingEntities = getPendingEntityMutationCount();
+  const conflicts = getEntitySyncConflicts();
+  const bootstrapComplete = isEntityBootstrapComplete();
+  void entityRevision;
 
   const run = async (action: () => Promise<string>) => {
     setBusy(true);
@@ -179,7 +196,10 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
             </div>
           </div>
           <dl className="space-y-2 text-[11px]">
-            <div className="flex justify-between"><dt>Очікують відправлення</dt><dd className="font-bold text-amber-600">{pendingCount}</dd></div>
+            <div className="flex justify-between"><dt>Записи журналу</dt><dd className="font-bold text-amber-600">{pendingCount}</dd></div>
+            <div className="flex justify-between"><dt>Довідники й техкарти</dt><dd className="font-bold text-blue-600">{pendingEntities}</dd></div>
+            <div className="flex justify-between"><dt>Первинна хмарна копія</dt><dd className={`font-bold ${bootstrapComplete ? 'text-emerald-600' : 'text-amber-600'}`}>{bootstrapComplete ? 'готова' : 'очікує'}</dd></div>
+            <div className="flex justify-between"><dt>Конфлікти редагування</dt><dd className="font-bold text-rose-600">{conflicts.length}</dd></div>
             <div className="flex justify-between"><dt>Остання синхронізація</dt><dd className="font-bold">{formatDate(syncState.lastSuccessfulSync)}</dd></div>
             <div className="flex justify-between"><dt>Остання помилка</dt><dd className="max-w-[60%] text-right font-bold text-rose-600">{syncState.lastError || '—'}</dd></div>
           </dl>
@@ -242,8 +262,9 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
                   <button
                     disabled={busy || !isOnline || syncState.mode !== 'firebase'}
                     onClick={() => run(async () => {
-                      const count = await synchronizePendingAudit();
-                      return count ? `Синхронізовано записів: ${count}.` : 'Черга вже синхронізована.';
+                      const result = await synchronizeAllPending();
+                      const uploaded = result.auditUploaded + result.entitiesUploaded + result.bootstrapped;
+                      return `Готово: відправлено ${uploaded}, отримано ${result.entitiesDownloaded}, конфліктів ${result.conflicts}.`;
                     })}
                     className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
                   >
@@ -298,6 +319,49 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
           </div>
         )}
       </div>
+
+      {conflicts.length > 0 && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30">
+          <div className="mb-3 flex items-center gap-2 text-rose-700 dark:text-rose-300">
+            <AlertTriangle className="h-5 w-5" />
+            <h4 className="font-black">Потрібне рішення щодо одночасних змін</h4>
+          </div>
+          <div className="space-y-2">
+            {conflicts.map(conflict => (
+              <div key={conflict.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rose-200 bg-white p-3 dark:border-rose-900 dark:bg-slate-950">
+                <div>
+                  <div className="text-xs font-bold">{conflict.entityType} · {conflict.syncId}</div>
+                  <div className="text-[10px] text-slate-500">
+                    Інший пристрій зберіг новішу версію {formatDate(conflict.remote.updatedAt)}.
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    disabled={busy}
+                    onClick={() => run(async () => {
+                      await resolveEntitySyncConflict(conflict, 'cloud');
+                      return 'Застосовано хмарну версію.';
+                    })}
+                    className="rounded-lg border border-slate-300 px-3 py-1.5 text-[10px] font-bold dark:border-slate-700"
+                  >
+                    Взяти з хмари
+                  </button>
+                  <button
+                    disabled={busy}
+                    onClick={() => run(async () => {
+                      await resolveEntitySyncConflict(conflict, 'local');
+                      return 'Локальну версію поставлено в чергу повторно.';
+                    })}
+                    className="rounded-lg bg-rose-600 px-3 py-1.5 text-[10px] font-bold text-white"
+                  >
+                    Залишити локальну
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
