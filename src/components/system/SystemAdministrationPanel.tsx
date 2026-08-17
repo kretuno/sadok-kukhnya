@@ -2,7 +2,7 @@ import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity, Archive, CheckCircle2, CloudUpload, DatabaseBackup,
-  Download, FileClock, History, LockKeyhole, RefreshCw, RotateCcw,
+  FileClock, History, LockKeyhole, RefreshCw, RotateCcw,
   ShieldCheck, UserCog, UserPlus,
 } from 'lucide-react';
 import {
@@ -31,16 +31,13 @@ import {
 } from '../../services/governance';
 import {
   CURRENT_DATABASE_SCHEMA_VERSION,
-  createSystemBackup,
-  downloadBackup,
   getDatabaseSchemaVersion,
-  listSystemBackups,
   restoreArchivedRecord,
-  restoreSystemBackup,
 } from '../../services/db';
 import { AutonomousSyncPanel } from './AutonomousSyncPanel';
 import { CloudUsersPanel } from './CloudUsersPanel';
 import { SystemStatusPanel } from './SystemStatusPanel';
+import { BackupManagementPanel } from './BackupManagementPanel';
 
 type Section = 'status' | 'roles' | 'audit' | 'backup' | 'sync' | 'archive' | 'periods';
 
@@ -67,13 +64,6 @@ export const SystemAdministrationPanel: React.FC = () => {
   const [revision, setRevision] = useState(0);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [backups, setBackups] = useState<Array<{
-    id: string;
-    createdAt: string;
-    size: number;
-    trigger: string;
-    verified: boolean;
-  }>>([]);
   const [auditQuery, setAuditQuery] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserRole, setNewUserRole] = useState<UserRole>('nurse');
@@ -87,7 +77,6 @@ export const SystemAdministrationPanel: React.FC = () => {
   const refresh = useCallback(() => {
     setRevision(value => value + 1);
     setSyncForm(getSyncState());
-    listSystemBackups().then(setBackups).catch(() => setBackups([]));
   }, []);
 
   useEffect(() => {
@@ -125,19 +114,6 @@ export const SystemAdministrationPanel: React.FC = () => {
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : String(actionError));
     }
-  };
-
-  const handleCreateBackup = () => runAction(async () => {
-    const result = await createSystemBackup('manual');
-    downloadBackup(result.envelope);
-  }, 'Резервну копію створено, перевірено та збережено.');
-
-  const handleRestoreFile = (file?: File) => {
-    if (!file) return;
-    runAction(async () => {
-      const raw = await file.text();
-      await restoreSystemBackup(raw);
-    }, 'Резервну копію відновлено.');
   };
 
   return (
@@ -339,47 +315,9 @@ export const SystemAdministrationPanel: React.FC = () => {
       )}
 
       {section === 'backup' && (
-        <div className="space-y-4">
-          {!canManageBackup ? (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">Ця роль не має доступу до резервних копій.</div>
-          ) : (
-            <>
-              <div className="flex flex-wrap gap-2">
-                <button data-testid="create-backup" onClick={handleCreateBackup} className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 font-bold text-white hover:bg-emerald-700">
-                  <Download className="h-4 w-4" /> Створити та перевірити копію
-                </button>
-                <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white hover:bg-indigo-700">
-                  <RotateCcw className="h-4 w-4" /> Перевірити та відновити
-                  <input
-                    type="file"
-                    accept=".json,.sadok-backup"
-                    className="hidden"
-                    onChange={event => handleRestoreFile(event.target.files?.[0])}
-                  />
-                </label>
-              </div>
-              <p className="text-[11px] text-slate-500">
-                Автоматична копія створюється раз на день. Перед збереженням і відновленням виконується SQLite integrity_check та перевірка контрольної суми.
-              </p>
-              <div className="rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-                {backups.map(backup => (
-                  <div key={backup.id} className="flex items-center justify-between border-b border-slate-100 p-3 last:border-0 dark:border-slate-800">
-                    <div>
-                      <div className="font-bold">{formatDate(backup.createdAt)}</div>
-                      <div className="text-[10px] text-slate-500">
-                        {backup.trigger === 'automatic' ? 'Автоматична' : 'Ручна'} · {(backup.size / 1024).toFixed(1)} КБ
-                      </div>
-                    </div>
-                    <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600">
-                      <CheckCircle2 className="h-4 w-4" /> Перевірено
-                    </span>
-                  </div>
-                ))}
-                {backups.length === 0 && <div className="p-6 text-center text-slate-400">Резервних копій поки немає.</div>}
-              </div>
-            </>
-          )}
-        </div>
+        !canManageBackup
+          ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-800">Ця роль не має доступу до резервних копій.</div>
+          : <BackupManagementPanel onChanged={refresh} />
       )}
 
       {section === 'sync' && (

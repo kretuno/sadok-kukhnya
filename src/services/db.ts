@@ -33,6 +33,16 @@ import {
   type SyncEntityType,
 } from './entitySyncQueue';
 import { findStaleBootstrapSyncIds } from '../domain/entitySync';
+import {
+  decodeBackupDeviceKey,
+  decryptBackup,
+  encodeBackupDeviceKey,
+  encryptDeviceBackup,
+  encryptPortableBackup,
+  generateBackupDeviceKey,
+  isEncryptedBackup,
+  type EncryptedBackupContainer,
+} from './backupEncryption';
 
 // -----------------------------------------------------------------
 // Singleton DB instance (sql.js Database object)
@@ -81,7 +91,7 @@ async function writeBrowserState(key: string, value: unknown): Promise<void> {
   });
 }
 
-interface SadokBackupEnvelope {
+export interface SadokBackupEnvelope {
   format: 'sadok-backup';
   formatVersion: 1;
   schemaVersion: number;
@@ -96,6 +106,20 @@ interface SadokBackupEnvelope {
     checkedAt: string;
   };
 }
+
+export interface SystemBackupInfo {
+  id: string;
+  createdAt: string;
+  size: number;
+  trigger: string;
+  verified: boolean;
+  encrypted: boolean;
+  restorable: boolean;
+}
+
+const ENCRYPTED_BACKUPS_KEY = 'encrypted-backups-v1';
+const BACKUP_DEVICE_KEY = 'backup-device-key-v1';
+const BACKUP_RETENTION = 7;
 
 // Load the bundled sql.js runtime. No network fallback is allowed: the application
 // must remain bootable during prolonged internet outages.
@@ -680,6 +704,32 @@ function verifySqliteBytes(bytes: Uint8Array) {
   }
 }
 
+async function getOrCreateBackupDeviceKey(): Promise<Uint8Array> {
+  const saved = await readBrowserState<string>(BACKUP_DEVICE_KEY);
+  if (saved) return decodeBackupDeviceKey(saved);
+  const key = generateBackupDeviceKey();
+  await writeBrowserState(BACKUP_DEVICE_KEY, encodeBackupDeviceKey(key));
+  return key;
+}
+
+function backupMetadata(envelope: SadokBackupEnvelope) {
+  return {
+    createdAt: envelope.createdAt,
+    schemaVersion: envelope.schemaVersion,
+    trigger: envelope.trigger,
+    createdBy: envelope.createdBy,
+    checksum: envelope.checksum,
+  };
+}
+
+function parseLegacyBackup(raw: string): SadokBackupEnvelope {
+  const envelope = JSON.parse(raw) as SadokBackupEnvelope;
+  if (envelope.format !== 'sadok-backup' || envelope.formatVersion !== 1) {
+    throw new Error('Файл не є резервною копією SADOK');
+  }
+  return envelope;
+}
+
 export async function createSystemBackup(
   trigger: 'automatic' | 'manual' = 'manual'
 ): Promise<{ envelope: SadokBackupEnvelope; storage: 'electron' | 'browser' }> {
@@ -707,18 +757,23 @@ export async function createSystemBackup(
     },
   };
   const json = JSON.stringify(envelope);
+  const encrypted = await encryptDeviceBackup(
+    json,
+    await getOrCreateBackupDeviceKey(),
+    backupMetadata(envelope),
+  );
   let storage: 'electron' | 'browser' = 'browser';
 
   if (window.electronAPI?.createBackup) {
     const result = await window.electronAPI.createBackup(
-      new TextEncoder().encode(json),
+      new TextEncoder().encode(JSON.stringify(encrypted)),
       trigger,
     );
     if (!result.success) throw new Error(result.error || 'Не вдалося зберегти резервну копію');
     storage = 'electron';
   } else {
-    const backups = await readBrowserState<SadokBackupEnvelope[]>('backups') || [];
-    await writeBrowserState('backups', [envelope, ...backups].slice(0, 3));
+    const backups = await readBrowserState<EncryptedBackupContainer[]>(ENCRYPTED_BACKUPS_KEY) || [];
+    await writeBrowserState(ENCRYPTED_BACKUPS_KEY, [encrypted, ...backups].slice(0, BACKUP_RETENTION));
     localStorage.removeItem('sadok_browser_backups_v1');
   }
 
@@ -728,6 +783,7 @@ export async function createSystemBackup(
     [envelope.createdAt, trigger, checksum],
   );
   localStorage.setItem('sadok_last_automatic_backup_date', envelope.createdAt.slice(0, 10));
+  localStorage.setItem('sadok_last_verified_backup_at', envelope.createdAt);
   recordAudit({
     action: 'backup',
     entityType: 'database',
@@ -748,40 +804,74 @@ export async function ensureAutomaticBackup(): Promise<void> {
   }
 }
 
-export async function listSystemBackups(): Promise<Array<{
-  id: string;
-  createdAt: string;
-  size: number;
-  trigger: string;
-  verified: boolean;
-}>> {
-  if (window.electronAPI?.listBackups) return window.electronAPI.listBackups();
-  const backups = await readBrowserState<SadokBackupEnvelope[]>('backups') || [];
-  return backups.map((backup, index) => ({
-    id: `browser-${index}`,
-    createdAt: backup.createdAt,
-    size: JSON.stringify(backup).length,
-    trigger: backup.trigger,
-    verified: backup.verification?.sqliteIntegrity === 'ok',
-  }));
+export async function listSystemBackups(): Promise<SystemBackupInfo[]> {
+  if (window.electronAPI?.listBackups) {
+    const backups = await window.electronAPI.listBackups();
+    return backups.map(backup => ({ ...backup, encrypted: true, restorable: false }));
+  }
+  const encrypted = await readBrowserState<EncryptedBackupContainer[]>(ENCRYPTED_BACKUPS_KEY) || [];
+  const legacy = await readBrowserState<SadokBackupEnvelope[]>('backups') || [];
+  return [
+    ...encrypted.map(backup => ({
+      id: `encrypted:${backup.createdAt}`,
+      createdAt: backup.createdAt,
+      size: JSON.stringify(backup).length,
+      trigger: backup.trigger,
+      verified: true,
+      encrypted: true,
+      restorable: true,
+    })),
+    ...legacy.map((backup, index) => ({
+      id: `legacy:${index}`,
+      createdAt: backup.createdAt,
+      size: JSON.stringify(backup).length,
+      trigger: backup.trigger,
+      verified: backup.verification?.sqliteIntegrity === 'ok',
+      encrypted: false,
+      restorable: true,
+    })),
+  ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
-export function downloadBackup(envelope: SadokBackupEnvelope) {
-  const blob = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' });
+export async function downloadEncryptedBackup(envelope: SadokBackupEnvelope, password: string) {
+  const encrypted = await encryptPortableBackup(JSON.stringify(envelope), password, backupMetadata(envelope));
+  const blob = new Blob([JSON.stringify(encrypted)], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `sadok_backup_${envelope.createdAt.replace(/[:.]/g, '-')}.json`;
+  anchor.download = `sadok_${envelope.createdAt.slice(0, 10)}.sadok-backup`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
 
-export async function restoreSystemBackup(raw: string): Promise<void> {
-  requirePermission('backup.manage');
-  const envelope = JSON.parse(raw) as SadokBackupEnvelope;
-  if (envelope.format !== 'sadok-backup' || envelope.formatVersion !== 1) {
-    throw new Error('Файл не є резервною копією SADOK');
+export function inspectBackupFile(raw: string): {
+  encrypted: boolean;
+  passwordRequired: boolean;
+  createdAt: string;
+  createdBy: string;
+  schemaVersion: number;
+} {
+  const parsed = JSON.parse(raw) as unknown;
+  if (isEncryptedBackup(parsed)) {
+    return {
+      encrypted: true,
+      passwordRequired: parsed.encryption.keySource === 'password',
+      createdAt: parsed.createdAt,
+      createdBy: parsed.createdBy,
+      schemaVersion: parsed.schemaVersion,
+    };
   }
+  const legacy = parseLegacyBackup(raw);
+  return {
+    encrypted: false,
+    passwordRequired: false,
+    createdAt: legacy.createdAt,
+    createdBy: legacy.createdBy,
+    schemaVersion: legacy.schemaVersion,
+  };
+}
+
+async function restoreEnvelope(envelope: SadokBackupEnvelope): Promise<void> {
   const expectedChecksum = checksumText(
     envelope.sqliteBase64 + JSON.stringify(envelope.localStorage)
   );
@@ -806,6 +896,35 @@ export async function restoreSystemBackup(raw: string): Promise<void> {
   });
   saveDatabaseToDisk();
   window.location.reload();
+}
+
+export async function restoreSystemBackup(raw: string, password = ''): Promise<void> {
+  requirePermission('backup.manage');
+  const parsed = JSON.parse(raw) as unknown;
+  const envelope = isEncryptedBackup(parsed)
+    ? parseLegacyBackup(await decryptBackup(parsed, password))
+    : parseLegacyBackup(raw);
+  await restoreEnvelope(envelope);
+}
+
+export async function restoreStoredSystemBackup(id: string): Promise<void> {
+  requirePermission('backup.manage');
+  if (id.startsWith('encrypted:')) {
+    const backups = await readBrowserState<EncryptedBackupContainer[]>(ENCRYPTED_BACKUPS_KEY) || [];
+    const backup = backups.find(item => `encrypted:${item.createdAt}` === id);
+    if (!backup) throw new Error('Локальну резервну копію не знайдено');
+    const raw = await decryptBackup(backup, await getOrCreateBackupDeviceKey());
+    await restoreEnvelope(parseLegacyBackup(raw));
+    return;
+  }
+  if (id.startsWith('legacy:')) {
+    const backups = await readBrowserState<SadokBackupEnvelope[]>('backups') || [];
+    const backup = backups[Number(id.slice('legacy:'.length))];
+    if (!backup) throw new Error('Локальну резервну копію не знайдено');
+    await restoreEnvelope(backup);
+    return;
+  }
+  throw new Error('Цю копію можна відновити лише з файлу');
 }
 
 export function resetDatabaseToDefaults() {

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle, CheckCircle2, Cloud, Database, HardDrive, Laptop,
-  Loader2, RefreshCw, Save, ShieldAlert, Wifi, WifiOff,
+  Loader2, RefreshCw, Save, ShieldAlert, ShieldCheck, Wifi, WifiOff,
 } from 'lucide-react';
 import { classifyDeviceActivity, formatActivityAge, type DeviceActivityState } from '../../domain/systemHealth';
+import { getBackupHealth } from '../../domain/backupHealth';
 import { APP_VERSION } from '../../config/version';
 import { ensurePersistentBrowserStorage, type StorageDurabilityStatus } from '../../services/durableStorage';
 import {
@@ -86,9 +87,11 @@ export const SystemStatusPanel: React.FC = () => {
   const localReady = isServiceWorkerActive() && Boolean(storage?.persisted);
   const cloudReady = capability.configured && Boolean(cloudIdentity);
   const dataReady = isEntityBootstrapComplete() && isOperationalBootstrapComplete();
+  const backupHealth = getBackupHealth(localStorage.getItem('sadok_last_verified_backup_at'));
+  const backupReady = backupHealth.state === 'fresh';
   const healthy = online && localReady && cloudReady && dataReady
     && pendingAudit === 0 && pendingEntities === 0 && conflicts === 0
-    && warningDevices.length === 0 && !syncState.lastError;
+    && warningDevices.length === 0 && backupReady && !syncState.lastError;
 
   const saveName = async () => {
     setMessage('');
@@ -127,6 +130,13 @@ export const SystemStatusPanel: React.FC = () => {
       detail: `каталоги: ${isEntityBootstrapComplete() ? 'так' : 'ні'} · меню і склад: ${isOperationalBootstrapComplete() ? 'так' : 'ні'}`,
       ready: dataReady,
       icon: Database,
+    },
+    {
+      label: 'Резервна копія',
+      value: backupHealth.label,
+      detail: `остання перевірка: ${formatDate(localStorage.getItem('sadok_last_verified_backup_at'))}`,
+      ready: backupReady,
+      icon: ShieldCheck,
     },
     {
       label: 'Черга синхронізації',
@@ -180,7 +190,7 @@ export const SystemStatusPanel: React.FC = () => {
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {statusCards.map(card => {
           const Icon = card.icon;
           return (

@@ -111,7 +111,7 @@ ipcMain.handle('create-backup', async (event, buffer, trigger) => {
         mtime: fs.statSync(path.join(directory, name)).mtimeMs,
       }))
       .sort((a, b) => b.mtime - a.mtime);
-    files.slice(10).forEach(file => fs.unlinkSync(file.path));
+    files.slice(7).forEach(file => fs.unlinkSync(file.path));
 
     return { success: true, id: filename };
   } catch (err) {
