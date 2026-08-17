@@ -1,7 +1,7 @@
 import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Archive, CheckCircle2, CloudUpload, DatabaseBackup,
+  Activity, Archive, CheckCircle2, CloudUpload, DatabaseBackup,
   Download, FileClock, History, LockKeyhole, RefreshCw, RotateCcw,
   ShieldCheck, UserCog, UserPlus,
 } from 'lucide-react';
@@ -40,10 +40,12 @@ import {
 } from '../../services/db';
 import { AutonomousSyncPanel } from './AutonomousSyncPanel';
 import { CloudUsersPanel } from './CloudUsersPanel';
+import { SystemStatusPanel } from './SystemStatusPanel';
 
-type Section = 'roles' | 'audit' | 'backup' | 'sync' | 'archive' | 'periods';
+type Section = 'status' | 'roles' | 'audit' | 'backup' | 'sync' | 'archive' | 'periods';
 
 const SECTION_ITEMS = [
+  { id: 'status' as const, label: 'Стан системи', icon: Activity },
   { id: 'roles' as const, label: 'Ролі', icon: UserCog },
   { id: 'audit' as const, label: 'Журнал', icon: History },
   { id: 'backup' as const, label: 'Резервне копіювання', icon: DatabaseBackup },
@@ -61,7 +63,7 @@ function formatDate(value?: string | null): string {
 }
 
 export const SystemAdministrationPanel: React.FC = () => {
-  const [section, setSection] = useState<Section>('roles');
+  const [section, setSection] = useState<Section>('status');
   const [revision, setRevision] = useState(0);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -291,6 +293,8 @@ export const SystemAdministrationPanel: React.FC = () => {
           {cloudIdentity && canManageUsers ? <CloudUsersPanel /> : null}
         </div>
       )}
+
+      {section === 'status' && <SystemStatusPanel />}
 
       {section === 'audit' && (
         <div className="space-y-3">

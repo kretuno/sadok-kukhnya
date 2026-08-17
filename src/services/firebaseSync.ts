@@ -2,6 +2,7 @@ import type { AuditEntry } from './governance';
 import {
   clearCloudCurrentUser,
   getCloudCurrentUser,
+  getDeviceId,
   getPendingAuditEntries,
   markAuditEntriesSynced,
   recordAudit,
@@ -38,6 +39,8 @@ import type { SyncEntityType } from './entitySyncQueue';
 import { parseCloudMembership } from '../domain/cloudIdentity';
 import type { CloudUserRole } from '../domain/cloudIdentity';
 import { validateCloudUserDraft, type CloudUserDraft } from '../domain/cloudUserProvisioning';
+import { APP_VERSION } from '../config/version';
+import { scheduleDurableLocalState } from './durableStorage';
 
 export interface FirebaseCapability {
   configured: boolean;
@@ -69,6 +72,23 @@ export interface OrganizationMember {
   updatedAt?: string;
 }
 
+export interface OrganizationDevice {
+  deviceId: string;
+  deviceName: string;
+  authUid: string;
+  userEmail: string;
+  userName: string;
+  role: string;
+  platform: string;
+  appVersion: string;
+  lastSeenAt: string;
+  lastSyncAt: string | null;
+  lastError: string | null;
+  pendingAudit: number;
+  pendingEntities: number;
+  conflicts: number;
+}
+
 let contextPromise: Promise<FirebaseContext> | null = null;
 
 const CATALOG_ENTITY_TYPES: SyncEntityType[] = [
@@ -78,6 +98,9 @@ const OPERATIONAL_ENTITY_TYPES: SyncEntityType[] = [
   'menu_entry', 'menu_approval', 'supplier', 'invoice', 'stock_batch',
 ];
 const ALL_ENTITY_TYPES = [...CATALOG_ENTITY_TYPES, ...OPERATIONAL_ENTITY_TYPES];
+const DEVICE_NAME_KEY = 'sadok_device_name_v1';
+const DEVICE_HEARTBEAT_KEY = 'sadok_device_heartbeat_at_v1';
+const DEVICE_HEARTBEAT_INTERVAL_MS = 15 * 60 * 1000;
 
 function readFirebaseConfig() {
   return {
@@ -89,6 +112,24 @@ function readFirebaseConfig() {
     appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
     organizationId: import.meta.env.VITE_FIREBASE_ORGANIZATION_ID || '',
   };
+}
+
+function defaultDeviceName(): string {
+  const extendedNavigator = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const platform = extendedNavigator.userAgentData?.platform || navigator.platform || 'Пристрій';
+  return `${platform} · ${getDeviceId().slice(-6)}`;
+}
+
+export function getLocalDeviceName(): string {
+  return localStorage.getItem(DEVICE_NAME_KEY) || defaultDeviceName();
+}
+
+export function setLocalDeviceName(value: string): string {
+  const name = value.trim();
+  if (name.length < 2) throw new Error('Вкажіть зрозумілу назву пристрою');
+  localStorage.setItem(DEVICE_NAME_KEY, name);
+  scheduleDurableLocalState();
+  return name;
 }
 
 export function getFirebaseCapability(): FirebaseCapability {
@@ -440,6 +481,88 @@ export async function signOutFromFirebase(): Promise<void> {
   clearCloudCurrentUser();
 }
 
+function mapOrganizationDevice(
+  document: import('firebase/firestore').QueryDocumentSnapshot,
+): OrganizationDevice {
+  const value = document.data();
+  return {
+    deviceId: document.id,
+    deviceName: String(value.deviceName || `Пристрій ${document.id.slice(-6)}`),
+    authUid: String(value.authUid || ''),
+    userEmail: String(value.userEmail || ''),
+    userName: String(value.userName || value.userEmail || ''),
+    role: String(value.role || ''),
+    platform: String(value.platform || ''),
+    appVersion: String(value.appVersion || ''),
+    lastSeenAt: String(value.lastSeenAt || ''),
+    lastSyncAt: value.lastSyncAt ? String(value.lastSyncAt) : null,
+    lastError: value.lastError ? String(value.lastError) : null,
+    pendingAudit: Number(value.pendingAudit || 0),
+    pendingEntities: Number(value.pendingEntities || 0),
+    conflicts: Number(value.conflicts || 0),
+  };
+}
+
+async function writeCurrentDeviceHeartbeat(
+  context: FirebaseContext,
+  firestoreModule: typeof import('firebase/firestore'),
+  force = false,
+): Promise<boolean> {
+  const now = Date.now();
+  const previous = Number(localStorage.getItem(DEVICE_HEARTBEAT_KEY) || 0);
+  if (!force && now - previous < DEVICE_HEARTBEAT_INTERVAL_MS) return false;
+  await context.auth.authStateReady();
+  const authUser = context.auth.currentUser;
+  if (!authUser) return false;
+  const identity = getCloudCurrentUser();
+  const syncState = getSyncState();
+  const extendedNavigator = navigator as Navigator & { userAgentData?: { platform?: string } };
+  const deviceId = getDeviceId();
+  await firestoreModule.setDoc(firestoreModule.doc(
+    context.db, 'organizations', context.organizationId, 'devices', deviceId,
+  ), {
+    deviceId,
+    deviceName: getLocalDeviceName(),
+    authUid: authUser.uid,
+    userEmail: authUser.email || '',
+    userName: identity?.displayName || authUser.displayName || authUser.email || '',
+    role: identity?.role || '',
+    platform: extendedNavigator.userAgentData?.platform || navigator.platform || '',
+    appVersion: APP_VERSION,
+    lastSeenAt: new Date(now).toISOString(),
+    lastSyncAt: syncState.lastSuccessfulSync,
+    lastError: syncState.lastError,
+    pendingAudit: getPendingAuditEntries().length,
+    pendingEntities: getPendingEntityMutations().length,
+    conflicts: getEntitySyncConflicts().length,
+  }, { merge: true });
+  localStorage.setItem(DEVICE_HEARTBEAT_KEY, String(now));
+  scheduleDurableLocalState();
+  return true;
+}
+
+export async function refreshCurrentDevicePresence(force = true): Promise<boolean> {
+  if (!navigator.onLine) throw new Error('Немає інтернету. Локальний стан доступний нижче.');
+  const [context, firestoreModule] = await Promise.all([
+    getFirebaseContext(),
+    import('firebase/firestore'),
+  ]);
+  return writeCurrentDeviceHeartbeat(context, firestoreModule, force);
+}
+
+export async function listOrganizationDevices(): Promise<OrganizationDevice[]> {
+  const [{ db, organizationId }, firestoreModule] = await Promise.all([
+    getFirebaseContext(),
+    import('firebase/firestore'),
+  ]);
+  const snapshot = await firestoreModule.getDocs(firestoreModule.collection(
+    db, 'organizations', organizationId, 'devices',
+  ));
+  return snapshot.docs
+    .map(mapOrganizationDevice)
+    .sort((left, right) => (right.lastSeenAt || '').localeCompare(left.lastSeenAt || ''));
+}
+
 function assertCanManageCloudUsers(): void {
   const identity = getCloudCurrentUser();
   if (!identity || !['admin', 'director'].includes(identity.role)) {
@@ -666,6 +789,9 @@ async function performFullSynchronization(): Promise<FullSyncResult> {
       lastAttempt: attemptAt,
       lastSuccessfulSync: completedAt,
       lastError: null,
+    });
+    await writeCurrentDeviceHeartbeat(context, firestoreModule).catch(error => {
+      console.warn('[Sync] Device status update postponed:', error);
     });
     return {
       auditUploaded,

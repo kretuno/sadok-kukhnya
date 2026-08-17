@@ -94,7 +94,10 @@ service cloud.firestore {
       match /devices/{deviceId} {
         allow read: if isMember(orgId);
         allow create, update: if isMember(orgId)
-          && request.resource.data.authUid == request.auth.uid;
+          && request.resource.data.authUid == request.auth.uid
+          && request.resource.data.deviceId == deviceId
+          && request.resource.data.deviceName is string
+          && request.resource.data.lastSeenAt is string;
         allow delete: if hasRole(orgId, ['admin', 'director']);
       }
     }
