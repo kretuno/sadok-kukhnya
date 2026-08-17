@@ -111,7 +111,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   director: [
     'menu.write', 'recipes.write', 'products.write', 'stock.write',
     'property.write', 'registry.write', 'settings.write', 'audit.read',
-    'backup.manage', 'periods.manage',
+    'backup.manage', 'periods.manage', 'users.manage',
   ],
   nurse: ['menu.write', 'recipes.write', 'products.write', 'registry.write'],
   warehouse: ['products.write', 'stock.write'],

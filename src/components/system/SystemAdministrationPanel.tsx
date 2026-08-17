@@ -39,6 +39,7 @@ import {
   restoreSystemBackup,
 } from '../../services/db';
 import { AutonomousSyncPanel } from './AutonomousSyncPanel';
+import { CloudUsersPanel } from './CloudUsersPanel';
 
 type Section = 'roles' | 'audit' | 'backup' | 'sync' | 'archive' | 'periods';
 
@@ -287,6 +288,7 @@ export const SystemAdministrationPanel: React.FC = () => {
               </table>
             </div>
           </div>
+          {cloudIdentity && canManageUsers ? <CloudUsersPanel /> : null}
         </div>
       )}
 

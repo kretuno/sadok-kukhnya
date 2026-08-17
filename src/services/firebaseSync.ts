@@ -4,6 +4,7 @@ import {
   getCloudCurrentUser,
   getPendingAuditEntries,
   markAuditEntriesSynced,
+  recordAudit,
   setCloudCurrentUser,
   saveSyncState,
   getSyncState,
@@ -35,6 +36,8 @@ import {
 import { entityTypeOrder, hasEntityRevisionConflict } from '../domain/entitySync';
 import type { SyncEntityType } from './entitySyncQueue';
 import { parseCloudMembership } from '../domain/cloudIdentity';
+import type { CloudUserRole } from '../domain/cloudIdentity';
+import { validateCloudUserDraft, type CloudUserDraft } from '../domain/cloudUserProvisioning';
 
 export interface FirebaseCapability {
   configured: boolean;
@@ -54,6 +57,16 @@ export interface FullSyncResult {
   entitiesDownloaded: number;
   conflicts: number;
   bootstrapped: number;
+}
+
+export interface OrganizationMember {
+  uid: string;
+  displayName: string;
+  email: string;
+  role: CloudUserRole;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 let contextPromise: Promise<FirebaseContext> | null = null;
@@ -425,6 +438,161 @@ export async function signOutFromFirebase(): Promise<void> {
   const [{ auth }, authModule] = await Promise.all([getFirebaseContext(), import('firebase/auth')]);
   await authModule.signOut(auth);
   clearCloudCurrentUser();
+}
+
+function assertCanManageCloudUsers(): void {
+  const identity = getCloudCurrentUser();
+  if (!identity || !['admin', 'director'].includes(identity.role)) {
+    throw new Error('Керування хмарними користувачами доступне лише адміністратору або директору');
+  }
+}
+
+function assertCanAssignCloudRole(role: CloudUserRole): void {
+  const identity = getCloudCurrentUser();
+  if (identity?.role === 'director' && role === 'admin') {
+    throw new Error('Директор не може призначати роль адміністратора');
+  }
+}
+
+export async function listOrganizationMembers(): Promise<OrganizationMember[]> {
+  assertCanManageCloudUsers();
+  const [{ db, organizationId }, firestoreModule] = await Promise.all([
+    getFirebaseContext(),
+    import('firebase/firestore'),
+  ]);
+  const snapshot = await firestoreModule.getDocs(firestoreModule.collection(
+    db, 'organizations', organizationId, 'members',
+  ));
+  return snapshot.docs.map(document => {
+    const value = document.data();
+    return {
+      uid: document.id,
+      displayName: String(value.displayName || value.name || value.email || document.id),
+      email: String(value.email || ''),
+      role: String(value.role || 'nurse') as CloudUserRole,
+      active: value.active === true,
+      createdAt: value.createdAt ? String(value.createdAt) : undefined,
+      updatedAt: value.updatedAt ? String(value.updatedAt) : undefined,
+    };
+  }).sort((left, right) => left.displayName.localeCompare(right.displayName, 'uk'));
+}
+
+export async function createOrganizationMember(
+  draft: CloudUserDraft,
+): Promise<OrganizationMember & { passwordResetSent: boolean }> {
+  assertCanManageCloudUsers();
+  assertCanAssignCloudRole(draft.role);
+  const validationErrors = validateCloudUserDraft(draft);
+  if (validationErrors.length > 0) throw new Error(validationErrors.join('. '));
+  if (!navigator.onLine) throw new Error('Для створення облікового запису потрібен інтернет');
+
+  const [{ auth, db, organizationId }, appModule, authModule, firestoreModule] = await Promise.all([
+    getFirebaseContext(),
+    import('firebase/app'),
+    import('firebase/auth'),
+    import('firebase/firestore'),
+  ]);
+  await auth.authStateReady();
+  if (!auth.currentUser) throw new Error('Увійдіть до Firebase як адміністратор');
+
+  const config = readFirebaseConfig();
+  const secondaryApp = appModule.initializeApp({
+    apiKey: config.apiKey,
+    authDomain: config.authDomain,
+    projectId: config.projectId,
+    storageBucket: config.storageBucket || undefined,
+    messagingSenderId: config.messagingSenderId || undefined,
+    appId: config.appId,
+  }, `sadok-user-provision-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  const secondaryAuth = authModule.getAuth(secondaryApp);
+  await authModule.setPersistence(secondaryAuth, authModule.inMemoryPersistence);
+  let credential: import('firebase/auth').UserCredential | null = null;
+  let membershipCreated = false;
+  try {
+    credential = await authModule.createUserWithEmailAndPassword(
+      secondaryAuth, draft.email.trim().toLowerCase(), draft.password,
+    );
+    await authModule.updateProfile(credential.user, { displayName: draft.displayName.trim() });
+    const createdAt = new Date().toISOString();
+    const member: OrganizationMember = {
+      uid: credential.user.uid,
+      displayName: draft.displayName.trim(),
+      email: draft.email.trim().toLowerCase(),
+      role: draft.role,
+      active: draft.active,
+      createdAt,
+    };
+    await firestoreModule.setDoc(firestoreModule.doc(
+      db, 'organizations', organizationId, 'members', member.uid,
+    ), {
+      displayName: member.displayName,
+      email: member.email,
+      role: member.role,
+      active: member.active,
+      createdAt,
+      createdBy: auth.currentUser.uid,
+    });
+    membershipCreated = true;
+    const passwordResetSent = draft.sendPasswordReset
+      ? await authModule.sendPasswordResetEmail(auth, member.email).then(() => true).catch(() => false)
+      : false;
+    recordAudit({
+      action: 'create',
+      entityType: 'cloud_user',
+      entityId: member.uid,
+      summary: `Створено хмарний обліковий запис «${member.displayName}» (${member.role})`,
+      after: { ...member, passwordResetSent },
+    });
+    return { ...member, passwordResetSent };
+  } catch (error) {
+    if (credential && !membershipCreated) await credential.user.delete().catch(() => undefined);
+    throw error;
+  } finally {
+    await authModule.signOut(secondaryAuth).catch(() => undefined);
+    await appModule.deleteApp(secondaryApp).catch(() => undefined);
+  }
+}
+
+export async function updateOrganizationMember(
+  uid: string,
+  updates: Pick<OrganizationMember, 'role' | 'active'>,
+): Promise<void> {
+  assertCanManageCloudUsers();
+  assertCanAssignCloudRole(updates.role);
+  const [{ auth, db, organizationId }, firestoreModule] = await Promise.all([
+    getFirebaseContext(),
+    import('firebase/firestore'),
+  ]);
+  await auth.authStateReady();
+  if (!auth.currentUser) throw new Error('Увійдіть до Firebase як адміністратор');
+  if (auth.currentUser.uid === uid) throw new Error('Не можна змінити роль або вимкнути власний обліковий запис');
+  await firestoreModule.updateDoc(firestoreModule.doc(
+    db, 'organizations', organizationId, 'members', uid,
+  ), {
+    role: updates.role,
+    active: updates.active,
+    updatedAt: new Date().toISOString(),
+    updatedBy: auth.currentUser.uid,
+  });
+  recordAudit({
+    action: 'update',
+    entityType: 'cloud_user',
+    entityId: uid,
+    summary: `Оновлено роль або стан доступу хмарного користувача`,
+    after: updates,
+  });
+}
+
+export async function sendOrganizationPasswordReset(email: string): Promise<void> {
+  assertCanManageCloudUsers();
+  if (!email) throw new Error('Для користувача не вказано email');
+  const [{ auth }, authModule] = await Promise.all([getFirebaseContext(), import('firebase/auth')]);
+  await authModule.sendPasswordResetEmail(auth, email);
+  recordAudit({
+    action: 'update',
+    entityType: 'cloud_user_password',
+    summary: `Надіслано лист для зміни пароля: ${email}`,
+  });
 }
 
 function cloudAuditPayload(entry: AuditEntry, authUid: string) {

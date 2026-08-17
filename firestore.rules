@@ -33,6 +33,18 @@ service cloud.firestore {
           && hasRole(orgId, ['cook']));
     }
 
+    function validMember(data) {
+      return data.displayName is string
+        && data.email is string
+        && data.active is bool
+        && data.role in ['admin', 'director', 'nurse', 'warehouse', 'cook', 'custodian'];
+    }
+
+    function canAssignMemberRole(orgId, role) {
+      return hasRole(orgId, ['admin'])
+        || (hasRole(orgId, ['director']) && role != 'admin');
+    }
+
     match /organizations/{orgId} {
       allow read: if isMember(orgId);
       allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
@@ -41,7 +53,13 @@ service cloud.firestore {
 
       match /members/{userId} {
         allow read: if isMember(orgId);
-        allow create, update: if hasRole(orgId, ['admin', 'director']);
+        allow create: if validMember(request.resource.data)
+          && canAssignMemberRole(orgId, request.resource.data.role)
+          && request.resource.data.createdBy == request.auth.uid;
+        allow update: if validMember(request.resource.data)
+          && canAssignMemberRole(orgId, request.resource.data.role)
+          && (resource.data.role != 'admin' || hasRole(orgId, ['admin']))
+          && request.resource.data.updatedBy == request.auth.uid;
         allow delete: if false;
       }
 
