@@ -20,7 +20,9 @@ SADOK працює за принципом local-first: локальна SQLite-
 - Firebase Authentication: Email/Password увімкнено;
 - Google Analytics: вимкнено;
 - Firestore Rules та індекси опубліковано;
-- реєстрація Web App і підключення production-середовища ще не виконані.
+- Web App `SADOK Web` зареєстровано;
+- Firebase-конфігурацію додано до Vercel для Production, Preview і Development;
+- production-домен `eda-ashen.vercel.app` додано до дозволених доменів Authentication.
 
 ## Підключення окремого закладу
 
