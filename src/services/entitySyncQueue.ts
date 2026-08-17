@@ -5,7 +5,12 @@ export type SyncEntityType =
   | 'product'
   | 'dish'
   | 'recipe_component'
-  | 'dish_nutrition_profile';
+  | 'dish_nutrition_profile'
+  | 'menu_entry'
+  | 'menu_approval'
+  | 'supplier'
+  | 'invoice'
+  | 'stock_batch';
 
 export interface EntitySyncMutation {
   id: string;
@@ -42,6 +47,7 @@ export interface EntitySyncConflict {
 const QUEUE_KEY = 'sadok_entity_sync_queue_v1';
 const CONFLICTS_KEY = 'sadok_entity_sync_conflicts_v1';
 const BOOTSTRAP_KEY = 'sadok_entity_sync_bootstrap_v1';
+const OPERATIONAL_BOOTSTRAP_KEY = 'sadok_operational_sync_bootstrap_v1';
 const CURSOR_KEY = 'sadok_entity_sync_cursor_v1';
 export const ENTITY_SYNC_EVENT = 'sadok-entity-sync-change';
 
@@ -146,6 +152,16 @@ export function markEntityBootstrapComplete(): void {
   window.dispatchEvent(new CustomEvent(ENTITY_SYNC_EVENT));
 }
 
+export function isOperationalBootstrapComplete(): boolean {
+  return localStorage.getItem(OPERATIONAL_BOOTSTRAP_KEY) === 'complete';
+}
+
+export function markOperationalBootstrapComplete(): void {
+  localStorage.setItem(OPERATIONAL_BOOTSTRAP_KEY, 'complete');
+  scheduleDurableLocalState();
+  window.dispatchEvent(new CustomEvent(ENTITY_SYNC_EVENT));
+}
+
 export function getEntitySyncCursor(): string {
   return localStorage.getItem(CURSOR_KEY) || '';
 }
@@ -161,5 +177,5 @@ export function subscribeEntitySyncState(listener: () => void): () => void {
 }
 
 export function entitySyncStorageKeys(): string[] {
-  return [QUEUE_KEY, CONFLICTS_KEY, BOOTSTRAP_KEY, CURSOR_KEY];
+  return [QUEUE_KEY, CONFLICTS_KEY, BOOTSTRAP_KEY, OPERATIONAL_BOOTSTRAP_KEY, CURSOR_KEY];
 }

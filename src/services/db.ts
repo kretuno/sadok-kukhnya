@@ -38,7 +38,7 @@ import { findStaleBootstrapSyncIds } from '../domain/entitySync';
 // Singleton DB instance (sql.js Database object)
 // -----------------------------------------------------------------
 let db: any = null;
-export const CURRENT_DATABASE_SCHEMA_VERSION = 7;
+export const CURRENT_DATABASE_SCHEMA_VERSION = 8;
 export const DATABASE_SYNC_EVENT = 'sadok-database-sync-change';
 const BROWSER_DATABASE_NAME = 'sadok_persistent_storage';
 const BROWSER_DATABASE_STORE = 'state';
@@ -551,6 +551,32 @@ export function runDatabaseMigrations(): number {
         'CREATE INDEX IF NOT EXISTS IDX_ENTITY_SYNC_REMOTE ON SADOK_ENTITY_SYNC_META(SYNC_ID, REMOTE_REVISION)',
       ],
     },
+    {
+      version: 8,
+      name: 'Menu and warehouse entity synchronization',
+      sql: [
+        `INSERT OR IGNORE INTO SADOK_ENTITY_SYNC_META
+          (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+          SELECT 'menu_entry', CAST(ID AS TEXT), 'menu-legacy-' || ID, 0,
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '', 0 FROM MENU`,
+        `INSERT OR IGNORE INTO SADOK_ENTITY_SYNC_META
+          (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+          SELECT 'menu_approval', CAST(ID AS TEXT), 'menu-approval-legacy-' || ID, 0,
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '', 0 FROM MENU_APPROVALS`,
+        `INSERT OR IGNORE INTO SADOK_ENTITY_SYNC_META
+          (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+          SELECT 'supplier', CAST(ID AS TEXT), 'supplier-legacy-' || ID, 0,
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '', 0 FROM FIRMI`,
+        `INSERT OR IGNORE INTO SADOK_ENTITY_SYNC_META
+          (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+          SELECT 'invoice', CAST(ID AS TEXT), 'invoice-legacy-' || ID, 0,
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '', 0 FROM NAKLADNIE_PRIXODA`,
+        `INSERT OR IGNORE INTO SADOK_ENTITY_SYNC_META
+          (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
+          SELECT 'stock_batch', CAST(ID AS TEXT), 'stock-batch-legacy-' || ID, 0,
+            strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '', 0 FROM PARTII_NOW`,
+      ],
+    },
   ];
 
   for (const migration of migrations) {
@@ -878,6 +904,9 @@ function legacySyncId(entityType: SyncEntityType, localId: string): string {
   if (entityType === 'dish_nutrition_profile') {
     return `nutrition-legacy-${localId.replace(':', '-')}`;
   }
+  if (entityType === 'menu_entry') return `menu-legacy-${localId}`;
+  if (entityType === 'menu_approval') return `menu-approval-legacy-${localId}`;
+  if (entityType === 'stock_batch') return `stock-batch-legacy-${localId}`;
   return `${entityType}-legacy-${localId}`;
 }
 
@@ -925,11 +954,25 @@ function getRawSyncRow(entityType: SyncEntityType, localId: string): Record<stri
   if (entityType === 'recipe_component') {
     return queryAll<Record<string, unknown>>(`SELECT * FROM KOMPONENTI_KARTOTEKI WHERE ID=${Number(localId)}`)[0];
   }
-  const [dishId, categoryId] = localId.split(':').map(Number);
-  return queryAll<Record<string, unknown>>(`
-    SELECT * FROM TECH_CARD_NUTRITION
-    WHERE ID_BLUDA=${dishId} AND ID_KATEGORII_DETEJ=${categoryId}
-  `)[0];
+  if (entityType === 'dish_nutrition_profile') {
+    const [dishId, categoryId] = localId.split(':').map(Number);
+    return queryAll<Record<string, unknown>>(`
+      SELECT * FROM TECH_CARD_NUTRITION
+      WHERE ID_BLUDA=${dishId} AND ID_KATEGORII_DETEJ=${categoryId}
+    `)[0];
+  }
+  const tables: Record<Exclude<SyncEntityType,
+    'product' | 'dish' | 'recipe_component' | 'dish_nutrition_profile'
+  >, string> = {
+    menu_entry: 'MENU',
+    menu_approval: 'MENU_APPROVALS',
+    supplier: 'FIRMI',
+    invoice: 'NAKLADNIE_PRIXODA',
+    stock_batch: 'PARTII_NOW',
+  };
+  return queryAll<Record<string, unknown>>(
+    `SELECT * FROM ${tables[entityType]} WHERE ID=${Number(localId)}`
+  )[0];
 }
 
 function buildSyncPayload(
@@ -951,6 +994,25 @@ function buildSyncPayload(
     return {
       row,
       dishSyncId: ensureSyncMetadata('dish', String(row.ID_BLUDA)).SYNC_ID,
+    };
+  }
+  if (entityType === 'menu_entry') {
+    return {
+      row,
+      dishSyncId: ensureSyncMetadata('dish', String(row.ID_BLUDA)).SYNC_ID,
+    };
+  }
+  if (entityType === 'invoice') {
+    return {
+      row,
+      supplierSyncId: ensureSyncMetadata('supplier', String(row.ID_FIRMI)).SYNC_ID,
+    };
+  }
+  if (entityType === 'stock_batch') {
+    return {
+      row,
+      invoiceSyncId: ensureSyncMetadata('invoice', String(row.ID_NAKLADNOJ)).SYNC_ID,
+      productSyncId: ensureSyncMetadata('product', String(row.ID_PRODUKTA)).SYNC_ID,
     };
   }
   return { row };
@@ -995,16 +1057,32 @@ function ensureAllSyncMetadata(): void {
     'dish_nutrition_profile',
     `${row.ID_BLUDA}:${row.ID_KATEGORII_DETEJ}`,
   ));
+  queryAll<{ ID: number }>('SELECT ID FROM MENU').forEach(row =>
+    ensureSyncMetadata('menu_entry', String(row.ID))
+  );
+  queryAll<{ ID: number }>('SELECT ID FROM MENU_APPROVALS').forEach(row =>
+    ensureSyncMetadata('menu_approval', String(row.ID))
+  );
+  queryAll<{ ID: number }>('SELECT ID FROM FIRMI').forEach(row =>
+    ensureSyncMetadata('supplier', String(row.ID))
+  );
+  queryAll<{ ID: number }>('SELECT ID FROM NAKLADNIE_PRIXODA').forEach(row =>
+    ensureSyncMetadata('invoice', String(row.ID))
+  );
+  queryAll<{ ID: number }>('SELECT ID FROM PARTII_NOW').forEach(row =>
+    ensureSyncMetadata('stock_batch', String(row.ID))
+  );
 }
 
-export function exportLocalSyncEntities(): LocalSyncEntity[] {
+export function exportLocalSyncEntities(entityTypes?: Iterable<SyncEntityType>): LocalSyncEntity[] {
   ensureAllSyncMetadata();
+  const includedTypes = entityTypes ? new Set(entityTypes) : null;
   return queryAll<SyncMetadataRow>(`
     SELECT * FROM SADOK_ENTITY_SYNC_META WHERE DELETED=0
     ORDER BY CASE ENTITY_TYPE
       WHEN 'product' THEN 1 WHEN 'dish' THEN 2
       WHEN 'recipe_component' THEN 3 ELSE 4 END, LOCAL_ID
-  `).flatMap(metadata => {
+  `).filter(metadata => !includedTypes || includedTypes.has(metadata.ENTITY_TYPE)).flatMap(metadata => {
     const payload = buildSyncPayload(metadata.ENTITY_TYPE, metadata.LOCAL_ID);
     return payload ? [{
       entityType: metadata.ENTITY_TYPE,
@@ -1032,10 +1110,12 @@ export function markLocalSyncEntityRevision(
 export function reconcileLocalBootstrapSnapshot(
   remoteSyncIds: Iterable<string>,
   protectedSyncIds: Iterable<string>,
+  entityTypes?: Iterable<SyncEntityType>,
 ): number {
+  const includedTypes = entityTypes ? new Set(entityTypes) : null;
   const metadata = queryAll<SyncMetadataRow>(`
     SELECT * FROM SADOK_ENTITY_SYNC_META WHERE DELETED=0
-  `);
+  `).filter(row => !includedTypes || includedTypes.has(row.ENTITY_TYPE));
   const staleIds = new Set(findStaleBootstrapSyncIds(
     metadata.map(row => ({ syncId: row.SYNC_ID, revision: Number(row.REMOTE_REVISION || 0) })),
     remoteSyncIds,
@@ -1049,8 +1129,13 @@ export function reconcileLocalBootstrapSnapshot(
       const order: Record<SyncEntityType, number> = {
         dish_nutrition_profile: 1,
         recipe_component: 2,
-        dish: 3,
-        product: 4,
+        stock_batch: 2,
+        menu_approval: 2,
+        menu_entry: 2,
+        invoice: 3,
+        supplier: 4,
+        dish: 4,
+        product: 5,
       };
       return order[left.ENTITY_TYPE] - order[right.ENTITY_TYPE];
     });
@@ -1135,6 +1220,11 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
       if (remote.entityType === 'product') db.run('DELETE FROM PRODUKTS WHERE ID=?', [Number(existing.LOCAL_ID)]);
       if (remote.entityType === 'dish') db.run('DELETE FROM KARTOTEKA_BLUD WHERE ID=?', [Number(existing.LOCAL_ID)]);
       if (remote.entityType === 'recipe_component') db.run('DELETE FROM KOMPONENTI_KARTOTEKI WHERE ID=?', [Number(existing.LOCAL_ID)]);
+      if (remote.entityType === 'menu_entry') db.run('DELETE FROM MENU WHERE ID=?', [Number(existing.LOCAL_ID)]);
+      if (remote.entityType === 'menu_approval') db.run('DELETE FROM MENU_APPROVALS WHERE ID=?', [Number(existing.LOCAL_ID)]);
+      if (remote.entityType === 'supplier') db.run('DELETE FROM FIRMI WHERE ID=?', [Number(existing.LOCAL_ID)]);
+      if (remote.entityType === 'invoice') db.run('DELETE FROM NAKLADNIE_PRIXODA WHERE ID=?', [Number(existing.LOCAL_ID)]);
+      if (remote.entityType === 'stock_batch') db.run('DELETE FROM PARTII_NOW WHERE ID=?', [Number(existing.LOCAL_ID)]);
       if (remote.entityType === 'dish_nutrition_profile') {
         const [dishId, categoryId] = existing.LOCAL_ID.split(':').map(Number);
         db.run('DELETE FROM TECH_CARD_NUTRITION WHERE ID_BLUDA=? AND ID_KATEGORII_DETEJ=?', [dishId, categoryId]);
@@ -1144,8 +1234,13 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
     return;
   }
 
-  if (remote.entityType === 'product' || remote.entityType === 'dish') {
-    const table = remote.entityType === 'product' ? 'PRODUKTS' : 'KARTOTEKA_BLUD';
+  if (['product', 'dish', 'menu_approval', 'supplier'].includes(remote.entityType)) {
+    const table = {
+      product: 'PRODUKTS',
+      dish: 'KARTOTEKA_BLUD',
+      menu_approval: 'MENU_APPROVALS',
+      supplier: 'FIRMI',
+    }[remote.entityType] as string;
     const localId = existing?.LOCAL_ID || insertRemoteRow(table, rawRow);
     if (existing) updateRemoteRow(table, localId, rawRow);
     saveRemoteMetadata(remote, localId);
@@ -1160,6 +1255,40 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
     };
     const localId = existing?.LOCAL_ID || insertRemoteRow('KOMPONENTI_KARTOTEKI', row);
     if (existing) updateRemoteRow('KOMPONENTI_KARTOTEKI', localId, row);
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'menu_entry') {
+    const row = {
+      ...rawRow,
+      ID_BLUDA: Number(resolveRemoteRelation(payload.dishSyncId, 'dish')),
+    };
+    const localId = existing?.LOCAL_ID || insertRemoteRow('MENU', row);
+    if (existing) updateRemoteRow('MENU', localId, row);
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'invoice') {
+    const row = {
+      ...rawRow,
+      ID_FIRMI: Number(resolveRemoteRelation(payload.supplierSyncId, 'supplier')),
+    };
+    const localId = existing?.LOCAL_ID || insertRemoteRow('NAKLADNIE_PRIXODA', row);
+    if (existing) updateRemoteRow('NAKLADNIE_PRIXODA', localId, row);
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'stock_batch') {
+    const row = {
+      ...rawRow,
+      ID_NAKLADNOJ: Number(resolveRemoteRelation(payload.invoiceSyncId, 'invoice')),
+      ID_PRODUKTA: Number(resolveRemoteRelation(payload.productSyncId, 'product')),
+    };
+    const localId = existing?.LOCAL_ID || insertRemoteRow('PARTII_NOW', row);
+    if (existing) updateRemoteRow('PARTII_NOW', localId, row);
     saveRemoteMetadata(remote, localId);
     return;
   }
@@ -1321,6 +1450,10 @@ export function copyMenuPeriod(
   const targetDates = Array.from({ length: safeDayCount }, (_, index) => addDays(targetStart, index));
   targetDates.forEach(assertDateOpen);
   const sourceRows = getMenuEntriesRange(sourceStart, addDays(sourceStart, safeDayCount - 1));
+  const targetDateList = targetDates.map(date => `'${esc(date)}'`).join(',');
+  const previousMenuRows = queryAll<MenuHeader>(`SELECT * FROM MENU WHERE DATA IN (${targetDateList})`);
+  const previousApprovals = queryAll<MenuApproval>(`SELECT * FROM MENU_APPROVALS WHERE MENU_DATE IN (${targetDateList})`);
+  const previousMenuIds = new Set(previousMenuRows.map(row => row.ID));
 
   db.run('BEGIN');
   try {
@@ -1365,6 +1498,20 @@ export function copyMenuPeriod(
     summary: `Скопійовано меню за ${safeDayCount} днів з ${sourceStart} на ${targetStart}`,
     after: { sourceStart, targetStart, dayCount: safeDayCount, copied: sourceRows.length },
   });
+  if (replaceTarget) {
+    previousMenuRows.forEach(row => queueCurrentSyncEntity(
+      'menu_entry', String(row.ID), 'delete', false,
+      { row, dishSyncId: ensureSyncMetadata('dish', String(row.ID_BLUDA)).SYNC_ID },
+    ));
+  }
+  previousApprovals.forEach(row => queueCurrentSyncEntity(
+    'menu_approval', String(row.ID), 'delete', false, { row },
+  ));
+  queryAll<MenuHeader>(`SELECT * FROM MENU WHERE DATA IN (${targetDateList})`)
+    .filter(row => replaceTarget || !previousMenuIds.has(row.ID))
+    .forEach(row => queueCurrentSyncEntity(
+      'menu_entry', String(row.ID), 'upsert', !previousMenuIds.has(row.ID),
+    ));
   saveDatabaseToDisk();
   return { copied: sourceRows.length, targetDates };
 }
@@ -1375,6 +1522,9 @@ export function replaceMenuDish(menuId: number, dish: Dish): void {
   const before = queryAll<MenuHeader>(`SELECT * FROM MENU WHERE ID = ${menuId}`)[0];
   if (!before) return;
   assertDateOpen(before.DATA);
+  const invalidatedApprovals = queryAll<MenuApproval>(
+    `SELECT * FROM MENU_APPROVALS WHERE MENU_DATE = '${esc(before.DATA)}'`
+  );
   db.run(
     `UPDATE MENU
      SET ID_BLUDA = ?, NAME_BLUDA = ?, PORRDOK_SLEDOVANIR_BLUD = ?
@@ -1390,6 +1540,10 @@ export function replaceMenuDish(menuId: number, dish: Dish): void {
     before,
     after: { ...before, ID_BLUDA: dish.ID, NAME_BLUDA: dish.NAME },
   });
+  queueCurrentSyncEntity('menu_entry', String(menuId));
+  invalidatedApprovals.forEach(row => queueCurrentSyncEntity(
+    'menu_approval', String(row.ID), 'delete', false, { row },
+  ));
   saveDatabaseToDisk();
 }
 
@@ -1406,6 +1560,7 @@ export function approveMenu(date: string, institutionId: number, checks: unknown
   requirePermission('menu.write');
   assertDateOpen(date);
   const currentUser = getCurrentUser();
+  const before = getMenuApproval(date, institutionId);
   const approvedAt = new Date().toISOString();
   db.run(
     `INSERT OR REPLACE INTO MENU_APPROVALS
@@ -1428,6 +1583,7 @@ export function approveMenu(date: string, institutionId: number, checks: unknown
     summary: `Затверджено меню на ${date}`,
     after: approval,
   });
+  queueCurrentSyncEntity('menu_approval', String(approval.ID), 'upsert', !before);
   saveDatabaseToDisk();
   return approval;
 }
@@ -1634,8 +1790,12 @@ export function addMenuEntry(date: string, dishId: number, dishName: string, mea
   assertDateOpen(date);
   const validationErrors = validateMenuEntryInput({ date, dishId, dishName, mealType });
   if (validationErrors.length > 0) throw new Error(validationErrors.join('. '));
+  const invalidatedApprovals = queryAll<MenuApproval>(
+    `SELECT * FROM MENU_APPROVALS WHERE MENU_DATE = '${esc(date)}'`
+  );
   db.run(`INSERT INTO MENU (ID_ZOY, DATA, ID_BLUDA, NAME_BLUDA, MEAL_TYPE)
      VALUES (1, '${date}', ${dishId}, '${esc(dishName)}', '${esc(mealType)}')`);
+  db.run(`DELETE FROM MENU_APPROVALS WHERE MENU_DATE = '${esc(date)}'`);
   const id = String(db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] || '');
   recordAudit({
     action: 'create',
@@ -1644,6 +1804,10 @@ export function addMenuEntry(date: string, dishId: number, dishName: string, mea
     summary: `Додано страву «${dishName}» до меню на ${date} (${mealType})`,
     after: { date, dishId, dishName, mealType },
   });
+  queueCurrentSyncEntity('menu_entry', id, 'upsert', true);
+  invalidatedApprovals.forEach(row => queueCurrentSyncEntity(
+    'menu_approval', String(row.ID), 'delete', false, { row },
+  ));
   saveDatabaseToDisk();
 }
 
@@ -1653,13 +1817,24 @@ export function deleteMenuEntry(id: number) {
   const before = queryAll<MenuHeader>(`SELECT * FROM MENU WHERE ID = ${id}`)[0];
   if (!before) return;
   assertDateOpen(before.DATA);
+  const invalidatedApprovals = queryAll<MenuApproval>(
+    `SELECT * FROM MENU_APPROVALS WHERE MENU_DATE = '${esc(before.DATA)}'`
+  );
   archiveRecord({
     entityType: 'menu',
     entityId: String(id),
     label: `${before.DATA}: ${before.NAME_BLUDA}`,
     payload: before,
   });
+  queueCurrentSyncEntity(
+    'menu_entry', String(id), 'delete', false,
+    { row: before, dishSyncId: ensureSyncMetadata('dish', String(before.ID_BLUDA)).SYNC_ID },
+  );
   db.run(`DELETE FROM MENU WHERE ID = ${id}`);
+  db.run(`DELETE FROM MENU_APPROVALS WHERE MENU_DATE = '${esc(before.DATA)}'`);
+  invalidatedApprovals.forEach(row => queueCurrentSyncEntity(
+    'menu_approval', String(row.ID), 'delete', false, { row },
+  ));
   saveDatabaseToDisk();
 }
 
@@ -2035,6 +2210,7 @@ export function addSupplier(firm: Partial<SupplierFirm>) {
     summary: `Створено постачальника «${firm.NAME}»`,
     after: firm,
   });
+  queueCurrentSyncEntity('supplier', id, 'upsert', true);
   saveDatabaseToDisk();
 }
 
@@ -2051,6 +2227,7 @@ export function updateSupplier(firm: SupplierFirm) {
     before,
     after: firm,
   });
+  queueCurrentSyncEntity('supplier', String(firm.ID));
   saveDatabaseToDisk();
 }
 
@@ -2066,6 +2243,7 @@ export function deleteSupplier(id: number) {
     payload: before,
   });
   db.run(`UPDATE FIRMI SET DEL = 1 WHERE ID = ${id}`);
+  queueCurrentSyncEntity('supplier', String(id));
   saveDatabaseToDisk();
 }
 
@@ -2123,6 +2301,10 @@ export function addInvoiceWithBatches(
     summary: `Створено прибуткову накладну «${nomerDoc}» від ${dateStr}`,
     after: { nomerDoc, dateStr, firmId, totalSum, items },
   });
+  queueCurrentSyncEntity('invoice', String(invoiceId), 'upsert', true);
+  queryAll<StockBatch>(`SELECT * FROM PARTII_NOW WHERE ID_NAKLADNOJ = ${invoiceId}`)
+    .forEach(batch => queueCurrentSyncEntity('stock_batch', String(batch.ID), 'upsert', true));
+  affectedProductIds.forEach(productId => queueCurrentSyncEntity('product', String(productId)));
   saveDatabaseToDisk();
 }
 
@@ -2146,6 +2328,7 @@ export function updateStockBatch(id: number, ostKg: number, cena: number, srokGo
     before,
     after: { ostKg, cena, srokGodnosti },
   });
+  queueCurrentSyncEntity('stock_batch', String(id));
   saveDatabaseToDisk();
 }
 
@@ -2164,6 +2347,10 @@ export function deleteStockBatch(id: number) {
     label: `Складская партия №${id}`,
     payload: before,
   });
+  queueCurrentSyncEntity(
+    'stock_batch', String(id), 'delete', false,
+    buildSyncPayload('stock_batch', String(id)),
+  );
   db.run(`DELETE FROM PARTII_NOW WHERE ID = ${id}`);
   saveDatabaseToDisk();
 }
@@ -2181,6 +2368,14 @@ export function deleteInvoice(id: number) {
     label: `Накладная ${invoice.NOMER_DOCUMENTA}`,
     payload: { invoice, batches },
   });
+  batches.forEach(batch => queueCurrentSyncEntity(
+    'stock_batch', String(batch.ID), 'delete', false,
+    buildSyncPayload('stock_batch', String(batch.ID)),
+  ));
+  queueCurrentSyncEntity(
+    'invoice', String(id), 'delete', false,
+    buildSyncPayload('invoice', String(id)),
+  );
   db.run(`DELETE FROM NAKLADNIE_PRIXODA WHERE ID = ${id}`);
   db.run(`DELETE FROM PARTII_NOW WHERE ID_NAKLADNOJ = ${id}`);
   saveDatabaseToDisk();
@@ -2252,6 +2447,8 @@ export function deductStockFIFO(
     before: requirements,
     after: { deductions: auditDeductions, warnings },
   });
+  Array.from(new Set(auditDeductions.map(item => item.batchId)))
+    .forEach(batchId => queueCurrentSyncEntity('stock_batch', String(batchId)));
   saveDatabaseToDisk();
   return { success: true, deductedCount, warnings };
 }
@@ -2852,6 +3049,7 @@ export function restoreArchivedRecord(archiveId: string): void {
     case 'menu':
       assertDateOpen(payload.DATA);
       restoreSqlRow('MENU', payload);
+      queueCurrentSyncEntity('menu_entry', String(payload.ID));
       break;
     case 'product':
       restoreSqlRow('PRODUKTS', payload);
@@ -2876,15 +3074,21 @@ export function restoreArchivedRecord(archiveId: string): void {
       break;
     case 'supplier':
       restoreSqlRow('FIRMI', { ...payload, DEL: 0 });
+      queueCurrentSyncEntity('supplier', String(payload.ID));
       break;
     case 'stock_batch':
       restoreSqlRow('PARTII_NOW', payload);
+      queueCurrentSyncEntity('stock_batch', String(payload.ID));
       break;
     case 'invoice':
       assertDateOpen(payload.invoice.DATA);
       restoreSqlRow('NAKLADNIE_PRIXODA', payload.invoice);
       (payload.batches || []).forEach((row: Record<string, unknown>) =>
         restoreSqlRow('PARTII_NOW', row)
+      );
+      queueCurrentSyncEntity('invoice', String(payload.invoice.ID));
+      (payload.batches || []).forEach((row: Record<string, unknown>) =>
+        queueCurrentSyncEntity('stock_batch', String(row.ID))
       );
       break;
     case 'property_item':

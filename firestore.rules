@@ -19,9 +19,17 @@ service cloud.firestore {
     }
 
     function canWriteEntity(orgId, entityType) {
-      return hasRole(orgId, ['admin', 'director', 'nurse'])
-        || (entityType == 'product' && hasRole(orgId, ['warehouse']))
-        || (entityType in ['dish', 'recipe_component', 'dish_nutrition_profile']
+      return hasRole(orgId, ['admin', 'director'])
+        || (entityType in [
+          'product', 'dish', 'recipe_component', 'dish_nutrition_profile',
+          'menu_entry', 'menu_approval'
+        ] && hasRole(orgId, ['nurse']))
+        || (entityType in ['product', 'supplier', 'invoice', 'stock_batch']
+          && hasRole(orgId, ['warehouse']))
+        || (entityType in [
+          'dish', 'recipe_component', 'dish_nutrition_profile',
+          'menu_entry', 'menu_approval'
+        ]
           && hasRole(orgId, ['cook']));
     }
 
@@ -54,7 +62,8 @@ service cloud.firestore {
           && request.resource.data.updatedBy == request.auth.uid
           && request.resource.data.revision == 1
           && request.resource.data.entityType in [
-            'product', 'dish', 'recipe_component', 'dish_nutrition_profile'
+            'product', 'dish', 'recipe_component', 'dish_nutrition_profile',
+            'menu_entry', 'menu_approval', 'supplier', 'invoice', 'stock_batch'
           ];
         allow update: if canWriteEntity(orgId, resource.data.entityType)
           && request.resource.data.syncId == resource.data.syncId

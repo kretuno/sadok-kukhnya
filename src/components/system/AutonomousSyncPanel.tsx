@@ -29,6 +29,7 @@ import {
   getEntitySyncConflicts,
   getPendingEntityMutationCount,
   isEntityBootstrapComplete,
+  isOperationalBootstrapComplete,
   subscribeEntitySyncState,
 } from '../../services/entitySyncQueue';
 
@@ -102,6 +103,7 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
   const pendingEntities = getPendingEntityMutationCount();
   const conflicts = getEntitySyncConflicts();
   const bootstrapComplete = isEntityBootstrapComplete();
+  const operationalBootstrapComplete = isOperationalBootstrapComplete();
   void entityRevision;
 
   const run = async (action: () => Promise<string>) => {
@@ -197,8 +199,9 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
           </div>
           <dl className="space-y-2 text-[11px]">
             <div className="flex justify-between"><dt>Записи журналу</dt><dd className="font-bold text-amber-600">{pendingCount}</dd></div>
-            <div className="flex justify-between"><dt>Довідники й техкарти</dt><dd className="font-bold text-blue-600">{pendingEntities}</dd></div>
-            <div className="flex justify-between"><dt>Первинна хмарна копія</dt><dd className={`font-bold ${bootstrapComplete ? 'text-emerald-600' : 'text-amber-600'}`}>{bootstrapComplete ? 'готова' : 'очікує'}</dd></div>
+            <div className="flex justify-between"><dt>Зміни даних у черзі</dt><dd className="font-bold text-blue-600">{pendingEntities}</dd></div>
+            <div className="flex justify-between"><dt>Каталоги й техкарти</dt><dd className={`font-bold ${bootstrapComplete ? 'text-emerald-600' : 'text-amber-600'}`}>{bootstrapComplete ? 'копія готова' : 'очікує'}</dd></div>
+            <div className="flex justify-between"><dt>Меню та склад</dt><dd className={`font-bold ${operationalBootstrapComplete ? 'text-emerald-600' : 'text-amber-600'}`}>{operationalBootstrapComplete ? 'копія готова' : 'очікує'}</dd></div>
             <div className="flex justify-between"><dt>Конфлікти редагування</dt><dd className="font-bold text-rose-600">{conflicts.length}</dd></div>
             <div className="flex justify-between"><dt>Остання синхронізація</dt><dd className="font-bold">{formatDate(syncState.lastSuccessfulSync)}</dd></div>
             <div className="flex justify-between"><dt>Остання помилка</dt><dd className="max-w-[60%] text-right font-bold text-rose-600">{syncState.lastError || '—'}</dd></div>

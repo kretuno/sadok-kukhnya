@@ -23,6 +23,11 @@ describe('entity synchronization conflict rules', () => {
   it('orders dependencies before recipe components and reverses deletes', () => {
     expect(entityTypeOrder('product')).toBeLessThan(entityTypeOrder('recipe_component'));
     expect(entityTypeOrder('recipe_component', true)).toBeLessThan(entityTypeOrder('product', true));
+    expect(entityTypeOrder('supplier')).toBeLessThan(entityTypeOrder('invoice'));
+    expect(entityTypeOrder('invoice')).toBeLessThan(entityTypeOrder('stock_batch'));
+    expect(entityTypeOrder('stock_batch', true)).toBeLessThan(entityTypeOrder('invoice', true));
+    expect(entityTypeOrder('invoice', true)).toBeLessThan(entityTypeOrder('supplier', true));
+    expect(entityTypeOrder('menu_entry')).toBeLessThan(entityTypeOrder('menu_approval'));
   });
 
   it('removes only untouched seed records absent from the authoritative cloud snapshot', () => {

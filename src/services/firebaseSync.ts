@@ -20,7 +20,9 @@ import {
   getEntitySyncCursor,
   getPendingEntityMutations,
   isEntityBootstrapComplete,
+  isOperationalBootstrapComplete,
   markEntityBootstrapComplete,
+  markOperationalBootstrapComplete,
   markEntityMutationsSynced,
   removeEntityMutationsForSyncId,
   removeEntitySyncConflict,
@@ -31,6 +33,7 @@ import {
   type RemoteEntityDocument,
 } from './entitySyncQueue';
 import { entityTypeOrder, hasEntityRevisionConflict } from '../domain/entitySync';
+import type { SyncEntityType } from './entitySyncQueue';
 import { parseCloudMembership } from '../domain/cloudIdentity';
 
 export interface FirebaseCapability {
@@ -54,6 +57,14 @@ export interface FullSyncResult {
 }
 
 let contextPromise: Promise<FirebaseContext> | null = null;
+
+const CATALOG_ENTITY_TYPES: SyncEntityType[] = [
+  'product', 'dish', 'recipe_component', 'dish_nutrition_profile',
+];
+const OPERATIONAL_ENTITY_TYPES: SyncEntityType[] = [
+  'menu_entry', 'menu_approval', 'supplier', 'invoice', 'stock_batch',
+];
+const ALL_ENTITY_TYPES = [...CATALOG_ENTITY_TYPES, ...OPERATIONAL_ENTITY_TYPES];
 
 function readFirebaseConfig() {
   return {
@@ -111,7 +122,7 @@ async function getFirebaseContext(): Promise<FirebaseContext> {
 function isRemoteEntityDocument(value: unknown): value is RemoteEntityDocument {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<RemoteEntityDocument>;
-  return ['product', 'dish', 'recipe_component', 'dish_nutrition_profile'].includes(String(candidate.entityType))
+  return ALL_ENTITY_TYPES.includes(String(candidate.entityType) as SyncEntityType)
     && typeof candidate.syncId === 'string'
     && typeof candidate.revision === 'number'
     && typeof candidate.updatedAt === 'string';
@@ -138,7 +149,10 @@ async function bootstrapEntityCollection(
   const collectionReference = firestoreModule.collection(
     context.db, 'organizations', context.organizationId, 'entities',
   );
-  const cloudSnapshot = await firestoreModule.getDocs(collectionReference);
+  const cloudSnapshot = await firestoreModule.getDocs(firestoreModule.query(
+    collectionReference,
+    firestoreModule.where('entityType', 'in', CATALOG_ENTITY_TYPES),
+  ));
   const cloudDocuments = cloudSnapshot.docs
     .map(remoteFromSnapshot)
     .filter((value): value is RemoteEntityDocument => Boolean(value));
@@ -147,17 +161,17 @@ async function bootstrapEntityCollection(
     reconcileLocalBootstrapSnapshot(
       cloudDocuments.map(document => document.syncId),
       getPendingEntityMutations().map(mutation => mutation.syncId),
+      CATALOG_ENTITY_TYPES,
     );
     cloudDocuments
       .sort((left, right) => entityTypeOrder(left.entityType, left.deleted) - entityTypeOrder(right.entityType, right.deleted))
       .forEach(applyRemoteSyncEntity);
     persistRemoteSyncEntities();
-    saveEntitySyncCursor(maxUpdatedAt(cloudDocuments));
     markEntityBootstrapComplete();
     return 0;
   }
 
-  const localEntities = exportLocalSyncEntities();
+  const localEntities = exportLocalSyncEntities(CATALOG_ENTITY_TYPES);
   const updatedAt = new Date().toISOString();
   const deviceId = localStorage.getItem('sadok_device_id') || '';
   for (let offset = 0; offset < localEntities.length; offset += 350) {
@@ -179,10 +193,71 @@ async function bootstrapEntityCollection(
     await batch.commit();
     chunk.forEach(entity => markLocalSyncEntityRevision(entity.syncId, 1, updatedAt, deviceId, false));
   }
-  markEntityMutationsSynced(getPendingEntityMutations().map(item => item.id));
+  markEntityMutationsSynced(getPendingEntityMutations()
+    .filter(item => CATALOG_ENTITY_TYPES.includes(item.entityType))
+    .map(item => item.id));
   persistRemoteSyncEntities();
-  saveEntitySyncCursor(updatedAt);
   markEntityBootstrapComplete();
+  return localEntities.length;
+}
+
+async function bootstrapOperationalCollection(
+  context: FirebaseContext,
+  firestoreModule: typeof import('firebase/firestore'),
+  authUid: string,
+): Promise<number> {
+  if (isOperationalBootstrapComplete()) return 0;
+  const collectionReference = firestoreModule.collection(
+    context.db, 'organizations', context.organizationId, 'entities',
+  );
+  const cloudSnapshot = await firestoreModule.getDocs(firestoreModule.query(
+    collectionReference,
+    firestoreModule.where('entityType', 'in', OPERATIONAL_ENTITY_TYPES),
+  ));
+  const cloudDocuments = cloudSnapshot.docs
+    .map(remoteFromSnapshot)
+    .filter((value): value is RemoteEntityDocument => Boolean(value));
+
+  if (cloudDocuments.length > 0) {
+    reconcileLocalBootstrapSnapshot(
+      cloudDocuments.map(document => document.syncId),
+      getPendingEntityMutations().map(mutation => mutation.syncId),
+      OPERATIONAL_ENTITY_TYPES,
+    );
+    cloudDocuments
+      .sort((left, right) => entityTypeOrder(left.entityType, left.deleted) - entityTypeOrder(right.entityType, right.deleted))
+      .forEach(applyRemoteSyncEntity);
+    persistRemoteSyncEntities();
+    markOperationalBootstrapComplete();
+    return 0;
+  }
+
+  const localEntities = exportLocalSyncEntities(OPERATIONAL_ENTITY_TYPES);
+  const updatedAt = new Date().toISOString();
+  const deviceId = localStorage.getItem('sadok_device_id') || '';
+  for (let offset = 0; offset < localEntities.length; offset += 350) {
+    const batch = firestoreModule.writeBatch(context.db);
+    const chunk = localEntities.slice(offset, offset + 350);
+    chunk.forEach(entity => {
+      batch.set(firestoreModule.doc(collectionReference, entity.syncId), {
+        entityType: entity.entityType,
+        syncId: entity.syncId,
+        payload: entity.payload,
+        deleted: false,
+        revision: 1,
+        updatedAt,
+        updatedBy: authUid,
+        deviceId,
+      });
+    });
+    await batch.commit();
+    chunk.forEach(entity => markLocalSyncEntityRevision(entity.syncId, 1, updatedAt, deviceId, false));
+  }
+  markEntityMutationsSynced(getPendingEntityMutations()
+    .filter(item => OPERATIONAL_ENTITY_TYPES.includes(item.entityType))
+    .map(item => item.id));
+  persistRemoteSyncEntities();
+  markOperationalBootstrapComplete();
   return localEntities.length;
 }
 
@@ -239,9 +314,6 @@ async function uploadPendingEntities(
       result.document.deviceId,
       result.document.deleted,
     );
-    if (result.document.updatedAt > getEntitySyncCursor()) {
-      saveEntitySyncCursor(result.document.updatedAt);
-    }
   }
 
   if (completed.length > 0) {
@@ -414,7 +486,9 @@ async function performFullSynchronization(): Promise<FullSyncResult> {
     await context.auth.authStateReady();
     if (!context.auth.currentUser) throw new Error('Увійдіть до Firebase перед синхронізацією');
     const authUid = context.auth.currentUser.uid;
-    const bootstrapped = await bootstrapEntityCollection(context, firestoreModule, authUid);
+    const catalogBootstrapped = await bootstrapEntityCollection(context, firestoreModule, authUid);
+    const operationalBootstrapped = await bootstrapOperationalCollection(context, firestoreModule, authUid);
+    const bootstrapped = catalogBootstrapped + operationalBootstrapped;
     const entitiesUploaded = await uploadPendingEntities(context, firestoreModule, authUid);
     const entitiesDownloaded = await downloadRemoteEntities(context, firestoreModule);
     const auditUploaded = await synchronizePendingAudit();

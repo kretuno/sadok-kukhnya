@@ -13,8 +13,13 @@ export function entityTypeOrder(entityType: string, deleted = false): number {
   const normalOrder: Record<string, number> = {
     product: 1,
     dish: 2,
+    supplier: 2,
     recipe_component: 3,
     dish_nutrition_profile: 4,
+    invoice: 4,
+    menu_entry: 4,
+    stock_batch: 5,
+    menu_approval: 5,
   };
   const order = normalOrder[entityType] || 99;
   return deleted ? 100 - order : order;

@@ -1,7 +1,7 @@
 import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { MenuHeader, Dish, EaterCategory, Product, RecipeComponent, Institution, MenuApproval } from '../../types';
-import { getMenuEntries, addMenuEntry, deleteMenuEntry, getDishes, getEaterCategories, getProducts, getRecipeComponents, getDishNutritionProfiles, getInstitutions, updateDish, deductStockFIFO, getMenuEntriesRange, copyMenuPeriod, replaceMenuDish, getStockBatches, approveMenu, getMenuApproval, getDishCostProfiles } from '../../services/db';
+import { DATABASE_SYNC_EVENT, getMenuEntries, addMenuEntry, deleteMenuEntry, getDishes, getEaterCategories, getProducts, getRecipeComponents, getDishNutritionProfiles, getInstitutions, updateDish, deductStockFIFO, getMenuEntriesRange, copyMenuPeriod, replaceMenuDish, getStockBatches, approveMenu, getMenuApproval, getDishCostProfiles } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
 import { ProductHistoryModal } from '../modals/ProductHistoryModal';
@@ -80,6 +80,11 @@ export const MenuPlannerModule: React.FC = () => {
   const [newMealType, setNewMealType] = useState<string>('Обід');
 
   useEffect(() => { loadData(); }, [selectedDate, selectedInstitution]);
+  useEffect(() => {
+    const refreshFromDatabase = () => loadData();
+    window.addEventListener(DATABASE_SYNC_EVENT, refreshFromDatabase);
+    return () => window.removeEventListener(DATABASE_SYNC_EVENT, refreshFromDatabase);
+  }, [selectedDate, selectedInstitution]);
   useEffect(() => {
     const refreshPreference = () => setShowMenuMacros(getShowMenuMacros());
     window.addEventListener(UI_PREFERENCES_EVENT, refreshPreference);

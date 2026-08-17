@@ -2,7 +2,7 @@ import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState, useEffect } from 'react';
 import { InvoiceHeader, StockBatch, SupplierFirm, Product } from '../../types';
 import {
-  getInvoices, getStockBatches, getSuppliers, getProducts,
+  DATABASE_SYNC_EVENT, getInvoices, getStockBatches, getSuppliers, getProducts,
   addInvoiceWithBatches, updateStockBatch, deleteStockBatch, deleteInvoice, addSupplier, updateSupplier, deleteSupplier, addProduct
 } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
@@ -73,6 +73,8 @@ export const WarehouseModule: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    window.addEventListener(DATABASE_SYNC_EVENT, loadData);
+    return () => window.removeEventListener(DATABASE_SYNC_EVENT, loadData);
   }, []);
 
   const loadData = () => {
