@@ -17,6 +17,7 @@ import {
   getArchive,
   getAuditLog,
   getClosedPeriods,
+  getCloudCurrentUser,
   getCurrentUser,
   getPendingSyncCount,
   getRolePermissions,
@@ -93,6 +94,7 @@ export const SystemAdministrationPanel: React.FC = () => {
 
   const users = useMemo(() => getUsers(), [revision]);
   const currentUser = useMemo(() => getCurrentUser(), [revision]);
+  const cloudIdentity = useMemo(() => getCloudCurrentUser(), [revision]);
   const audit = useMemo(() => getAuditLog(), [revision]);
   const archive = useMemo(() => getArchive(), [revision]);
   const periods = useMemo(() => getClosedPeriods(), [revision]);
@@ -196,26 +198,42 @@ export const SystemAdministrationPanel: React.FC = () => {
           <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
             <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
               <h4 className="mb-2 font-black text-slate-800 dark:text-white">Поточний користувач</h4>
-              <p className="mb-3 text-[10px] text-amber-700 dark:text-amber-300">
-                Тестовий режим: перемикання без пароля. Після підключення сервера тут буде звичайний вхід.
-              </p>
-              <SearchableSelect
-                data-testid="current-user-select"
-                value={currentUser.id}
-                onChange={event => runAction(
-                  () => setCurrentUser(event.target.value),
-                  'Поточного користувача змінено.',
-                )}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950"
-              >
-                {users.filter(user => user.active).map(user => (
-                  <option key={user.id} value={user.id}>
-                    {user.displayName} — {ROLE_LABELS[user.role]}
-                  </option>
-                ))}
-              </SearchableSelect>
+              {cloudIdentity ? (
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-800 dark:text-emerald-200">
+                    <ShieldCheck className="h-4 w-4" /> Роль підтверджено Firebase
+                  </div>
+                  <p className="mt-1 text-[11px] text-emerald-700 dark:text-emerald-300">
+                    {cloudIdentity.displayName} — {ROLE_LABELS[cloudIdentity.role]}
+                  </p>
+                  <p className="mt-2 text-[10px] text-slate-500">
+                    Локальне перемикання ролей вимкнено до виходу з хмарного облікового запису.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="mb-3 text-[10px] text-amber-700 dark:text-amber-300">
+                    Локальний автономний режим: користувача можна перемикати без пароля.
+                  </p>
+                  <SearchableSelect
+                    data-testid="current-user-select"
+                    value={currentUser.id}
+                    onChange={event => runAction(
+                      () => setCurrentUser(event.target.value),
+                      'Поточного користувача змінено.',
+                    )}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950"
+                  >
+                    {users.filter(user => user.active).map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.displayName} — {ROLE_LABELS[user.role]}
+                      </option>
+                    ))}
+                  </SearchableSelect>
+                </>
+              )}
 
-              {canManageUsers && (
+              {!cloudIdentity && canManageUsers && (
                 <div className="mt-4 space-y-2 border-t border-slate-200 pt-4 dark:border-slate-800">
                   <input
                     value={newUserName}

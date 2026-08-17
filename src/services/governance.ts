@@ -126,6 +126,7 @@ const ARCHIVE_KEY = 'sadok_archive_v1';
 const PERIODS_KEY = 'sadok_closed_periods_v1';
 const SYNC_KEY = 'sadok_sync_state_v1';
 const DEVICE_KEY = 'sadok_device_id';
+const CLOUD_USER_KEY = 'sadok_cloud_current_user_v1';
 const CHANGE_EVENT = 'sadok-governance-change';
 
 const DEFAULT_USERS: AppUser[] = [
@@ -193,6 +194,8 @@ export function saveUser(user: Omit<AppUser, 'id'> & { id?: string }): AppUser {
 }
 
 export function getCurrentUser(): AppUser {
+  const cloudUser = getCloudCurrentUser();
+  if (cloudUser) return cloudUser;
   const users = getUsers();
   const selectedId = localStorage.getItem(CURRENT_USER_KEY);
   return users.find(user => user.id === selectedId && user.active)
@@ -200,7 +203,33 @@ export function getCurrentUser(): AppUser {
     || users[0];
 }
 
+export function getCloudCurrentUser(): AppUser | null {
+  const user = readJson<AppUser | null>(CLOUD_USER_KEY, null);
+  return user?.active ? user : null;
+}
+
+export function setCloudCurrentUser(user: AppUser, recordLogin = false): void {
+  writeJson(CLOUD_USER_KEY, user);
+  if (recordLogin) {
+    recordAudit({
+      action: 'login',
+      entityType: 'session',
+      entityId: user.id,
+      summary: `Вхід через Firebase: «${user.displayName}» (${ROLE_LABELS[user.role]})`,
+    });
+  }
+}
+
+export function clearCloudCurrentUser(): void {
+  localStorage.removeItem(CLOUD_USER_KEY);
+  scheduleDurableLocalState();
+  window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+}
+
 export function setCurrentUser(userId: string) {
+  if (getCloudCurrentUser()) {
+    throw new GovernanceError('Роль визначається обліковим записом Firebase. Спочатку вийдіть із хмарного облікового запису.');
+  }
   const user = getUsers().find(item => item.id === userId && item.active);
   if (!user) throw new Error('Користувача не знайдено або вимкнено');
   localStorage.setItem(CURRENT_USER_KEY, user.id);
@@ -411,6 +440,6 @@ export function subscribeGovernance(listener: () => void): () => void {
 export function getGovernanceStorageKeys(): string[] {
   return [
     USERS_KEY, CURRENT_USER_KEY, AUDIT_KEY, ARCHIVE_KEY,
-    PERIODS_KEY, SYNC_KEY, DEVICE_KEY,
+    PERIODS_KEY, SYNC_KEY, DEVICE_KEY, CLOUD_USER_KEY,
   ];
 }

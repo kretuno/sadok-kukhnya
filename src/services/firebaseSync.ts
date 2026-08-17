@@ -1,7 +1,10 @@
 import type { AuditEntry } from './governance';
 import {
+  clearCloudCurrentUser,
+  getCloudCurrentUser,
   getPendingAuditEntries,
   markAuditEntriesSynced,
+  setCloudCurrentUser,
   saveSyncState,
   getSyncState,
 } from './governance';
@@ -28,6 +31,7 @@ import {
   type RemoteEntityDocument,
 } from './entitySyncQueue';
 import { entityTypeOrder, hasEntityRevisionConflict } from '../domain/entitySync';
+import { parseCloudMembership } from '../domain/cloudIdentity';
 
 export interface FirebaseCapability {
   configured: boolean;
@@ -292,21 +296,63 @@ async function downloadRemoteEntities(
   return applied;
 }
 
+async function activateFirebaseMembership(
+  user: import('firebase/auth').User,
+  recordLogin: boolean,
+): Promise<void> {
+  const [{ db, organizationId }, firestoreModule] = await Promise.all([
+    getFirebaseContext(),
+    import('firebase/firestore'),
+  ]);
+  const membershipReference = firestoreModule.doc(
+    db, 'organizations', organizationId, 'members', user.uid,
+  );
+  try {
+    const membership = await firestoreModule.getDoc(membershipReference);
+    if (!membership.exists()) {
+      clearCloudCurrentUser();
+      throw new Error('Обліковий запис не додано до цього закладу');
+    }
+    const identity = parseCloudMembership(user.uid, user.email, membership.data());
+    setCloudCurrentUser(identity, recordLogin);
+  } catch (error) {
+    const code = String((error as { code?: unknown })?.code || '');
+    const cached = getCloudCurrentUser();
+    const canUseOfflineIdentity = ['unavailable', 'failed-precondition', 'auth/network-request-failed'].includes(code);
+    if (canUseOfflineIdentity && cached?.id === `firebase-${user.uid}`) return;
+    clearCloudCurrentUser();
+    throw error;
+  }
+}
+
 export async function getFirebaseUser(): Promise<import('firebase/auth').User | null> {
   const { auth } = await getFirebaseContext();
   await auth.authStateReady();
+  if (!auth.currentUser) {
+    clearCloudCurrentUser();
+    return null;
+  }
+  await activateFirebaseMembership(auth.currentUser, false);
   return auth.currentUser;
 }
 
 export async function signInToFirebase(email: string, password: string): Promise<string> {
   const [{ auth }, authModule] = await Promise.all([getFirebaseContext(), import('firebase/auth')]);
   const credential = await authModule.signInWithEmailAndPassword(auth, email, password);
+  try {
+    await activateFirebaseMembership(credential.user, true);
+  } catch (error) {
+    await authModule.signOut(auth);
+    clearCloudCurrentUser();
+    throw error;
+  }
   return credential.user.email || credential.user.uid;
 }
 
 export async function signOutFromFirebase(): Promise<void> {
   const [{ auth }, authModule] = await Promise.all([getFirebaseContext(), import('firebase/auth')]);
   await authModule.signOut(auth);
+  clearCloudCurrentUser();
 }
 
 function cloudAuditPayload(entry: AuditEntry, authUid: string) {
