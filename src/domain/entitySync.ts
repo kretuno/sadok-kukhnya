@@ -19,3 +19,16 @@ export function entityTypeOrder(entityType: string, deleted = false): number {
   const order = normalOrder[entityType] || 99;
   return deleted ? 100 - order : order;
 }
+
+export function findStaleBootstrapSyncIds(
+  local: Array<{ syncId: string; revision: number }>,
+  remoteSyncIds: Iterable<string>,
+  protectedSyncIds: Iterable<string>,
+): string[] {
+  const remote = new Set(remoteSyncIds);
+  const protectedIds = new Set(protectedSyncIds);
+  return local
+    .filter(entity => entity.revision === 0)
+    .filter(entity => !remote.has(entity.syncId) && !protectedIds.has(entity.syncId))
+    .map(entity => entity.syncId);
+}

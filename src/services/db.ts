@@ -32,6 +32,7 @@ import {
   type RemoteEntityDocument,
   type SyncEntityType,
 } from './entitySyncQueue';
+import { findStaleBootstrapSyncIds } from '../domain/entitySync';
 
 // -----------------------------------------------------------------
 // Singleton DB instance (sql.js Database object)
@@ -1026,6 +1027,52 @@ export function markLocalSyncEntityRevision(
     SET REMOTE_REVISION=?, UPDATED_AT=?, DEVICE_ID=?, DELETED=? WHERE SYNC_ID=?`, [
     revision, updatedAt, deviceId, deleted ? 1 : 0, syncId,
   ]);
+}
+
+export function reconcileLocalBootstrapSnapshot(
+  remoteSyncIds: Iterable<string>,
+  protectedSyncIds: Iterable<string>,
+): number {
+  const metadata = queryAll<SyncMetadataRow>(`
+    SELECT * FROM SADOK_ENTITY_SYNC_META WHERE DELETED=0
+  `);
+  const staleIds = new Set(findStaleBootstrapSyncIds(
+    metadata.map(row => ({ syncId: row.SYNC_ID, revision: Number(row.REMOTE_REVISION || 0) })),
+    remoteSyncIds,
+    protectedSyncIds,
+  ));
+  if (staleIds.size === 0) return 0;
+
+  const staleRows = metadata
+    .filter(row => staleIds.has(row.SYNC_ID))
+    .sort((left, right) => {
+      const order: Record<SyncEntityType, number> = {
+        dish_nutrition_profile: 1,
+        recipe_component: 2,
+        dish: 3,
+        product: 4,
+      };
+      return order[left.ENTITY_TYPE] - order[right.ENTITY_TYPE];
+    });
+
+  db.run('BEGIN');
+  try {
+    staleRows.forEach(row => {
+      if (row.ENTITY_TYPE === 'product') db.run('DELETE FROM PRODUKTS WHERE ID=?', [Number(row.LOCAL_ID)]);
+      if (row.ENTITY_TYPE === 'dish') db.run('DELETE FROM KARTOTEKA_BLUD WHERE ID=?', [Number(row.LOCAL_ID)]);
+      if (row.ENTITY_TYPE === 'recipe_component') db.run('DELETE FROM KOMPONENTI_KARTOTEKI WHERE ID=?', [Number(row.LOCAL_ID)]);
+      if (row.ENTITY_TYPE === 'dish_nutrition_profile') {
+        const [dishId, categoryId] = row.LOCAL_ID.split(':').map(Number);
+        db.run('DELETE FROM TECH_CARD_NUTRITION WHERE ID_BLUDA=? AND ID_KATEGORII_DETEJ=?', [dishId, categoryId]);
+      }
+      db.run('DELETE FROM SADOK_ENTITY_SYNC_META WHERE SYNC_ID=?', [row.SYNC_ID]);
+    });
+    db.run('COMMIT');
+  } catch (error) {
+    db.run('ROLLBACK');
+    throw error;
+  }
+  return staleRows.length;
 }
 
 function tableColumns(table: string): Set<string> {

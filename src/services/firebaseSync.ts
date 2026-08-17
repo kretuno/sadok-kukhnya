@@ -10,6 +10,7 @@ import {
   exportLocalSyncEntities,
   markLocalSyncEntityRevision,
   persistRemoteSyncEntities,
+  reconcileLocalBootstrapSnapshot,
 } from './db';
 import {
   getEntitySyncConflicts,
@@ -139,6 +140,10 @@ async function bootstrapEntityCollection(
     .filter((value): value is RemoteEntityDocument => Boolean(value));
 
   if (cloudDocuments.length > 0) {
+    reconcileLocalBootstrapSnapshot(
+      cloudDocuments.map(document => document.syncId),
+      getPendingEntityMutations().map(mutation => mutation.syncId),
+    );
     cloudDocuments
       .sort((left, right) => entityTypeOrder(left.entityType, left.deleted) - entityTypeOrder(right.entityType, right.deleted))
       .forEach(applyRemoteSyncEntity);
