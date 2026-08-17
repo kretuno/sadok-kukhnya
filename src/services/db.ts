@@ -26,6 +26,7 @@ import {
   recordAudit,
   requirePermission,
 } from './governance';
+import { scheduleDurableLocalState } from './durableStorage';
 
 // -----------------------------------------------------------------
 // Singleton DB instance (sql.js Database object)
@@ -89,24 +90,23 @@ interface SadokBackupEnvelope {
   };
 }
 
-// Load sql.js via <script> tag from CDN — bypasses all Vite bundling issues
+// Load the bundled sql.js runtime. No network fallback is allowed: the application
+// must remain bootable during prolonged internet outages.
 async function loadSqlJs(): Promise<any> {
   // If already loaded by a previous call
   if ((window as any).initSqlJs) return (window as any).initSqlJs;
 
   return new Promise((resolve, reject) => {
-    // Try local /sql-wasm.js first (for offline support), then CDN
+    // Support both relative PWA scope and root hosting paths.
     const sources = [
       './sql-wasm.js',
       '/sql-wasm.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.12.0/sql-wasm.js',
-      'https://unpkg.com/sql.js@1.12.0/dist/sql-wasm.js',
     ];
 
     let tried = 0;
     function tryNext() {
       if (tried >= sources.length) {
-        reject(new Error('Не вдалося завантажити sql.js. Перевірте локальні файли або підключення до інтернету.'));
+        reject(new Error('Не вдалося завантажити локальний модуль SQLite. Перевстановіть офлайн-пакет SADOK.'));
         return;
       }
       const src = sources[tried++];
@@ -549,6 +549,7 @@ export function saveDatabaseToDisk() {
   const persistedBytes = new Uint8Array(exportedBytes);
   void writeBrowserState('sqlite', persistedBytes).then(() => {
     localStorage.removeItem('sadok_sqlite_db_b64');
+    scheduleDurableLocalState();
   }).catch(err => {
     console.warn('[DB] IndexedDB save failed:', err);
   });
@@ -2832,4 +2833,3 @@ export function deletePsychologySummaryReport(id: number): PsychologySummaryRepo
   localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
   return updated;
 }
-

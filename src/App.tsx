@@ -9,7 +9,7 @@ import { ReportsModule } from './components/modules/ReportsModule';
 import { AboutModule } from './components/modules/AboutModule';
 import { SettingsModule } from './components/modules/SettingsModule';
 import { initDatabase } from './services/db';
-import { CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Loader2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 
 import { PortalHubModule } from './components/modules/PortalHubModule';
 import { PropertyManagementModule } from './components/modules/PropertyManagementModule';
@@ -27,6 +27,17 @@ export function App() {
   const [fontScale, setFontScale] = useState<number>(1);
   const [dbStatus, setDbStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [dbError, setDbError] = useState<string>('');
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+
+  useEffect(() => {
+    const updateNetwork = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', updateNetwork);
+    window.addEventListener('offline', updateNetwork);
+    return () => {
+      window.removeEventListener('online', updateNetwork);
+      window.removeEventListener('offline', updateNetwork);
+    };
+  }, []);
 
   useEffect(() => {
     if (darkMode) {
@@ -132,7 +143,7 @@ export function App() {
             <AlertCircle className="w-10 h-10 text-rose-500" />
             <span className="text-sm font-semibold text-rose-600">Помилка завантаження бази даних</span>
             <pre className="text-xs text-slate-500 max-w-lg text-center whitespace-pre-wrap">{dbError}</pre>
-            <p className="text-xs text-slate-400">Перевірте підключення до інтернету та оновіть сторінку</p>
+            <p className="text-xs text-slate-400">Перевстановіть офлайн-пакет SADOK або відновіть резервну копію</p>
           </div>
         )}
 
@@ -171,6 +182,10 @@ export function App() {
           <span>{instName}</span>
         </div>
         <div className="flex items-center space-x-4 text-slate-400">
+          <span className={`flex items-center gap-1 ${isOnline ? 'text-emerald-400' : 'text-amber-300'}`}>
+            {isOnline ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+            {isOnline ? 'Онлайн' : 'Автономно'}
+          </span>
           <span>Гарячі клавіші: F2-F9</span>
           <span>Win32 / Win64 / macOS</span>
         </div>

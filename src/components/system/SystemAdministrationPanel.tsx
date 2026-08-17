@@ -1,9 +1,9 @@
 import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Archive, CheckCircle2, CloudOff, CloudUpload, DatabaseBackup,
+  Archive, CheckCircle2, CloudUpload, DatabaseBackup,
   Download, FileClock, History, LockKeyhole, RefreshCw, RotateCcw,
-  ShieldCheck, UserCog, UserPlus, Wifi, WifiOff,
+  ShieldCheck, UserCog, UserPlus,
 } from 'lucide-react';
 import {
   AppUser,
@@ -24,7 +24,6 @@ import {
   getUsers,
   hasPermission,
   reopenPeriod,
-  saveSyncState,
   saveUser,
   setCurrentUser,
   subscribeGovernance,
@@ -38,6 +37,7 @@ import {
   restoreArchivedRecord,
   restoreSystemBackup,
 } from '../../services/db';
+import { AutonomousSyncPanel } from './AutonomousSyncPanel';
 
 type Section = 'roles' | 'audit' | 'backup' | 'sync' | 'archive' | 'periods';
 
@@ -359,52 +359,12 @@ export const SystemAdministrationPanel: React.FC = () => {
       )}
 
       {section === 'sync' && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-            <div className="mb-4 flex items-center gap-3">
-              {navigator.onLine ? <Wifi className="h-6 w-6 text-emerald-500" /> : <WifiOff className="h-6 w-6 text-amber-500" />}
-              <div>
-                <div className="font-black">{navigator.onLine ? 'Підключення до мережі є' : 'Робота без мережі'}</div>
-                <div className="text-[10px] text-slate-500">Локальні функції доступні в обох режимах</div>
-              </div>
-            </div>
-            <dl className="space-y-2 text-[11px]">
-              <div className="flex justify-between"><dt>Режим</dt><dd className="font-bold">{syncForm.mode === 'server' ? 'Сервер' : 'Лише локально'}</dd></div>
-              <div className="flex justify-between"><dt>Очікують відправлення</dt><dd className="font-bold text-amber-600">{pendingCount}</dd></div>
-              <div className="flex justify-between"><dt>Остання синхронізація</dt><dd className="font-bold">{formatDate(syncForm.lastSuccessfulSync)}</dd></div>
-              <div className="flex justify-between"><dt>Остання помилка</dt><dd className="font-bold text-rose-600">{syncForm.lastError || '—'}</dd></div>
-            </dl>
-          </div>
-
-          <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-            <h4 className="mb-2 font-black">Підключення центрального сервера</h4>
-            <SearchableSelect
-              value={syncForm.mode}
-              onChange={event => setSyncForm(current => ({ ...current, mode: event.target.value as SyncState['mode'] }))}
-              className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
-            >
-              <option value="local-only">Лише локальна робота</option>
-              <option value="server">Центральний сервер</option>
-            </SearchableSelect>
-            <input
-              value={syncForm.endpoint}
-              onChange={event => setSyncForm(current => ({ ...current, endpoint: event.target.value }))}
-              placeholder="https://server.example/api/sync"
-              disabled={syncForm.mode === 'local-only'}
-              className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-950"
-            />
-            <button
-              onClick={() => runAction(() => saveSyncState(syncForm), 'Налаштування синхронізації збережено.')}
-              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white hover:bg-indigo-700"
-            >
-              {syncForm.mode === 'server' ? <CloudUpload className="h-4 w-4" /> : <CloudOff className="h-4 w-4" />}
-              Зберегти режим
-            </button>
-            <p className="mt-3 text-[10px] text-slate-500">
-              Екран і черга вже працюють. Відправлення на сервер залишиться вимкненим, доки не буде реалізовано захищений серверний API.
-            </p>
-          </div>
-        </div>
+        <AutonomousSyncPanel
+          pendingCount={pendingCount}
+          syncState={syncForm}
+          onSyncStateChange={setSyncForm}
+          onRefresh={refresh}
+        />
       )}
 
       {section === 'archive' && (

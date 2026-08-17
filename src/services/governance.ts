@@ -1,4 +1,5 @@
 import { isDateInClosedPeriod } from '../domain/operations';
+import { scheduleDurableLocalState } from './durableStorage';
 
 export type UserRole =
   | 'director'
@@ -68,7 +69,7 @@ export interface ClosedPeriod {
 }
 
 export interface SyncState {
-  mode: 'local-only' | 'server';
+  mode: 'local-only' | 'firebase';
   endpoint: string;
   lastSuccessfulSync: string | null;
   lastAttempt: string | null;
@@ -147,6 +148,7 @@ function readJson<T>(key: string, fallback: T): T {
 
 function writeJson(key: string, value: unknown) {
   localStorage.setItem(key, JSON.stringify(value));
+  scheduleDurableLocalState();
   window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
 }
 
@@ -352,13 +354,17 @@ export function assertDateOpen(date: string) {
 }
 
 export function getSyncState(): SyncState {
-  return readJson<SyncState>(SYNC_KEY, {
+  const stored = readJson<Omit<SyncState, 'mode'> & { mode: SyncState['mode'] | 'server' }>(SYNC_KEY, {
     mode: 'local-only',
     endpoint: '',
     lastSuccessfulSync: null,
     lastAttempt: null,
     lastError: null,
   });
+  return {
+    ...stored,
+    mode: stored.mode === 'server' ? 'local-only' : stored.mode,
+  };
 }
 
 export function saveSyncState(state: SyncState) {
@@ -367,6 +373,17 @@ export function saveSyncState(state: SyncState) {
 
 export function getPendingSyncCount(): number {
   return getAuditLog().filter(entry => entry.syncStatus === 'pending').length;
+}
+
+export function getPendingAuditEntries(): AuditEntry[] {
+  return getAuditLog().filter(entry => entry.syncStatus === 'pending');
+}
+
+export function markAuditEntriesSynced(ids: string[]) {
+  const syncedIds = new Set(ids);
+  writeJson(AUDIT_KEY, getAuditLog().map(entry => (
+    syncedIds.has(entry.id) ? { ...entry, syncStatus: 'synced' as const } : entry
+  )));
 }
 
 export function markAllChangesSynced() {
