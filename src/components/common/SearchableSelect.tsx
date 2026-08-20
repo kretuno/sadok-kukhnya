@@ -1,5 +1,5 @@
 import React, { Children, isValidElement, useDeferredValue, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, Search } from 'lucide-react';
+import { Check, ChevronDown, Plus, Search } from 'lucide-react';
 
 type NativeSelectProps = Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'multiple'>;
 
@@ -72,9 +72,16 @@ export function SearchableSelect({
     const normalizedQuery = deferredQuery.trim().toLocaleLowerCase('uk-UA');
     if (!normalizedQuery) return options;
     return options.filter(option =>
-      option.label.toLocaleLowerCase('uk-UA').startsWith(normalizedQuery)
+      option.label.toLocaleLowerCase('uk-UA').includes(normalizedQuery) ||
+      option.value.toLocaleLowerCase('uk-UA').includes(normalizedQuery)
     );
   }, [deferredQuery, options]);
+
+  const hasExactMatch = useMemo(() => {
+    const q = query.trim().toLocaleLowerCase('uk-UA');
+    if (!q) return true;
+    return options.some(o => o.label.toLocaleLowerCase('uk-UA') === q || o.value.toLocaleLowerCase('uk-UA') === q);
+  }, [query, options]);
 
   const choose = (option: SearchableOption) => {
     if (option.disabled) return;
@@ -97,7 +104,7 @@ export function SearchableSelect({
   };
 
   const closeSoon = (event: React.FocusEvent<HTMLInputElement>) => {
-    blurTimer.current = window.setTimeout(() => setIsOpen(false), 120);
+    blurTimer.current = window.setTimeout(() => setIsOpen(false), 150);
     onBlur?.(event as unknown as React.FocusEvent<HTMLSelectElement>);
   };
 
@@ -111,15 +118,15 @@ export function SearchableSelect({
           id={id}
           type="text"
           role="combobox"
-          aria-label={ariaLabel || title || name || 'Пошук у списку'}
+          aria-label={ariaLabel || title || name || 'Пошук або вибір зі списку'}
           aria-expanded={isOpen}
           aria-autocomplete="list"
           autoComplete="off"
           disabled={disabled}
           required={required}
           title={title}
-          value={isOpen ? query : selected?.label ?? ''}
-          placeholder="Почніть вводити назву…"
+          value={isOpen ? query : (selected?.label || currentValue || '')}
+          placeholder="Почніть вводити або оберіть зі списку…"
           onFocus={event => {
             open();
             onFocus?.(event as unknown as React.FocusEvent<HTMLSelectElement>);
@@ -139,9 +146,13 @@ export function SearchableSelect({
             } else if (event.key === 'ArrowUp') {
               event.preventDefault();
               setActiveIndex(index => Math.max(index - 1, 0));
-            } else if (event.key === 'Enter' && isOpen && filteredOptions[activeIndex]) {
+            } else if (event.key === 'Enter') {
               event.preventDefault();
-              choose(filteredOptions[activeIndex]);
+              if (filteredOptions.length > 0 && filteredOptions[activeIndex]) {
+                choose(filteredOptions[activeIndex]);
+              } else if (query.trim()) {
+                choose({ value: query.trim(), label: query.trim(), disabled: false });
+              }
             } else if (event.key === 'Escape') {
               setQuery('');
               setIsOpen(false);
@@ -155,28 +166,45 @@ export function SearchableSelect({
       {isOpen && (
         <div
           role="listbox"
-          className="absolute z-[100] mt-1 max-h-48 w-full min-w-52 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+          className="absolute z-[100] mt-1 max-h-52 w-full min-w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
         >
-          {filteredOptions.length > 0 ? filteredOptions.map((option, index) => (
+          {filteredOptions.length > 0 ? (
+            filteredOptions.map((option, index) => (
+              <button
+                key={`${option.value}-${index}`}
+                type="button"
+                role="option"
+                aria-selected={option.value === currentValue}
+                disabled={option.disabled}
+                onMouseDown={event => event.preventDefault()}
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => choose(option)}
+                className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs transition ${
+                  index === activeIndex ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/70 dark:text-blue-200 font-semibold' : 'text-slate-700 dark:text-slate-200'
+                } ${option.disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-blue-50 dark:hover:bg-blue-950/70'}`}
+              >
+                <span className="truncate">{option.label}</span>
+                {option.value === currentValue && <Check className="h-3.5 w-3.5 shrink-0 text-blue-600" />}
+              </button>
+            ))
+          ) : null}
+
+          {/* ALLOW CUSTOM INPUT IF USER TYPES SOMETHING NOT EXACTLY IN THE LIST */}
+          {query.trim() && !hasExactMatch && (
             <button
-              key={`${option.value}-${index}`}
               type="button"
-              role="option"
-              aria-selected={option.value === currentValue}
-              disabled={option.disabled}
               onMouseDown={event => event.preventDefault()}
-              onMouseEnter={() => setActiveIndex(index)}
-              onClick={() => choose(option)}
-              className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-xs transition ${
-                index === activeIndex ? 'bg-blue-50 text-blue-800 dark:bg-blue-950/70 dark:text-blue-200' : 'text-slate-700 dark:text-slate-200'
-              } ${option.disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-blue-50 dark:hover:bg-blue-950/70'}`}
+              onClick={() => choose({ value: query.trim(), label: query.trim(), disabled: false })}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 transition mt-1"
             >
-              <span className="truncate">{option.label}</span>
-              {option.value === currentValue && <Check className="h-3.5 w-3.5 shrink-0 text-blue-600" />}
+              <Plus className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+              <span className="truncate">Використати «{query.trim()}»</span>
             </button>
-          )) : (
-            <div className="px-3 py-4 text-center text-xs text-slate-500">
-              Нічого не знайдено
+          )}
+
+          {filteredOptions.length === 0 && !query.trim() && (
+            <div className="px-3 py-3 text-center text-xs text-slate-400">
+              Список порожній
             </div>
           )}
         </div>

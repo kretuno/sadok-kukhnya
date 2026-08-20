@@ -986,21 +986,22 @@ export const PropertyManagementModule: React.FC = () => {
 
       {/* ADD / EDIT PROPERTY ITEM MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
-            {/* Modal Header */}
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-              <div className="flex items-center space-x-2 font-bold text-base">
-                <Boxes className="w-5 h-5 text-blue-400" />
-                <span>{editingItem ? 'Редагування об\'єкта майна' : 'Реєстрація нового майна ДНЗ'}</span>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4">
+          <div className="min-h-full flex items-center justify-center py-2 sm:py-6">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]">
+              {/* Modal Header */}
+              <div className="px-6 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center space-x-2 font-bold text-base">
+                  <Boxes className="w-5 h-5 text-blue-400" />
+                  <span>{editingItem ? 'Редагування об\'єкта майна' : 'Реєстрація нового майна ДНЗ'}</span>
+                </div>
+                <button 
+                  onClick={() => setIsModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
             {/* Modal Body */}
             <form onSubmit={handleSaveItem} className="p-6 overflow-y-auto space-y-4 flex-1">
@@ -1211,26 +1212,28 @@ export const PropertyManagementModule: React.FC = () => {
             </form>
           </div>
         </div>
+      </div>
       )}
 
       {/* CREATE WRITE-OFF ACT MODAL */}
       {isWriteOffModalOpen && targetWriteOffItem && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden flex flex-col">
-            <div className="px-6 py-4 bg-rose-900 text-white flex items-center justify-between">
-              <div className="flex items-center space-x-2 font-bold text-base">
-                <Archive className="w-5 h-5 text-rose-300" />
-                <span>Оформлення Акта списання майна з балансу</span>
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4">
+          <div className="min-h-full flex items-center justify-center py-2 sm:py-6">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)]">
+              <div className="px-6 py-3.5 bg-rose-900 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center space-x-2 font-bold text-base">
+                  <Archive className="w-5 h-5 text-rose-300" />
+                  <span>Оформлення Акта списання майна з балансу</span>
+                </div>
+                <button 
+                  onClick={() => setIsWriteOffModalOpen(false)}
+                  className="p-1 text-rose-200 hover:text-white rounded-lg transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button 
-                onClick={() => setIsWriteOffModalOpen(false)}
-                className="p-1 text-rose-200 hover:text-white rounded-lg transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            <form onSubmit={handleConfirmWriteOff} className="p-6 space-y-4 overflow-y-auto max-h-[80vh]">
+              <form onSubmit={handleConfirmWriteOff} className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
               {isJournalWriteOff && (
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -1395,17 +1398,19 @@ export const PropertyManagementModule: React.FC = () => {
             </form>
           </div>
         </div>
+      </div>
       )}
 
       {/* VIEW / PRINT OFFICIAL WRITE-OFF ACT MODAL */}
       {viewingAct && (
-        <div className="print-preview-shell fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="print-preview-panel bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh] text-slate-900">
-            <div className="px-6 py-3 bg-slate-900 text-white flex items-center justify-between no-print">
-              <span className="font-bold text-sm flex items-center space-x-2">
-                <Printer className="w-4 h-4 text-amber-400" />
-                <span>Офіційний Акт списання майна {viewingAct.ACT_NUMBER}</span>
-              </span>
+        <div className="print-preview-shell fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4">
+          <div className="min-h-full flex items-center justify-center py-2 sm:py-6">
+            <div className="print-preview-panel bg-white rounded-2xl shadow-2xl border border-slate-300 w-full max-w-3xl overflow-hidden flex flex-col max-h-[calc(100vh-2rem)] text-slate-900">
+              <div className="px-6 py-3.5 bg-slate-900 text-white flex items-center justify-between no-print shrink-0">
+                <span className="font-bold text-sm flex items-center space-x-2">
+                  <Printer className="w-4 h-4 text-amber-400" />
+                  <span>Офіційний Акт списання майна {viewingAct.ACT_NUMBER}</span>
+                </span>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => window.print()}
@@ -1504,6 +1509,7 @@ export const PropertyManagementModule: React.FC = () => {
             </div>
           </div>
         </div>
+      </div>
       )}
     </>
   );

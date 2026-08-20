@@ -1426,312 +1426,318 @@ export const PsychologistModule: React.FC = () => {
 
       {/* MODAL: ADAPTATION RECORD */}
       {isAdaptationModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col my-auto shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="flex justify-between items-center px-6 py-3.5 border-b bg-slate-900 text-white shrink-0">
-              <h3 className="font-bold text-sm">
-                {editingAdaptation?.ID ? 'Редагувати картку адаптації' : 'Створити картку адаптації'}
-              </h3>
-              <button onClick={() => setIsAdaptationModalOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center py-2 sm:py-6">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full max-h-[calc(100vh-2rem)] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="flex justify-between items-center px-5 py-3.5 border-b bg-slate-900 text-white shrink-0">
+                <h3 className="font-bold text-sm">
+                  {editingAdaptation?.ID ? 'Редагувати картку адаптації' : 'Створити картку адаптації'}
+                </h3>
+                <button onClick={() => setIsAdaptationModalOpen(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            <form onSubmit={handleSaveAdaptation} className="p-5 sm:p-6 space-y-3.5 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
-              <div className="space-y-3.5">
-                <div>
-                  <label className="block font-bold mb-1">Вихованець</label>
-                  <SearchableSelect
-                    value={editingAdaptation?.CHILD_ID || ''}
-                    onChange={e => setEditingAdaptation(prev => ({ ...prev, CHILD_ID: Number(e.target.value) }))}
-                    className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    required
-                  >
-                    {children.map(c => (
-                      <option key={c.ID} value={c.ID}>{c.FULL_NAME} ({c.GROUP_NAME})</option>
-                    ))}
-                  </SearchableSelect>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <form onSubmit={handleSaveAdaptation} className="p-4 sm:p-6 space-y-3.5 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
+                <div className="space-y-3.5">
                   <div>
-                    <label className="block font-bold mb-1">Тиждень спостереження</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={8}
-                      value={editingAdaptation?.WEEK_NUMBER || 1}
-                      onChange={e => setEditingAdaptation(prev => ({ ...prev, WEEK_NUMBER: Number(e.target.value) }))}
+                    <label className="block font-bold mb-1">Вихованець</label>
+                    <SearchableSelect
+                      value={editingAdaptation?.CHILD_ID || ''}
+                      onChange={e => setEditingAdaptation(prev => ({ ...prev, CHILD_ID: Number(e.target.value) }))}
                       className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      required
+                    >
+                      {children.map(c => (
+                        <option key={c.ID} value={c.ID}>{c.FULL_NAME} ({c.GROUP_NAME})</option>
+                      ))}
+                    </SearchableSelect>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Тиждень спостереження</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={editingAdaptation?.WEEK_NUMBER || 1}
+                        onChange={e => setEditingAdaptation(prev => ({ ...prev, WEEK_NUMBER: Number(e.target.value) }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Рівень адаптації</label>
+                      <SearchableSelect
+                        value={editingAdaptation?.ADAPTATION_LEVEL || 'Легка'}
+                        onChange={e => setEditingAdaptation(prev => ({ ...prev, ADAPTATION_LEVEL: e.target.value as any }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl font-bold"
+                      >
+                        <option value="Легка">Легка</option>
+                        <option value="Середня">Середня</option>
+                        <option value="Важка">Важка</option>
+                      </SearchableSelect>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Емоційний стан</label>
+                      <SearchableSelect
+                        value={editingAdaptation?.EMOTIONAL_STATE || 'Позитивний'}
+                        onChange={e => setEditingAdaptation(prev => ({ ...prev, EMOTIONAL_STATE: e.target.value as any }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      >
+                        <option value="Позитивний">Позитивний</option>
+                        <option value="Нестійкий">Нестійкий</option>
+                        <option value="Негативний">Негативний</option>
+                        <option value="Агресивний / Пригнічений">Агресивний / Пригнічений</option>
+                      </SearchableSelect>
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Рівень тривожності</label>
+                      <SearchableSelect
+                        value={editingAdaptation?.ANXIETY_LEVEL || 'Низький'}
+                        onChange={e => setEditingAdaptation(prev => ({ ...prev, ANXIETY_LEVEL: e.target.value as any }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      >
+                        <option value="Низький">Низький</option>
+                        <option value="Середній">Середній</option>
+                        <option value="Високий">Високий</option>
+                      </SearchableSelect>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Рекомендації для вихователів та батьків</label>
+                    <textarea
+                      rows={3}
+                      value={editingAdaptation?.RECOMMENDATIONS || ''}
+                      onChange={e => setEditingAdaptation(prev => ({ ...prev, RECOMMENDATIONS: e.target.value }))}
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      placeholder="М'який режим входу, підтримка емоційного контакту..."
                     />
                   </div>
-                  <div>
-                    <label className="block font-bold mb-1">Рівень адаптації</label>
-                    <SearchableSelect
-                      value={editingAdaptation?.ADAPTATION_LEVEL || 'Легка'}
-                      onChange={e => setEditingAdaptation(prev => ({ ...prev, ADAPTATION_LEVEL: e.target.value as any }))}
-                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl font-bold"
-                    >
-                      <option value="Легка">Легка</option>
-                      <option value="Середня">Середня</option>
-                      <option value="Важка">Важка</option>
-                    </SearchableSelect>
-                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold mb-1">Емоційний стан</label>
-                    <SearchableSelect
-                      value={editingAdaptation?.EMOTIONAL_STATE || 'Позитивний'}
-                      onChange={e => setEditingAdaptation(prev => ({ ...prev, EMOTIONAL_STATE: e.target.value as any }))}
-                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    >
-                      <option value="Позитивний">Позитивний</option>
-                      <option value="Нестійкий">Нестійкий</option>
-                      <option value="Негативний">Негативний</option>
-                      <option value="Агресивний / Пригнічений">Агресивний / Пригнічений</option>
-                    </SearchableSelect>
-                  </div>
-                  <div>
-                    <label className="block font-bold mb-1">Рівень тривожності</label>
-                    <SearchableSelect
-                      value={editingAdaptation?.ANXIETY_LEVEL || 'Низький'}
-                      onChange={e => setEditingAdaptation(prev => ({ ...prev, ANXIETY_LEVEL: e.target.value as any }))}
-                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    >
-                      <option value="Низький">Низький</option>
-                      <option value="Середній">Середній</option>
-                      <option value="Високий">Високий</option>
-                    </SearchableSelect>
-                  </div>
+                <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setIsAdaptationModalOpen(false)}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition"
+                  >
+                    Зберегти
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block font-bold mb-1">Рекомендації для вихователів та батьків</label>
-                  <textarea
-                    rows={3}
-                    value={editingAdaptation?.RECOMMENDATIONS || ''}
-                    onChange={e => setEditingAdaptation(prev => ({ ...prev, RECOMMENDATIONS: e.target.value }))}
-                    className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    placeholder="М'який режим входу, підтримка емоційного контакту..."
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
-                <button
-                  type="button"
-                  onClick={() => setIsAdaptationModalOpen(false)}
-                  className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition"
-                >
-                  Скасувати
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition"
-                >
-                  Зберегти
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* MODAL: SCHOOL READINESS */}
       {isReadinessModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col my-auto shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="flex justify-between items-center px-6 py-3.5 border-b bg-slate-900 text-white shrink-0">
-              <h3 className="font-bold text-sm">
-                Оцінка готовності до школи
-              </h3>
-              <button onClick={() => setIsReadinessModalOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center py-2 sm:py-6">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full max-h-[calc(100vh-2rem)] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="flex justify-between items-center px-5 py-3.5 border-b bg-slate-900 text-white shrink-0">
+                <h3 className="font-bold text-sm">
+                  Оцінка готовності до школи
+                </h3>
+                <button onClick={() => setIsReadinessModalOpen(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            <form onSubmit={handleSaveReadiness} className="p-5 sm:p-6 space-y-3.5 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
-              <div className="space-y-3.5">
-                <div>
-                  <label className="block font-bold mb-1">Вихованець</label>
-                  <SearchableSelect
-                    value={editingReadiness?.CHILD_ID || ''}
-                    onChange={e => setEditingReadiness(prev => ({ ...prev, CHILD_ID: Number(e.target.value) }))}
-                    className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    required
+              <form onSubmit={handleSaveReadiness} className="p-4 sm:p-6 space-y-3.5 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
+                <div className="space-y-3.5">
+                  <div>
+                    <label className="block font-bold mb-1">Вихованець</label>
+                    <SearchableSelect
+                      value={editingReadiness?.CHILD_ID || ''}
+                      onChange={e => setEditingReadiness(prev => ({ ...prev, CHILD_ID: Number(e.target.value) }))}
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      required
+                    >
+                      {children.map(c => (
+                        <option key={c.ID} value={c.ID}>{c.FULL_NAME} ({c.GROUP_NAME})</option>
+                      ))}
+                    </SearchableSelect>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Мотиваційна сфера (1-5)</label>
+                      <input
+                        type="number" min={1} max={5}
+                        value={editingReadiness?.MOTIVATIONAL_SCORE || 5}
+                        onChange={e => setEditingReadiness(prev => ({ ...prev, MOTIVATIONAL_SCORE: Number(e.target.value) }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Інтелектуальна (1-5)</label>
+                      <input
+                        type="number" min={1} max={5}
+                        value={editingReadiness?.INTELLECTUAL_SCORE || 5}
+                        onChange={e => setEditingReadiness(prev => ({ ...prev, INTELLECTUAL_SCORE: Number(e.target.value) }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Емоційно-вольова (1-5)</label>
+                      <input
+                        type="number" min={1} max={5}
+                        value={editingReadiness?.EMOTIONAL_VOLITIONAL_SCORE || 5}
+                        onChange={e => setEditingReadiness(prev => ({ ...prev, EMOTIONAL_VOLITIONAL_SCORE: Number(e.target.value) }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Соціальна сфера (1-5)</label>
+                      <input
+                        type="number" min={1} max={5}
+                        value={editingReadiness?.SOCIAL_SCORE || 5}
+                        onChange={e => setEditingReadiness(prev => ({ ...prev, SOCIAL_SCORE: Number(e.target.value) }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Психологічний висновок</label>
+                    <textarea
+                      rows={2}
+                      value={editingReadiness?.PSYCHOLOGIST_CONCLUSION || ''}
+                      onChange={e => setEditingReadiness(prev => ({ ...prev, PSYCHOLOGIST_CONCLUSION: e.target.value }))}
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      placeholder="Високий рівень мотивації, розвинене абстрактне мислення..."
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setIsReadinessModalOpen(false)}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition"
                   >
-                    {children.map(c => (
-                      <option key={c.ID} value={c.ID}>{c.FULL_NAME} ({c.GROUP_NAME})</option>
-                    ))}
-                  </SearchableSelect>
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition"
+                  >
+                    Зберегти
+                  </button>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-bold mb-1">Мотиваційна сфера (1-5)</label>
-                    <input
-                      type="number" min={1} max={5}
-                      value={editingReadiness?.MOTIVATIONAL_SCORE || 5}
-                      onChange={e => setEditingReadiness(prev => ({ ...prev, MOTIVATIONAL_SCORE: Number(e.target.value) }))}
-                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold mb-1">Інтелектуальна (1-5)</label>
-                    <input
-                      type="number" min={1} max={5}
-                      value={editingReadiness?.INTELLECTUAL_SCORE || 5}
-                      onChange={e => setEditingReadiness(prev => ({ ...prev, INTELLECTUAL_SCORE: Number(e.target.value) }))}
-                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold mb-1">Емоційно-вольова (1-5)</label>
-                    <input
-                      type="number" min={1} max={5}
-                      value={editingReadiness?.EMOTIONAL_VOLITIONAL_SCORE || 5}
-                      onChange={e => setEditingReadiness(prev => ({ ...prev, EMOTIONAL_VOLITIONAL_SCORE: Number(e.target.value) }))}
-                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-bold mb-1">Соціальна сфера (1-5)</label>
-                    <input
-                      type="number" min={1} max={5}
-                      value={editingReadiness?.SOCIAL_SCORE || 5}
-                      onChange={e => setEditingReadiness(prev => ({ ...prev, SOCIAL_SCORE: Number(e.target.value) }))}
-                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-bold mb-1">Психологічний висновок</label>
-                  <textarea
-                    rows={2}
-                    value={editingReadiness?.PSYCHOLOGIST_CONCLUSION || ''}
-                    onChange={e => setEditingReadiness(prev => ({ ...prev, PSYCHOLOGIST_CONCLUSION: e.target.value }))}
-                    className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    placeholder="Високий рівень мотивації, розвинене абстрактне мислення..."
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
-                <button
-                  type="button"
-                  onClick={() => setIsReadinessModalOpen(false)}
-                  className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition"
-                >
-                  Скасувати
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition"
-                >
-                  Зберегти
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
 
       {/* MODAL: CONSULTATION LOG */}
       {isConsultationModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full max-h-[90vh] flex flex-col my-auto shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-            <div className="flex justify-between items-center px-6 py-3.5 border-b bg-slate-900 text-white shrink-0">
-              <h3 className="font-bold text-sm">
-                Запис у журнал консультацій
-              </h3>
-              <button onClick={() => setIsConsultationModalOpen(false)} className="text-slate-400 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center py-2 sm:py-6">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full max-h-[calc(100vh-2rem)] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="flex justify-between items-center px-5 py-3.5 border-b bg-slate-900 text-white shrink-0">
+                <h3 className="font-bold text-sm">
+                  Запис у журнал консультацій
+                </h3>
+                <button onClick={() => setIsConsultationModalOpen(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            <form onSubmit={handleSaveConsultation} className="p-5 sm:p-6 space-y-3.5 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
-              <div className="space-y-3.5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <form onSubmit={handleSaveConsultation} className="p-4 sm:p-6 space-y-3.5 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
+                <div className="space-y-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Дата</label>
+                      <input
+                        type="date"
+                        value={editingConsultation?.DATE || ''}
+                        onChange={e => setEditingConsultation(prev => ({ ...prev, DATE: e.target.value }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Тип консультації</label>
+                      <SearchableSelect
+                        value={editingConsultation?.TYPE || 'Індивідуальна'}
+                        onChange={e => setEditingConsultation(prev => ({ ...prev, TYPE: e.target.value as any }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      >
+                        <option value="Індивідуальна">Індивідуальна</option>
+                        <option value="Групова">Групова</option>
+                        <option value="Консультація з батьками">Консультація з батьками</option>
+                        <option value="Консультація з вихователем">Консультація з вихователем</option>
+                        <option value="Психопрофілактична робота">Психопрофілактична робота</option>
+                      </SearchableSelect>
+                    </div>
+                  </div>
+
                   <div>
-                    <label className="block font-bold mb-1">Дата</label>
+                    <label className="block font-bold mb-1">Учасники / ФІО батьків / Назва групи</label>
                     <input
-                      type="date"
-                      value={editingConsultation?.DATE || ''}
-                      onChange={e => setEditingConsultation(prev => ({ ...prev, DATE: e.target.value }))}
+                      type="text"
+                      value={editingConsultation?.TARGET_NAME || ''}
+                      onChange={e => setEditingConsultation(prev => ({ ...prev, TARGET_NAME: e.target.value }))}
+                      placeholder="напр. Петренко О. М. (мати Петренка Т.)"
                       className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
                       required
                     />
                   </div>
+
                   <div>
-                    <label className="block font-bold mb-1">Тип консультації</label>
-                    <SearchableSelect
-                      value={editingConsultation?.TYPE || 'Індивідуальна'}
-                      onChange={e => setEditingConsultation(prev => ({ ...prev, TYPE: e.target.value as any }))}
+                    <label className="block font-bold mb-1">Тема консультації</label>
+                    <input
+                      type="text"
+                      value={editingConsultation?.TOPIC || ''}
+                      onChange={e => setEditingConsultation(prev => ({ ...prev, TOPIC: e.target.value }))}
+                      placeholder="напр. Подолання дитячих страхів та трівожності"
                       className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    >
-                      <option value="Індивідуальна">Індивідуальна</option>
-                      <option value="Групова">Групова</option>
-                      <option value="Консультація з батьками">Консультація з батьками</option>
-                      <option value="Консультація з вихователем">Консультація з вихователем</option>
-                      <option value="Психопрофілактична робота">Психопрофілактична робота</option>
-                    </SearchableSelect>
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Рекомендації</label>
+                    <textarea
+                      rows={2}
+                      value={editingConsultation?.RECOMMENDATIONS || ''}
+                      onChange={e => setEditingConsultation(prev => ({ ...prev, RECOMMENDATIONS: e.target.value }))}
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                    />
                   </div>
                 </div>
 
-                <div>
-                  <label className="block font-bold mb-1">Учасники / ФІО батьків / Назва групи</label>
-                  <input
-                    type="text"
-                    value={editingConsultation?.TARGET_NAME || ''}
-                    onChange={e => setEditingConsultation(prev => ({ ...prev, TARGET_NAME: e.target.value }))}
-                    placeholder="напр. Петренко О. М. (мати Петренка Т.)"
-                    className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    required
-                  />
+                <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setIsConsultationModalOpen(false)}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition"
+                  >
+                    Зберегти
+                  </button>
                 </div>
-
-                <div>
-                  <label className="block font-bold mb-1">Тема консультації</label>
-                  <input
-                    type="text"
-                    value={editingConsultation?.TOPIC || ''}
-                    onChange={e => setEditingConsultation(prev => ({ ...prev, TOPIC: e.target.value }))}
-                    placeholder="напр. Подолання дитячих страхів та трівожності"
-                    className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold mb-1">Рекомендації</label>
-                  <textarea
-                    rows={2}
-                    value={editingConsultation?.RECOMMENDATIONS || ''}
-                    onChange={e => setEditingConsultation(prev => ({ ...prev, RECOMMENDATIONS: e.target.value }))}
-                    className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
-                <button
-                  type="button"
-                  onClick={() => setIsConsultationModalOpen(false)}
-                  className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition"
-                >
-                  Скасувати
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition"
-                >
-                  Зберегти
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
