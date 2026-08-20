@@ -1,4 +1,5 @@
 import { SearchableSelect } from "../common/SearchableSelect";
+import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
 import React, { useState, useEffect } from 'react';
 import { PropertyItem, PropertyLocationDistribution, PropertyWriteOffRecord } from '../../types';
 import { 
@@ -112,6 +113,7 @@ export const PropertyManagementModule: React.FC = () => {
 
   // View Act Modal State
   const [viewingAct, setViewingAct] = useState<PropertyWriteOffRecord | null>(null);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   const [availableGroups, setAvailableGroups] = useState<string[]>([]);
   const [availableEmployees, setAvailableEmployees] = useState<string[]>([]);
@@ -468,6 +470,43 @@ export const PropertyManagementModule: React.FC = () => {
     }
   };
 
+  const propertyWorkflowSteps: WorkflowStep[] = [
+    {
+      number: 1,
+      title: 'Крок 1. Підготовка приміщень та МВО (у модулі Кадри)',
+      description: 'Перед початком обліку майна переконайтеся, що в системі створені приміщення (групи, кабінети, харчоблок) та співробітники зі статусом МВО (Матеріально-відповідальна особа).',
+      details: [
+        'Локації автоматично підтягуються зі структури груп та приміщень закладу',
+        'Відповідальними особами можуть бути завгосп, вихователі, шеф-кухар або директор'
+      ]
+    },
+    {
+      number: 2,
+      title: 'Крок 2. Реєстрація та закріплення об\'єктів майна',
+      description: 'Внесіть предмети: вкажіть інвентарний номер, назву, категорію, первинну вартість, рік введення в експлуатацію та закріпіть за кімнатами й МВО.',
+      details: [
+        'Один інвентарний об\'єкт можна розподілити між кількома кімнатами (наприклад: 20 стільців у групі №1 та 10 у муззалі)',
+        'Автоматичний розрахунок балансової вартості та кількості одиниць'
+      ],
+      actionButton: {
+        label: 'Зареєструвати майно',
+        onClick: () => {
+          setActiveSubTab('inventory');
+          handleOpenAddModal();
+        }
+      }
+    },
+    {
+      number: 3,
+      title: 'Крок 3. Інвентаризація та офіційне списання',
+      description: 'Формуйте офіційні інвентаризаційні описи за приміщеннями або оформлюйте Акт списання майна (ОЗ-3).',
+      details: [
+        'При списанні автоматично вказується склад комісії (голова та члени) і причина непридатності',
+        'Друк типової форми Акта списання з усіма обов\'язковими підписами та печатками'
+      ]
+    }
+  ];
+
   return (
     <>
       {/* SCREEN UI (Hidden on Print) */}
@@ -479,6 +518,7 @@ export const PropertyManagementModule: React.FC = () => {
           onExportExcel={handleExportExcel}
           onExportPDF={handleExportPDF}
           onPrint={() => window.print()}
+          onShowGuide={() => setIsGuideOpen(true)}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           title="SADOK Майно — Облік майна, інвентаризація та списання ДНЗ"
@@ -1511,6 +1551,20 @@ export const PropertyManagementModule: React.FC = () => {
         </div>
       </div>
       )}
+
+      {/* WORKFLOW GUIDE MODAL */}
+      <WorkflowGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        title="Покрокова інструкція: Облік майна та Інвентаризація ДНЗ"
+        subtitle="Порядок роботи: Перевірка приміщень і МВО ➔ Реєстрація майна ➔ Інвентаризація та списання"
+        steps={propertyWorkflowSteps}
+        importantNotes={[
+          'Усі приміщення та співробітники беруться безпосередньо з модуля «Контингент та Кадри».',
+          'Офіційний Акт списання майна (ОЗ-3) формується автоматично з розрахунком суми та висновком комісії.',
+          'Інвентаризаційний опис можна роздрукувати або експортувати в Excel / PDF для річної інвентаризації.'
+        ]}
+      />
     </>
   );
 };

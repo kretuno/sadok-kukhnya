@@ -1,4 +1,5 @@
 import { SearchableSelect } from "../common/SearchableSelect";
+import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
 import React, { useState, useEffect } from 'react';
 import { MenuHeader, Dish, EaterCategory, Product, RecipeComponent, Institution, MenuApproval } from '../../types';
 import { DATABASE_SYNC_EVENT, getMenuEntries, addMenuEntry, deleteMenuEntry, getDishes, getEaterCategories, getProducts, getRecipeComponents, getDishNutritionProfiles, getInstitutions, updateDish, deductStockFIFO, getMenuEntriesRange, copyMenuPeriod, replaceMenuDish, getStockBatches, approveMenu, getMenuApproval, getDishCostProfiles } from '../../services/db';
@@ -76,6 +77,7 @@ export const MenuPlannerModule: React.FC = () => {
   const [counts, setCounts] = useState<{ [catId: number]: number }>(DEFAULT_EATER_COUNTS);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [newDishId, setNewDishId] = useState<number>(1);
   const [newMealType, setNewMealType] = useState<string>('Обід');
 
@@ -539,6 +541,45 @@ export const MenuPlannerModule: React.FC = () => {
     return sum + (activeCatCount() > 0 ? val / activeCatCount() : 0);
   }, 0);
 
+  const menuWorkflowSteps: WorkflowStep[] = [
+    {
+      number: 1,
+      title: 'Крок 1. Перевірка продуктів і страв',
+      description: 'Переконайтеся, що в програмі є необхідні продукти (F4) та технологічні карти страв (F3).',
+      details: [
+        'У системі попередньо встановлено 286+ офіційних українських техкарток з нормами виходу',
+        'Ви можете створювати власні фірмові страви або редагувати інгредієнти'
+      ]
+    },
+    {
+      number: 2,
+      title: 'Крок 2. Оприбуткування продуктів на склад (F5)',
+      description: 'Внесіть прихідні накладні від постачальників, щоб на складі обліковувалися реальні залишки, ціни та терміни придатності.',
+      details: [
+        'Списання продуктів при складанні меню відбувається за методом FIFO (першим прийшов — першим списаний)',
+        'Якщо на складі не вистачає продукту, система підкаже про це при розрахунку'
+      ]
+    },
+    {
+      number: 3,
+      title: 'Крок 3. Складання та розрахунок Меню-вимоги (F2)',
+      description: 'Оберіть дату, вкажіть кількість дітей по категоріях (ясла/садок) та додайте страви на сніданок, обід, полуденок і вечерю.',
+      details: [
+        'Автоматичний розрахунок грамів на 1 дитину та загальної ваги на всю групу',
+        'Контроль калорійності, білків, жирів, вуглеводів і вартості харчування'
+      ]
+    },
+    {
+      number: 4,
+      title: 'Крок 4. Списання залишків та друк Меню-вимоги (Форма 107/о)',
+      description: 'Затвердіть меню або натисніть «Списати продукти зі складу» та роздрукуйте офіційну меню-вимогу на день.',
+      details: [
+        'Можливість вибору книжкової або альбомної орієнтації перед друком',
+        'Експорт меню в Excel та PDF для бухгалтерії'
+      ]
+    }
+  ];
+
   return (
     <div className="flex flex-col h-full bg-slate-100 dark:bg-slate-950">
       {/* SCREEN TOOLBAR */}
@@ -549,6 +590,7 @@ export const MenuPlannerModule: React.FC = () => {
           onExportExcel={handleExportExcel}
           onExportPDF={handleExportPDF}
           onPrint={handlePrint}
+          onShowGuide={() => setIsGuideOpen(true)}
           title="Складання меню-розкладки"
         />
       </div>
@@ -1492,6 +1534,20 @@ export const MenuPlannerModule: React.FC = () => {
       <ProductHistoryModal
         productId={selectedHistoryProductId}
         onClose={() => setSelectedHistoryProductId(null)}
+      />
+
+      {/* Workflow Guide Modal */}
+      <WorkflowGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        title="Покрокова інструкція: Складання Меню-вимоги"
+        subtitle="Порядок роботи харчоблоку: Довідники ➔ Складські залишки ➔ Меню ➔ Списання та друк"
+        steps={menuWorkflowSteps}
+        importantNotes={[
+          'Перед складанням меню обов\'язково внесіть накладні приходу на склад (F5), щоб система знала точні залишки та ціни продуктів.',
+          'Списання продуктів відбувається автоматично за методом FIFO (перша партія, що прийшла — списується першою).',
+          'Перед друком меню-вимоги можна вибрати альбомну або книжкову орієнтацію та налаштувати масштабування на 1 сторінку.'
+        ]}
       />
     </div>
   );

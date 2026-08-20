@@ -1,4 +1,5 @@
 import { SearchableSelect } from "../common/SearchableSelect";
+import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
 import React, { useState, useEffect } from 'react';
 import { SadokGroup, SadokEmployee, SadokChild } from '../../types';
 import { 
@@ -46,6 +47,7 @@ export const StructureRegistryModule: React.FC = () => {
   const [viewingChild, setViewingChild] = useState<SadokChild | null>(null);
   const [viewingEmployee, setViewingEmployee] = useState<SadokEmployee | null>(null);
   const [viewingGroup, setViewingGroup] = useState<SadokGroup | null>(null);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // Edit Modals
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -343,6 +345,58 @@ export const StructureRegistryModule: React.FC = () => {
     }
   };
 
+  const structureWorkflowSteps: WorkflowStep[] = [
+    {
+      number: 1,
+      title: 'Крок 1. Створення структури (Групи та приміщення)',
+      description: 'Почніть із внесення груп садка (номер групи, вікова категорія, назва) та службових приміщень (Харчоблок, Музична зала, Методичний кабінет).',
+      details: [
+        'Обов\'язково вказуйте номер групи (наприклад: 1, 2, 3) та вікову категорію (Ясла, Молодша, Логопедична тощо)',
+        'Створіть службові локації (Харчоблок, Кабінет завгоспа) для коректного закріплення кухарів і майна'
+      ],
+      warning: 'Якщо пропустити цей крок, при додаванні співробітника або дитини їх не буде до якої групи прикріпити!',
+      actionButton: {
+        label: 'Додати групу',
+        onClick: () => {
+          setActiveSubTab('groups');
+          handleOpenGroupModal();
+        }
+      }
+    },
+    {
+      number: 2,
+      title: 'Крок 2. Кадри та працівники закладу',
+      description: 'Додайте педагогів (вихователів, логопедів), помічників вихователів, кухарів, медсестер та адміністрацію.',
+      details: [
+        'Оберіть посаду та закріплену групу/локацію (створену на Кроці 1)',
+        'Для завгоспа, шеф-кухаря та вихователів увімкніть статус "МВО" (Матеріально-відповідальна особа) — це необхідно для подальшого обліку майна'
+      ],
+      actionButton: {
+        label: 'Додати співробітника',
+        onClick: () => {
+          setActiveSubTab('employees');
+          handleOpenEmpModal();
+        }
+      }
+    },
+    {
+      number: 3,
+      title: 'Крок 3. Контингент вихованців (Діти)',
+      description: 'Внесіть дані дітей: ПІБ, дату народження, групу, пільгову категорію та контакти батьків.',
+      details: [
+        'Кожна дитина закріплюється за групою, створеною на Кроці 1',
+        'Вказуйте пільгову категорію (Багатодітні, ВПО, УБД, Малозабезпечені тощо) для розрахунку харчування та звітів'
+      ],
+      actionButton: {
+        label: 'Додати вихованця',
+        onClick: () => {
+          setActiveSubTab('children');
+          handleOpenChildModal();
+        }
+      }
+    }
+  ];
+
   return (
     <>
       {/* SCREEN UI (Hidden on Print) */}
@@ -357,6 +411,7 @@ export const StructureRegistryModule: React.FC = () => {
           onExportExcel={handleExportExcel}
           onExportPDF={handleExportPDF}
           onPrint={() => window.print()}
+          onShowGuide={() => setIsGuideOpen(true)}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           title="SADOK Контингент — Організаційна структура, кадри та вихованці ЗДО №145"
@@ -988,6 +1043,25 @@ export const StructureRegistryModule: React.FC = () => {
               </div>
               <form onSubmit={handleSaveEmployee} className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
                 <div className="space-y-3.5">
+                  {groups.length === 0 && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/60 rounded-xl text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between gap-2">
+                      <div className="flex items-center space-x-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span><b>Зверніть увагу:</b> У закладі ще не створено груп. Рекомендуємо спочатку створити групу.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsEmployeeModalOpen(false);
+                          setActiveSubTab('groups');
+                          handleOpenGroupModal();
+                        }}
+                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] shrink-0"
+                      >
+                        + Створити групу
+                      </button>
+                    </div>
+                  )}
                   <div>
                     <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">ПІБ Співробітника *</label>
                     <input type="text" required value={empFullName} onChange={(e) => setEmpFullName(e.target.value)} placeholder="Петренко Олена Іванівна" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold" />
@@ -1037,6 +1111,26 @@ export const StructureRegistryModule: React.FC = () => {
               </div>
               
               <form onSubmit={handleSaveChild} className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
+                {groups.length === 0 && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700/60 rounded-xl text-amber-900 dark:text-amber-200 text-xs flex items-center justify-between gap-2">
+                    <div className="flex items-center space-x-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span><b>Зверніть увагу:</b> У закладі ще не створено груп. Спочатку створіть групу для зарахування дитини.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChildModalOpen(false);
+                        setActiveSubTab('groups');
+                        handleOpenGroupModal();
+                      }}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] shrink-0"
+                    >
+                      + Створити групу
+                    </button>
+                  </div>
+                )}
+
                 {/* SECTION 1: PERSONAL */}
                 <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border">
                   <div className="font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider text-[11px]">
@@ -1294,6 +1388,20 @@ export const StructureRegistryModule: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* WORKFLOW GUIDE MODAL */}
+      <WorkflowGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        title="Покрокова інструкція: Контингент та Кадри ЗДО"
+        subtitle="Рекомендований порядок дій: створення груп ➔ працівники ➔ зарахування дітей"
+        steps={structureWorkflowSteps}
+        importantNotes={[
+          'Особову справу працівника або особову картку вихованця (формат А4) можна роздрукувати прямо з таблиці, клікнувши «Особова справа / картка».',
+          'Будь-який список (Групи, Кадри, Діти) можна миттєво експортувати в Excel (.xlsx) або PDF кнопками на верхній панелі.',
+          'При редагуванні групи можна вказати як стандартну вікову категорію, так і спеціальну (Логопедична, Інклюзивна, Санаторна тощо).'
+        ]}
+      />
     </>
   );
 };

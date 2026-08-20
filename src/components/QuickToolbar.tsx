@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Printer, FileSpreadsheet, Download, RefreshCw, Search } from 'lucide-react';
+import { Plus, Printer, FileSpreadsheet, Download, RefreshCw, Search, HelpCircle } from 'lucide-react';
 
 interface QuickToolbarProps {
   onAdd?: () => void;
@@ -7,6 +7,7 @@ interface QuickToolbarProps {
   onExportExcel?: () => void;
   onExportPDF?: () => void;
   onPrint?: () => void;
+  onShowGuide?: () => void;
   searchTerm?: string;
   setSearchTerm?: (term: string) => void;
   title?: string;
@@ -18,6 +19,7 @@ export const QuickToolbar: React.FC<QuickToolbarProps> = ({
   onExportExcel,
   onExportPDF,
   onPrint,
+  onShowGuide,
   searchTerm,
   setSearchTerm,
   title
@@ -82,6 +84,16 @@ export const QuickToolbar: React.FC<QuickToolbarProps> = ({
         )}
 
         {title && <span className="font-semibold text-slate-700 dark:text-slate-200 ml-2">{title}</span>}
+
+        {onShowGuide && (
+          <button
+            onClick={onShowGuide}
+            className="p-1 rounded-full bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/60 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-300 transition flex items-center justify-center shadow-xs hover:scale-105 ml-1"
+            title="Покрокова інструкція: з чого почати та як заповнювати"
+          >
+            <HelpCircle className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {setSearchTerm !== undefined && (

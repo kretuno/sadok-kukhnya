@@ -1,4 +1,5 @@
 import { SearchableSelect } from "../common/SearchableSelect";
+import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
 import React, { useState, useEffect } from 'react';
 import { APP_VERSION } from '../../config/version';
 import {
@@ -21,7 +22,8 @@ import {
   Sparkles,
   FolderOpen,
   Layout,
-  Maximize2
+  Maximize2,
+  HelpCircle
 } from 'lucide-react';
 import {
   getChildren,
@@ -82,6 +84,7 @@ export const PsychologistModule: React.FC = () => {
   const [editingConsultation, setEditingConsultation] = useState<Partial<PsychologyConsultation> | null>(null);
 
   const [selectedChildForReport, setSelectedChildForReport] = useState<SadokChild | null>(null);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   // Load initial data
   const loadData = () => {
@@ -412,8 +415,38 @@ export const PsychologistModule: React.FC = () => {
   const hardAdaptationCount = adaptations.filter(a => a.ADAPTATION_LEVEL === 'Важка').length;
   const readyForSchoolCount = readinessList.filter(r => r.READINESS_STATUS.includes('Готовий')).length;
 
+  const psychologistWorkflowSteps: WorkflowStep[] = [
+    {
+      number: 1,
+      title: 'Крок 1. Перевірка контингенту дітей (у модулі Кадри)',
+      description: 'Усі діти підтягуються з єдиного реєстру «Контингент». Переконайтеся, що вихованці внесені до закладу та розподілені по групах.',
+      details: [
+        'Для карток адаптації потрібні діти раннього віку (ясла/молодша група)',
+        'Для діагностики готовності до школи потрібні діти старших груп (5-7 років)'
+      ]
+    },
+    {
+      number: 2,
+      title: 'Крок 2. Моніторинг адаптації та готовності до школи',
+      description: 'Створюйте щотижневі спостереження адаптації новоприбулих дітей (тижні 1–8) та оцінюйте мотиваційну, інтелектуальну й соціальну готовність випускників.',
+      details: [
+        'Автоматичний розрахунок відсотка легкої, середньої та важкої адаптації',
+        'Формування персонального висновку психолога для батьків та вихователів'
+      ]
+    },
+    {
+      number: 3,
+      title: 'Крок 3. Журнал консультацій та звіт 2.10 (ГОРОНО)',
+      description: 'Фіксуйте індивідуальні та групові бесіди з батьками/педагогами та формуйте річний аналітичний звіт.',
+      details: [
+        'Кнопка «Автозаповнення звіту» автоматично підраховує кількість діагностик і консультацій',
+        'Експорт у формат Excel та офіційний друк для атестації'
+      ]
+    }
+  ];
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 overflow-y-auto md:overflow-hidden">
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans">
       {/* Dynamic Page Print Orientation CSS Injection */}
       <style dangerouslySetInnerHTML={{
         __html: `@media print { @page { size: A4 ${printOrientation}; margin: 6mm 8mm; } }`
@@ -433,6 +466,13 @@ export const PsychologistModule: React.FC = () => {
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800">
                 v{APP_VERSION}
               </span>
+              <button
+                onClick={() => setIsGuideOpen(true)}
+                className="p-1 rounded-full bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/60 dark:hover:bg-purple-800 text-purple-700 dark:text-purple-300 transition flex items-center justify-center shadow-xs hover:scale-105"
+                title="Покрокова інструкція: з чого почати та як заповнювати"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Моніторинг адаптації, готовність до школи, журнал консультацій та офіційні звіти (ГОРОНО)
@@ -1741,6 +1781,20 @@ export const PsychologistModule: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* WORKFLOW GUIDE MODAL */}
+      <WorkflowGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        title="Покрокова інструкція: Психологічний супровід ЗДО"
+        subtitle="Порядок роботи: Перевірка дітей ➔ Моніторинг адаптації та готовності ➔ Журнал консультацій та звіт"
+        steps={psychologistWorkflowSteps}
+        importantNotes={[
+          'Усі діти та групи автоматично підтягуються з модуля «Контингент та Кадри».',
+          'Кнопка «Автозаповнення звіту» у вкладці «Звіт 2.10» самостійно підраховує кількість індивідуальних і групових діагностик.',
+          'Картки адаптації та протоколи готовності до школи можна роздрукувати на окремих аркушах А4.'
+        ]}
+      />
     </div>
   );
 };

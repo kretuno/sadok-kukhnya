@@ -1,4 +1,5 @@
 import { SearchableSelect } from "../common/SearchableSelect";
+import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
 import React, { useState, useEffect } from 'react';
 import { InvoiceHeader, StockBatch, SupplierFirm, Product } from '../../types';
 import {
@@ -31,6 +32,7 @@ export const WarehouseModule: React.FC = () => {
   // Modals
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState<boolean>(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState<boolean>(false);
+  const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [editingSupplier, setEditingSupplier] = useState<SupplierFirm | null>(null);
   const [editingBatch, setEditingBatch] = useState<StockBatch | null>(null);
   const [selectedHistoryProductId, setSelectedHistoryProductId] = useState<number | null>(null);
@@ -323,6 +325,49 @@ export const WarehouseModule: React.FC = () => {
     }
   };
 
+  const warehouseWorkflowSteps: WorkflowStep[] = [
+    {
+      number: 1,
+      title: 'Крок 1. Додавання постачальників (Фірми)',
+      description: 'Внесіть контрагентів, які постачають продукти харчування (назва фірми, код ЄДРПОУ, договір, телефон).',
+      details: [
+        'Постачальники обираються при створенні кожної прихідної накладної',
+        'Можливість додавати нових постачальників прямо під час заповнення накладної'
+      ],
+      actionButton: {
+        label: 'Додати постачальника',
+        onClick: () => {
+          setActiveSubTab('suppliers');
+          handleOpenAddSupplier();
+        }
+      }
+    },
+    {
+      number: 2,
+      title: 'Крок 2. Внесення прихідних накладних',
+      description: 'Створіть накладну приходу: вкажіть номер документа, дату, постачальника та додайте позиції продуктів із ціною, сертифікатами якості та термінами придатності.',
+      details: [
+        'Система автоматично формує окремі складські партії для кожного продукту',
+        'Контроль залишків і термінів реалізації (попередження про закінчення терміну придатності)'
+      ],
+      actionButton: {
+        label: 'Створити накладну',
+        onClick: () => {
+          setIsInvoiceModalOpen(true);
+        }
+      }
+    },
+    {
+      number: 3,
+      title: 'Крок 3. Контроль залишків та формування ОСВ',
+      description: 'Слідкуйте за рухом продуктів на складі та формуйте Оборотно-сальдову відомість (ОСВ) за будь-який період.',
+      details: [
+        'При проведенні щоденного меню продукти списуються автоматично за принципом FIFO',
+        'Експорт залишків та накладних в Excel і PDF'
+      ]
+    }
+  ];
+
   return (
     <>
     <div className={`flex flex-col h-full bg-slate-100 dark:bg-slate-950 text-xs ${printInvoiceData ? 'print-suppressed' : ''}`}>
@@ -335,6 +380,7 @@ export const WarehouseModule: React.FC = () => {
         onExportExcel={handleExportExcel}
         onExportPDF={handleExportPDF}
         onPrint={() => window.print()}
+        onShowGuide={() => setIsGuideOpen(true)}
         title="Складський облік продуктів та прихід накладних"
       />
 
@@ -1127,6 +1173,20 @@ export const WarehouseModule: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* WORKFLOW GUIDE MODAL */}
+      <WorkflowGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        title="Покрокова інструкція: Складський облік та накладні"
+        subtitle="Порядок роботи: Додавання постачальників ➔ Внесення накладних ➔ Контроль залишків та ОСВ"
+        steps={warehouseWorkflowSteps}
+        importantNotes={[
+          'Усі продукти зберігаються партіями з окремими цінами та термінами придатності.',
+          'При списанні через меню-вимогу продукти списуються автоматично за принципом FIFO (найстаріша активна партія списується першою).',
+          'Будь-яку накладну можна роздрукувати як офіційний первинний документ з підписами постачальника та МВО.'
+        ]}
+      />
     </>
   );
 };
