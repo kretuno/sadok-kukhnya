@@ -93,7 +93,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
         : (isPortalContext ? portalNavItems : kitchenNavItems)));
 
   return (
-    <header className="bg-slate-800 text-white dark:bg-slate-900 border-b border-slate-700 shadow-md no-print">
+    <header className="bg-slate-800 text-white dark:bg-slate-900 border-b border-slate-700 shadow-md no-print sticky top-0 z-40 shrink-0">
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6 overflow-x-auto max-w-full">
