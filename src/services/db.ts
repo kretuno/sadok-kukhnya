@@ -2886,14 +2886,14 @@ export function deletePropertyWriteOff(id: number): { items: PropertyItem[]; wri
 // SHARED CADRES & GROUPS & CHILDREN STORE
 // -----------------------------------------------------------------
 const INITIAL_GROUPS: SadokGroup[] = [
-  { ID: 1, NAME: 'Група «Сонечко»', AGE_CATEGORY: 'Ясла (1-3 роки)', ROOM_NUMBER: '101', TEACHER_NAME: 'Коваль Олена Іванівна', CHILDREN_COUNT: 25 },
-  { ID: 2, NAME: 'Група «Казка»', AGE_CATEGORY: 'Молодша (3-4 роки)', ROOM_NUMBER: '102', TEACHER_NAME: 'Ткаченко Марія Василівна', CHILDREN_COUNT: 30 },
-  { ID: 3, NAME: 'Група «Ясочка»', AGE_CATEGORY: 'Середня (4-5 років)', ROOM_NUMBER: '103', TEACHER_NAME: 'Лисенко Ірина Петрівна', CHILDREN_COUNT: 28 },
-  { ID: 4, NAME: 'Група «Барвінок»', AGE_CATEGORY: 'Старша (5-7 років)', ROOM_NUMBER: '104', TEACHER_NAME: 'Петренко Олексій Сергійович', CHILDREN_COUNT: 26 },
-  { ID: 5, NAME: 'Музична зала', AGE_CATEGORY: 'Спеціалізоване приміщення', ROOM_NUMBER: '201', TEACHER_NAME: 'Мельник Тетяна Григорівна', CHILDREN_COUNT: 0 },
-  { ID: 6, NAME: 'Харчоблок', AGE_CATEGORY: 'Виробниче приміщення', ROOM_NUMBER: '100', TEACHER_NAME: 'Петренко Світлана Миколаївна', CHILDREN_COUNT: 0 },
-  { ID: 7, NAME: 'Методичний кабінет', AGE_CATEGORY: 'Адміністрація', ROOM_NUMBER: '202', TEACHER_NAME: 'Суміна Наталія Євгенівна', CHILDREN_COUNT: 0 },
-  { ID: 8, NAME: 'Територія ДНЗ', AGE_CATEGORY: 'Благоустрій', ROOM_NUMBER: 'Двір', TEACHER_NAME: 'Сидоренко Василь Петрович', CHILDREN_COUNT: 0 }
+  { ID: 1, NUMBER: '1', NAME: 'Група «Сонечко»', AGE_CATEGORY: 'Ясла (1-3 роки)', ROOM_NUMBER: '101', TEACHER_NAME: 'Коваль Олена Іванівна', CHILDREN_COUNT: 25 },
+  { ID: 2, NUMBER: '2', NAME: 'Група «Казка»', AGE_CATEGORY: 'Молодша (3-4 роки)', ROOM_NUMBER: '102', TEACHER_NAME: 'Ткаченко Марія Василівна', CHILDREN_COUNT: 30 },
+  { ID: 3, NUMBER: '3', NAME: 'Група «Ясочка»', AGE_CATEGORY: 'Середня (4-5 років)', ROOM_NUMBER: '103', TEACHER_NAME: 'Лисенко Ірина Петрівна', CHILDREN_COUNT: 28 },
+  { ID: 4, NUMBER: '4', NAME: 'Група «Барвінок»', AGE_CATEGORY: 'Старша (5-7 років)', ROOM_NUMBER: '104', TEACHER_NAME: 'Петренко Олексій Сергійович', CHILDREN_COUNT: 26 },
+  { ID: 5, NUMBER: '5', NAME: 'Музична зала', AGE_CATEGORY: 'Спеціалізоване приміщення', ROOM_NUMBER: '201', TEACHER_NAME: 'Мельник Тетяна Григорівна', CHILDREN_COUNT: 0 },
+  { ID: 6, NUMBER: '6', NAME: 'Харчоблок', AGE_CATEGORY: 'Виробниче приміщення', ROOM_NUMBER: '100', TEACHER_NAME: 'Петренко Світлана Миколаївна', CHILDREN_COUNT: 0 },
+  { ID: 7, NUMBER: '7', NAME: 'Методичний кабінет', AGE_CATEGORY: 'Адміністрація', ROOM_NUMBER: '202', TEACHER_NAME: 'Суміна Наталія Євгенівна', CHILDREN_COUNT: 0 },
+  { ID: 8, NUMBER: '8', NAME: 'Територія ДНЗ', AGE_CATEGORY: 'Благоустрій', ROOM_NUMBER: 'Двір', TEACHER_NAME: 'Сидоренко Василь Петрович', CHILDREN_COUNT: 0 }
 ];
 
 const INITIAL_EMPLOYEES: SadokEmployee[] = [
@@ -2996,7 +2996,15 @@ export function saveGroup(group: Partial<SadokGroup> & { NAME: string }): SadokG
     updated = current.map(g => g.ID === group.ID ? { ...g, ...group } as SadokGroup : g);
   } else {
     const newId = current.length > 0 ? Math.max(...current.map(g => g.ID)) + 1 : 1;
-    updated = [{ ID: newId, NAME: group.NAME, AGE_CATEGORY: group.AGE_CATEGORY || 'Молодша', ROOM_NUMBER: group.ROOM_NUMBER || '', TEACHER_NAME: group.TEACHER_NAME || '', CHILDREN_COUNT: group.CHILDREN_COUNT || 0 }, ...current];
+    updated = [{ 
+      ID: newId, 
+      NUMBER: group.NUMBER || group.GROUP_NUMBER || '', 
+      NAME: group.NAME, 
+      AGE_CATEGORY: group.AGE_CATEGORY || 'Молодша (3-4 роки)', 
+      ROOM_NUMBER: group.ROOM_NUMBER || '', 
+      TEACHER_NAME: group.TEACHER_NAME || '', 
+      CHILDREN_COUNT: group.CHILDREN_COUNT || 0 
+    }, ...current];
   }
   localStorage.setItem('sadok_groups', JSON.stringify(updated));
   const saved = group.ID ? updated.find(item => item.ID === group.ID) : updated[0];

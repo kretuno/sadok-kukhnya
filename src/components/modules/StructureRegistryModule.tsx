@@ -58,6 +58,7 @@ export const StructureRegistryModule: React.FC = () => {
   const [editingChild, setEditingChild] = useState<Partial<SadokChild> | null>(null);
 
   // Group Form State
+  const [groupNumber, setGroupNumber] = useState('');
   const [groupName, setGroupName] = useState('');
   const [groupAgeCategory, setGroupAgeCategory] = useState('Молодша (3-4 роки)');
   const [groupRoom, setGroupRoom] = useState('');
@@ -130,6 +131,7 @@ export const StructureRegistryModule: React.FC = () => {
   // Group Handlers
   const handleOpenGroupModal = (g?: SadokGroup) => {
     setEditingGroup(g || null);
+    setGroupNumber(g?.NUMBER || g?.GROUP_NUMBER || '');
     setGroupName(g?.NAME || '');
     setGroupAgeCategory(g?.AGE_CATEGORY || 'Молодша (3-4 роки)');
     setGroupRoom(g?.ROOM_NUMBER || '');
@@ -143,6 +145,7 @@ export const StructureRegistryModule: React.FC = () => {
     if (!groupName.trim()) return;
     const updated = saveGroup({
       ID: editingGroup?.ID,
+      NUMBER: groupNumber.trim(),
       NAME: groupName.trim(),
       AGE_CATEGORY: groupAgeCategory,
       ROOM_NUMBER: groupRoom.trim(),
@@ -296,8 +299,8 @@ export const StructureRegistryModule: React.FC = () => {
   // Exports
   const handleExportExcel = () => {
     if (activeSubTab === 'groups') {
-      const headers = ['Назва групи', 'Вікова категорія', '№ Приміщення', 'Закріплений вихователь/МВО', 'Кількість дітей'];
-      const rows = filteredGroups.map(g => [g.NAME, g.AGE_CATEGORY, g.ROOM_NUMBER || '', g.TEACHER_NAME || '', g.CHILDREN_COUNT]);
+      const headers = ['№ групи', 'Назва групи / приміщення', 'Вікова категорія', '№ Приміщення', 'Закріплений вихователь/МВО', 'Кількість дітей'];
+      const rows = filteredGroups.map(g => [g.NUMBER || g.GROUP_NUMBER || '', g.NAME, g.AGE_CATEGORY, g.ROOM_NUMBER || '', g.TEACHER_NAME || '', g.CHILDREN_COUNT]);
       exportToExcel('SADOK_Групи_ДНЗ', 'Групи', headers, rows);
     } else if (activeSubTab === 'employees') {
       const headers = ['ПІБ Співробітника', 'Посада', 'Телефон', 'МВО', 'Закріплена група/відділ'];
@@ -313,11 +316,11 @@ export const StructureRegistryModule: React.FC = () => {
   const handleExportPDF = () => {
     const title = activeSubTab === 'groups' ? 'Реєстр груп та приміщень ЗДО' : (activeSubTab === 'employees' ? 'Кадровий склад та МВО' : 'Списковий склад вихованців ЗДО');
     const headers = activeSubTab === 'groups' 
-      ? ['Група', 'Категорія', 'Кімната', 'Вихователь', 'Дітей']
+      ? ['№', 'Група', 'Категорія', 'Кімната', 'Вихователь', 'Дітей']
       : (activeSubTab === 'employees' ? ['ПІБ Співробітника', 'Посада', 'Телефон', 'МВО', 'Локація'] : ['ПІБ Дитини', 'Група', 'Дата народж.', 'Батьки', 'Статус']);
     
     const rows = activeSubTab === 'groups'
-      ? filteredGroups.map(g => [g.NAME, g.AGE_CATEGORY, g.ROOM_NUMBER || '-', g.TEACHER_NAME || '-', `${g.CHILDREN_COUNT} осіб`])
+      ? filteredGroups.map(g => [g.NUMBER || g.GROUP_NUMBER ? `№${g.NUMBER || g.GROUP_NUMBER}` : '-', g.NAME, g.AGE_CATEGORY, g.ROOM_NUMBER || '-', g.TEACHER_NAME || '-', `${g.CHILDREN_COUNT} осіб`])
       : (activeSubTab === 'employees'
         ? filteredEmployees.map(e => [e.FULL_NAME, e.POSITION, e.PHONE || '-', e.IS_MVO ? 'Так' : 'Ні', e.GROUP_NAME || '-'])
         : filteredChildren.map(c => [c.FULL_NAME, c.GROUP_NAME, c.BIRTH_DATE, c.PARENT_NAME || '-', c.STATUS]));
@@ -434,12 +437,19 @@ export const StructureRegistryModule: React.FC = () => {
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div>
-                        <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-bold rounded-md text-[10px]">
-                          {g.AGE_CATEGORY}
-                        </span>
+                        <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                          {(g.NUMBER || g.GROUP_NUMBER) && (
+                            <span className="px-2 py-0.5 bg-slate-900 dark:bg-slate-700 text-white font-mono font-black rounded-md text-[10px] shadow-xs">
+                              № {g.NUMBER || g.GROUP_NUMBER}
+                            </span>
+                          )}
+                          <span className="px-2.5 py-0.5 bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300 font-bold rounded-md text-[10px]">
+                            {g.AGE_CATEGORY}
+                          </span>
+                        </div>
                         <h3 className="text-base font-black text-slate-800 dark:text-slate-100 mt-1 flex items-center space-x-1.5">
                           <span>{g.NAME}</span>
-                          {g.ROOM_NUMBER && <span className="text-xs font-mono text-slate-500">(кімн. {g.ROOM_NUMBER})</span>}
+                          {g.ROOM_NUMBER && <span className="text-xs font-mono text-slate-500 font-normal">(кімн. {g.ROOM_NUMBER})</span>}
                         </h3>
                       </div>
                       <div className="flex items-center space-x-1">
@@ -905,13 +915,32 @@ export const StructureRegistryModule: React.FC = () => {
             </div>
             <form onSubmit={handleSaveGroup} className="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
               <div className="space-y-3">
-                <div>
-                  <label className="block font-bold mb-1">Назва групи / приміщення *</label>
-                  <input type="text" required value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Група «Сонечко»" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold" />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">№ групи</label>
+                    <input 
+                      type="text" 
+                      value={groupNumber} 
+                      onChange={(e) => setGroupNumber(e.target.value)} 
+                      placeholder="1, 2, 3-А..." 
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold font-mono text-blue-600 dark:text-blue-400" 
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Назва групи / приміщення *</label>
+                    <input 
+                      type="text" 
+                      required 
+                      value={groupName} 
+                      onChange={(e) => setGroupName(e.target.value)} 
+                      placeholder="Група «Сонечко»" 
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold" 
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold mb-1">Вікова категорія</label>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Вікова категорія</label>
                     <SearchableSelect value={groupAgeCategory} onChange={(e) => setGroupAgeCategory(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg">
                       <option value="Ясла (1-3 роки)">Ясла (1-3 роки)</option>
                       <option value="Молодша (3-4 роки)">Молодша (3-4 роки)</option>
@@ -921,7 +950,7 @@ export const StructureRegistryModule: React.FC = () => {
                     </SearchableSelect>
                   </div>
                   <div>
-                    <label className="block font-bold mb-1">Кімната №</label>
+                    <label className="block font-bold mb-1 text-slate-700 dark:text-slate-300">Кімната №</label>
                     <input type="text" value={groupRoom} onChange={(e) => setGroupRoom(e.target.value)} placeholder="101" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-mono" />
                   </div>
                 </div>
@@ -1189,7 +1218,8 @@ export const StructureRegistryModule: React.FC = () => {
               )}
               {activeSubTab === 'groups' && (
                 <React.Fragment>
-                  <th className="border border-black p-1.5 text-left">Назва групи</th>
+                  <th className="border border-black p-1.5 w-14 text-center">№ групи</th>
+                  <th className="border border-black p-1.5 text-left">Назва групи / приміщення</th>
                   <th className="border border-black p-1.5 text-left">Категорія</th>
                   <th className="border border-black p-1.5 text-center">Кімната №</th>
                   <th className="border border-black p-1.5 text-left">Закріплений педагог</th>
@@ -1222,6 +1252,7 @@ export const StructureRegistryModule: React.FC = () => {
             {activeSubTab === 'groups' && filteredGroups.map((g, idx) => (
               <tr key={g.ID} className="border-b border-black">
                 <td className="border border-black p-1.5 text-center font-mono">{idx + 1}</td>
+                <td className="border border-black p-1.5 text-center font-mono font-bold">{g.NUMBER || g.GROUP_NUMBER || '-'}</td>
                 <td className="border border-black p-1.5 font-bold">{g.NAME}</td>
                 <td className="border border-black p-1.5">{g.AGE_CATEGORY}</td>
                 <td className="border border-black p-1.5 text-center font-mono">{g.ROOM_NUMBER || '-'}</td>

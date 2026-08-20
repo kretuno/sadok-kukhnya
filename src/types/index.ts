@@ -248,6 +248,8 @@ export interface PropertyWriteOffRecord {
 
 export interface SadokGroup {
   ID: number;
+  NUMBER?: string;
+  GROUP_NUMBER?: string;
   NAME: string;
   AGE_CATEGORY: string;
   ROOM_NUMBER?: string;
