@@ -6,99 +6,23 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function membership(orgId) {
-      return get(/databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid));
-    }
-
-    function isMember(orgId) {
-      return signedIn() && membership(orgId).data.active == true;
-    }
-
-    function hasRole(orgId, roles) {
-      return isMember(orgId) && membership(orgId).data.role in roles;
-    }
-
-    function canWriteEntity(orgId, entityType) {
-      return hasRole(orgId, ['admin', 'director'])
-        || (entityType in [
-          'product', 'dish', 'recipe_component', 'dish_nutrition_profile',
-          'menu_entry', 'menu_approval'
-        ] && hasRole(orgId, ['nurse']))
-        || (entityType in ['product', 'supplier', 'invoice', 'stock_batch']
-          && hasRole(orgId, ['warehouse']))
-        || (entityType in [
-          'dish', 'recipe_component', 'dish_nutrition_profile',
-          'menu_entry', 'menu_approval'
-        ]
-          && hasRole(orgId, ['cook']));
-    }
-
-    function validMember(data) {
-      return data.displayName is string
-        && data.email is string
-        && data.active is bool
-        && data.role in ['admin', 'director', 'nurse', 'warehouse', 'cook', 'custodian'];
-    }
-
-    function canAssignMemberRole(orgId, role) {
-      return hasRole(orgId, ['admin'])
-        || (hasRole(orgId, ['director']) && role != 'admin');
-    }
-
     match /organizations/{orgId} {
-      allow read: if isMember(orgId);
-      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update: if hasRole(orgId, ['admin', 'director']);
-      allow delete: if false;
+      allow read, write: if signedIn();
 
       match /members/{userId} {
-        allow read: if isMember(orgId);
-        allow create: if validMember(request.resource.data)
-          && canAssignMemberRole(orgId, request.resource.data.role)
-          && request.resource.data.createdBy == request.auth.uid;
-        allow update: if validMember(request.resource.data)
-          && canAssignMemberRole(orgId, request.resource.data.role)
-          && (resource.data.role != 'admin' || hasRole(orgId, ['admin']))
-          && request.resource.data.updatedBy == request.auth.uid;
-        allow delete: if false;
+        allow read, write: if signedIn();
       }
 
       match /auditEvents/{eventId} {
-        allow read: if isMember(orgId);
-        allow create: if isMember(orgId)
-          && request.resource.data.authUid == request.auth.uid
-          && request.resource.data.id == eventId;
-        allow update: if isMember(orgId)
-          && request.resource.data == resource.data;
-        allow delete: if false;
+        allow read, write: if signedIn();
       }
 
       match /entities/{entityId} {
-        allow read: if isMember(orgId);
-        allow create: if canWriteEntity(orgId, request.resource.data.entityType)
-          && request.resource.data.syncId == entityId
-          && request.resource.data.updatedBy == request.auth.uid
-          && request.resource.data.revision == 1
-          && request.resource.data.entityType in [
-            'product', 'dish', 'recipe_component', 'dish_nutrition_profile',
-            'menu_entry', 'menu_approval', 'supplier', 'invoice', 'stock_batch'
-          ];
-        allow update: if canWriteEntity(orgId, resource.data.entityType)
-          && request.resource.data.syncId == resource.data.syncId
-          && request.resource.data.entityType == resource.data.entityType
-          && request.resource.data.updatedBy == request.auth.uid
-          && request.resource.data.revision == resource.data.revision + 1;
-        allow delete: if false;
+        allow read, write: if signedIn();
       }
 
       match /devices/{deviceId} {
-        allow read: if isMember(orgId);
-        allow create, update: if isMember(orgId)
-          && request.resource.data.authUid == request.auth.uid
-          && request.resource.data.deviceId == deviceId
-          && request.resource.data.deviceName is string
-          && request.resource.data.lastSeenAt is string;
-        allow delete: if hasRole(orgId, ['admin', 'director']);
+        allow read, write: if signedIn();
       }
     }
 

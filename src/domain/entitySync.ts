@@ -11,15 +11,24 @@ export function hasEntityRevisionConflict(input: {
 
 export function entityTypeOrder(entityType: string, deleted = false): number {
   const normalOrder: Record<string, number> = {
-    product: 1,
-    dish: 2,
-    supplier: 2,
-    recipe_component: 3,
-    dish_nutrition_profile: 4,
-    invoice: 4,
-    menu_entry: 4,
-    stock_batch: 5,
-    menu_approval: 5,
+    group: 1,
+    employee: 2,
+    child: 3,
+    product: 4,
+    dish: 5,
+    supplier: 5,
+    recipe_component: 6,
+    dish_nutrition_profile: 7,
+    invoice: 7,
+    menu_entry: 7,
+    stock_batch: 8,
+    menu_approval: 8,
+    property_item: 9,
+    property_writeoff: 10,
+    psychology_adaptation: 11,
+    psychology_readiness: 12,
+    psychology_consultation: 13,
+    psychology_report: 14,
   };
   const order = normalOrder[entityType] || 99;
   return deleted ? 100 - order : order;

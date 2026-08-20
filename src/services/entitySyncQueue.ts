@@ -10,7 +10,16 @@ export type SyncEntityType =
   | 'menu_approval'
   | 'supplier'
   | 'invoice'
-  | 'stock_batch';
+  | 'stock_batch'
+  | 'group'
+  | 'employee'
+  | 'child'
+  | 'property_item'
+  | 'property_writeoff'
+  | 'psychology_adaptation'
+  | 'psychology_readiness'
+  | 'psychology_consultation'
+  | 'psychology_report';
 
 export interface EntitySyncMutation {
   id: string;
@@ -48,6 +57,7 @@ const QUEUE_KEY = 'sadok_entity_sync_queue_v1';
 const CONFLICTS_KEY = 'sadok_entity_sync_conflicts_v1';
 const BOOTSTRAP_KEY = 'sadok_entity_sync_bootstrap_v1';
 const OPERATIONAL_BOOTSTRAP_KEY = 'sadok_operational_sync_bootstrap_v1';
+const STRUCTURE_BOOTSTRAP_KEY = 'sadok_structure_sync_bootstrap_v1';
 const CURSOR_KEY = 'sadok_entity_sync_cursor_v1';
 export const ENTITY_SYNC_EVENT = 'sadok-entity-sync-change';
 
@@ -158,6 +168,16 @@ export function isOperationalBootstrapComplete(): boolean {
 
 export function markOperationalBootstrapComplete(): void {
   localStorage.setItem(OPERATIONAL_BOOTSTRAP_KEY, 'complete');
+  scheduleDurableLocalState();
+  window.dispatchEvent(new CustomEvent(ENTITY_SYNC_EVENT));
+}
+
+export function isStructureBootstrapComplete(): boolean {
+  return localStorage.getItem(STRUCTURE_BOOTSTRAP_KEY) === 'complete';
+}
+
+export function markStructureBootstrapComplete(): void {
+  localStorage.setItem(STRUCTURE_BOOTSTRAP_KEY, 'complete');
   scheduleDurableLocalState();
   window.dispatchEvent(new CustomEvent(ENTITY_SYNC_EVENT));
 }

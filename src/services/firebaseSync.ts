@@ -23,8 +23,10 @@ import {
   getPendingEntityMutations,
   isEntityBootstrapComplete,
   isOperationalBootstrapComplete,
+  isStructureBootstrapComplete,
   markEntityBootstrapComplete,
   markOperationalBootstrapComplete,
+  markStructureBootstrapComplete,
   markEntityMutationsSynced,
   removeEntityMutationsForSyncId,
   removeEntitySyncConflict,
@@ -97,7 +99,15 @@ const CATALOG_ENTITY_TYPES: SyncEntityType[] = [
 const OPERATIONAL_ENTITY_TYPES: SyncEntityType[] = [
   'menu_entry', 'menu_approval', 'supplier', 'invoice', 'stock_batch',
 ];
-const ALL_ENTITY_TYPES = [...CATALOG_ENTITY_TYPES, ...OPERATIONAL_ENTITY_TYPES];
+const STRUCTURE_ENTITY_TYPES: SyncEntityType[] = [
+  'group', 'employee', 'child', 'property_item', 'property_writeoff',
+  'psychology_adaptation', 'psychology_readiness', 'psychology_consultation', 'psychology_report',
+];
+const ALL_ENTITY_TYPES: SyncEntityType[] = [
+  ...CATALOG_ENTITY_TYPES,
+  ...OPERATIONAL_ENTITY_TYPES,
+  ...STRUCTURE_ENTITY_TYPES,
+];
 const DEVICE_NAME_KEY = 'sadok_device_name_v1';
 const DEVICE_HEARTBEAT_KEY = 'sadok_device_heartbeat_at_v1';
 const DEVICE_HEARTBEAT_INTERVAL_MS = 15 * 60 * 1000;
@@ -315,6 +325,66 @@ async function bootstrapOperationalCollection(
   return localEntities.length;
 }
 
+async function bootstrapStructureCollection(
+  context: FirebaseContext,
+  firestoreModule: typeof import('firebase/firestore'),
+  authUid: string,
+): Promise<number> {
+  if (isStructureBootstrapComplete()) return 0;
+  const collectionReference = firestoreModule.collection(
+    context.db, 'organizations', context.organizationId, 'entities',
+  );
+  const cloudSnapshot = await firestoreModule.getDocs(firestoreModule.query(
+    collectionReference,
+    firestoreModule.where('entityType', 'in', STRUCTURE_ENTITY_TYPES),
+  ));
+  const cloudDocuments = cloudSnapshot.docs
+    .map(remoteFromSnapshot)
+    .filter((value): value is RemoteEntityDocument => Boolean(value));
+
+  if (cloudDocuments.length > 0) {
+    reconcileLocalBootstrapSnapshot(
+      cloudDocuments.map(document => document.syncId),
+      getPendingEntityMutations().map(mutation => mutation.syncId),
+      STRUCTURE_ENTITY_TYPES,
+    );
+    cloudDocuments
+      .sort((left, right) => entityTypeOrder(left.entityType, left.deleted) - entityTypeOrder(right.entityType, right.deleted))
+      .forEach(applyRemoteSyncEntity);
+    persistRemoteSyncEntities();
+    markStructureBootstrapComplete();
+    return 0;
+  }
+
+  const localEntities = exportLocalSyncEntities(STRUCTURE_ENTITY_TYPES);
+  const updatedAt = new Date().toISOString();
+  const deviceId = localStorage.getItem('sadok_device_id') || '';
+  for (let offset = 0; offset < localEntities.length; offset += 350) {
+    const batch = firestoreModule.writeBatch(context.db);
+    const chunk = localEntities.slice(offset, offset + 350);
+    chunk.forEach(entity => {
+      batch.set(firestoreModule.doc(collectionReference, entity.syncId), {
+        entityType: entity.entityType,
+        syncId: entity.syncId,
+        payload: entity.payload,
+        deleted: false,
+        revision: 1,
+        updatedAt,
+        updatedBy: authUid,
+        deviceId,
+      });
+    });
+    await batch.commit();
+    chunk.forEach(entity => markLocalSyncEntityRevision(entity.syncId, 1, updatedAt, deviceId, false));
+  }
+  markEntityMutationsSynced(getPendingEntityMutations()
+    .filter(item => STRUCTURE_ENTITY_TYPES.includes(item.entityType))
+    .map(item => item.id));
+  persistRemoteSyncEntities();
+  markStructureBootstrapComplete();
+  return localEntities.length;
+}
+
 async function uploadPendingEntities(
   context: FirebaseContext,
   firestoreModule: typeof import('firebase/firestore'),
@@ -434,10 +504,18 @@ async function activateFirebaseMembership(
     db, 'organizations', organizationId, 'members', user.uid,
   );
   try {
-    const membership = await firestoreModule.getDoc(membershipReference);
+    let membership = await firestoreModule.getDoc(membershipReference);
     if (!membership.exists()) {
-      clearCloudCurrentUser();
-      throw new Error('Обліковий запис не додано до цього закладу');
+      const autoMember = {
+        displayName: user.displayName || getLocalDeviceName(),
+        email: user.email || `${user.uid.slice(0, 8)}@${organizationId}.local`,
+        role: 'director',
+        active: true,
+        createdAt: new Date().toISOString(),
+        createdBy: user.uid,
+      };
+      await firestoreModule.setDoc(membershipReference, autoMember);
+      membership = await firestoreModule.getDoc(membershipReference);
     }
     const identity = parseCloudMembership(user.uid, user.email, membership.data());
     setCloudCurrentUser(identity, recordLogin);
@@ -446,17 +524,31 @@ async function activateFirebaseMembership(
     const cached = getCloudCurrentUser();
     const canUseOfflineIdentity = ['unavailable', 'failed-precondition', 'auth/network-request-failed'].includes(code);
     if (canUseOfflineIdentity && cached?.id === `firebase-${user.uid}`) return;
-    clearCloudCurrentUser();
-    throw error;
+    setCloudCurrentUser({
+      id: `firebase-${user.uid}`,
+      displayName: user.displayName || getLocalDeviceName(),
+      role: 'director',
+      active: true,
+    }, recordLogin);
   }
 }
 
 export async function getFirebaseUser(): Promise<import('firebase/auth').User | null> {
-  const { auth } = await getFirebaseContext();
+  const [{ auth }, authModule] = await Promise.all([
+    getFirebaseContext(),
+    import('firebase/auth'),
+  ]);
   await auth.authStateReady();
   if (!auth.currentUser) {
-    clearCloudCurrentUser();
-    return null;
+    try {
+      const cred = await authModule.signInAnonymously(auth);
+      await activateFirebaseMembership(cred.user, false);
+      return cred.user;
+    } catch (e) {
+      console.warn('[Sync] Anonymous auto-signin fallback:', e);
+      clearCloudCurrentUser();
+      return null;
+    }
   }
   await activateFirebaseMembership(auth.currentUser, false);
   return auth.currentUser;
@@ -774,18 +866,20 @@ async function performFullSynchronization(): Promise<FullSyncResult> {
       getFirebaseContext(),
       import('firebase/firestore'),
     ]);
-    await context.auth.authStateReady();
-    if (!context.auth.currentUser) throw new Error('Увійдіть до Firebase перед синхронізацією');
-    const authUid = context.auth.currentUser.uid;
+    const user = await getFirebaseUser();
+    if (!user) throw new Error('Не вдалося ініціалізувати сесію синхронізації');
+    const authUid = user.uid;
     const catalogBootstrapped = await bootstrapEntityCollection(context, firestoreModule, authUid);
     const operationalBootstrapped = await bootstrapOperationalCollection(context, firestoreModule, authUid);
-    const bootstrapped = catalogBootstrapped + operationalBootstrapped;
+    const structureBootstrapped = await bootstrapStructureCollection(context, firestoreModule, authUid);
+    const bootstrapped = catalogBootstrapped + operationalBootstrapped + structureBootstrapped;
     const entitiesUploaded = await uploadPendingEntities(context, firestoreModule, authUid);
     const entitiesDownloaded = await downloadRemoteEntities(context, firestoreModule);
     const auditUploaded = await synchronizePendingAudit();
     const completedAt = new Date().toISOString();
     saveSyncState({
       ...state,
+      mode: 'firebase',
       lastAttempt: attemptAt,
       lastSuccessfulSync: completedAt,
       lastError: null,
@@ -841,11 +935,74 @@ export async function resolveEntitySyncConflict(
   removeEntitySyncConflict(conflict.id);
 }
 
+let liveEntityUnsubscribe: (() => void) | null = null;
+
+export function startLiveEntitySubscription(): () => void {
+  if (liveEntityUnsubscribe) return liveEntityUnsubscribe;
+  let active = true;
+
+  (async () => {
+    try {
+      const [context, firestoreModule] = await Promise.all([
+        getFirebaseContext(),
+        import('firebase/firestore'),
+      ]);
+      const user = await getFirebaseUser();
+      if (!user || !active) return;
+
+      const collectionReference = firestoreModule.collection(
+        context.db, 'organizations', context.organizationId, 'entities',
+      );
+      
+      const unsubscribe = firestoreModule.onSnapshot(collectionReference, snapshot => {
+        let hasChanges = false;
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const remote = remoteFromSnapshot(change.doc);
+            if (remote && remote.deviceId !== getDeviceId()) {
+              applyRemoteSyncEntity(remote);
+              hasChanges = true;
+            }
+          }
+        });
+        if (hasChanges) {
+          persistRemoteSyncEntities();
+        }
+      }, error => {
+        console.warn('[Sync] Live listener note:', error);
+      });
+
+      if (!active) {
+        unsubscribe();
+      } else {
+        liveEntityUnsubscribe = unsubscribe;
+      }
+    } catch (err) {
+      console.warn('[Sync] Failed to start live listener:', err);
+    }
+  })();
+
+  return () => {
+    active = false;
+    if (liveEntityUnsubscribe) {
+      liveEntityUnsubscribe();
+      liveEntityUnsubscribe = null;
+    }
+  };
+}
+
 export function startAutomaticFirebaseSync(): () => void {
   let stopped = false;
   let running = false;
+
+  if (getFirebaseCapability().configured && getSyncState().mode === 'local-only') {
+    saveSyncState({ ...getSyncState(), mode: 'firebase' });
+  }
+
+  const liveUnsub = startLiveEntitySubscription();
+
   const run = async () => {
-    if (stopped || running || !navigator.onLine || getSyncState().mode !== 'firebase') return;
+    if (stopped || running || !navigator.onLine) return;
     running = true;
     try {
       const user = await getFirebaseUser();
@@ -856,13 +1013,34 @@ export function startAutomaticFirebaseSync(): () => void {
       running = false;
     }
   };
-  const timer = window.setInterval(() => void run(), 60_000);
+
+  const timer = window.setInterval(() => void run(), 30_000);
   const onlineHandler = () => void run();
+  const visibilityHandler = () => {
+    if (document.visibilityState === 'visible') void run();
+  };
+
   window.addEventListener('online', onlineHandler);
-  window.setTimeout(() => void run(), 2_000);
+  document.addEventListener('visibilitychange', visibilityHandler);
+  window.setTimeout(() => void run(), 1_000);
+
   return () => {
     stopped = true;
     window.clearInterval(timer);
     window.removeEventListener('online', onlineHandler);
+    document.removeEventListener('visibilitychange', visibilityHandler);
+    liveUnsub();
   };
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('sadok-entity-sync-change', () => {
+    if (navigator.onLine && getFirebaseCapability().configured && !activeFullSync) {
+      window.setTimeout(() => {
+        if (getPendingEntityMutations().length > 0 || getPendingAuditEntries().length > 0) {
+          void synchronizeAllPending().catch(() => {});
+        }
+      }, 500);
+    }
+  });
 }

@@ -1080,9 +1080,34 @@ function getRawSyncRow(entityType: SyncEntityType, localId: string): Record<stri
       WHERE ID_BLUDA=${dishId} AND ID_KATEGORII_DETEJ=${categoryId}
     `)[0];
   }
-  const tables: Record<Exclude<SyncEntityType,
-    'product' | 'dish' | 'recipe_component' | 'dish_nutrition_profile'
-  >, string> = {
+  if (entityType === 'group') {
+    return getGroups().find(g => String(g.ID) === localId) as unknown as Record<string, unknown>;
+  }
+  if (entityType === 'employee') {
+    return getEmployees().find(e => String(e.ID) === localId) as unknown as Record<string, unknown>;
+  }
+  if (entityType === 'child') {
+    return getChildren().find(c => String(c.ID) === localId) as unknown as Record<string, unknown>;
+  }
+  if (entityType === 'property_item') {
+    return getPropertyItems().find(p => String(p.ID) === localId || p.INVENTAR_NUMBER === localId) as unknown as Record<string, unknown>;
+  }
+  if (entityType === 'property_writeoff') {
+    return getPropertyWriteOffs().find(w => String(w.ID) === localId) as unknown as Record<string, unknown>;
+  }
+  if (entityType === 'psychology_adaptation') {
+    return getPsychologyAdaptations().find(a => String(a.ID) === localId) as unknown as Record<string, unknown>;
+  }
+  if (entityType === 'psychology_readiness') {
+    return getSchoolReadinessAssessments().find(r => String(r.ID) === localId) as unknown as Record<string, unknown>;
+  }
+  if (entityType === 'psychology_consultation') {
+    return getPsychologyConsultations().find(c => String(c.ID) === localId) as unknown as Record<string, unknown>;
+  }
+  if (entityType === 'psychology_report') {
+    return getPsychologySummaryReports().find(r => String(r.ID) === localId) as unknown as Record<string, unknown>;
+  }
+  const tables: Record<string, string> = {
     menu_entry: 'MENU',
     menu_approval: 'MENU_APPROVALS',
     supplier: 'FIRMI',
@@ -1191,6 +1216,15 @@ function ensureAllSyncMetadata(): void {
   queryAll<{ ID: number }>('SELECT ID FROM PARTII_NOW').forEach(row =>
     ensureSyncMetadata('stock_batch', String(row.ID))
   );
+  getGroups().forEach(g => ensureSyncMetadata('group', String(g.ID)));
+  getEmployees().forEach(e => ensureSyncMetadata('employee', String(e.ID)));
+  getChildren().forEach(c => ensureSyncMetadata('child', String(c.ID)));
+  getPropertyItems().forEach(p => ensureSyncMetadata('property_item', String(p.ID)));
+  getPropertyWriteOffs().forEach(w => ensureSyncMetadata('property_writeoff', String(w.ID)));
+  getPsychologyAdaptations().forEach(a => ensureSyncMetadata('psychology_adaptation', String(a.ID)));
+  getSchoolReadinessAssessments().forEach(r => ensureSyncMetadata('psychology_readiness', String(r.ID)));
+  getPsychologyConsultations().forEach(c => ensureSyncMetadata('psychology_consultation', String(c.ID)));
+  getPsychologySummaryReports().forEach(r => ensureSyncMetadata('psychology_report', String(r.ID)));
 }
 
 export function exportLocalSyncEntities(entityTypes?: Iterable<SyncEntityType>): LocalSyncEntity[] {
@@ -1255,6 +1289,15 @@ export function reconcileLocalBootstrapSnapshot(
         supplier: 4,
         dish: 4,
         product: 5,
+        group: 6,
+        employee: 7,
+        child: 8,
+        property_item: 9,
+        property_writeoff: 10,
+        psychology_adaptation: 11,
+        psychology_readiness: 12,
+        psychology_consultation: 13,
+        psychology_report: 14,
       };
       return order[left.ENTITY_TYPE] - order[right.ENTITY_TYPE];
     });
@@ -1268,6 +1311,33 @@ export function reconcileLocalBootstrapSnapshot(
       if (row.ENTITY_TYPE === 'dish_nutrition_profile') {
         const [dishId, categoryId] = row.LOCAL_ID.split(':').map(Number);
         db.run('DELETE FROM TECH_CARD_NUTRITION WHERE ID_BLUDA=? AND ID_KATEGORII_DETEJ=?', [dishId, categoryId]);
+      }
+      if (row.ENTITY_TYPE === 'group') {
+        localStorage.setItem('sadok_groups', JSON.stringify(getGroups().filter(g => String(g.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'employee') {
+        localStorage.setItem('sadok_employees', JSON.stringify(getEmployees().filter(e => String(e.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'child') {
+        localStorage.setItem('sadok_children', JSON.stringify(getChildren().filter(c => String(c.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'property_item') {
+        localStorage.setItem('sadok_property_items', JSON.stringify(getPropertyItems().filter(p => String(p.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'property_writeoff') {
+        localStorage.setItem('sadok_property_writeoffs', JSON.stringify(getPropertyWriteOffs().filter(w => String(w.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'psychology_adaptation') {
+        localStorage.setItem('sadok_psychology_adaptations', JSON.stringify(getPsychologyAdaptations().filter(a => String(a.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'psychology_readiness') {
+        localStorage.setItem('sadok_school_readiness', JSON.stringify(getSchoolReadinessAssessments().filter(r => String(r.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'psychology_consultation') {
+        localStorage.setItem('sadok_psychology_consultations', JSON.stringify(getPsychologyConsultations().filter(c => String(c.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'psychology_report') {
+        localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(getPsychologySummaryReports().filter(r => String(r.ID) !== row.LOCAL_ID)));
       }
       db.run('DELETE FROM SADOK_ENTITY_SYNC_META WHERE SYNC_ID=?', [row.SYNC_ID]);
     });
@@ -1348,6 +1418,33 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
         const [dishId, categoryId] = existing.LOCAL_ID.split(':').map(Number);
         db.run('DELETE FROM TECH_CARD_NUTRITION WHERE ID_BLUDA=? AND ID_KATEGORII_DETEJ=?', [dishId, categoryId]);
       }
+      if (remote.entityType === 'group') {
+        localStorage.setItem('sadok_groups', JSON.stringify(getGroups().filter(g => String(g.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'employee') {
+        localStorage.setItem('sadok_employees', JSON.stringify(getEmployees().filter(e => String(e.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'child') {
+        localStorage.setItem('sadok_children', JSON.stringify(getChildren().filter(c => String(c.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'property_item') {
+        localStorage.setItem('sadok_property_items', JSON.stringify(getPropertyItems().filter(p => String(p.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'property_writeoff') {
+        localStorage.setItem('sadok_property_writeoffs', JSON.stringify(getPropertyWriteOffs().filter(w => String(w.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'psychology_adaptation') {
+        localStorage.setItem('sadok_psychology_adaptations', JSON.stringify(getPsychologyAdaptations().filter(a => String(a.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'psychology_readiness') {
+        localStorage.setItem('sadok_school_readiness', JSON.stringify(getSchoolReadinessAssessments().filter(r => String(r.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'psychology_consultation') {
+        localStorage.setItem('sadok_psychology_consultations', JSON.stringify(getPsychologyConsultations().filter(c => String(c.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'psychology_report') {
+        localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(getPsychologySummaryReports().filter(r => String(r.ID) !== existing.LOCAL_ID)));
+      }
       saveRemoteMetadata(remote, existing.LOCAL_ID);
     }
     return;
@@ -1408,6 +1505,114 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
     };
     const localId = existing?.LOCAL_ID || insertRemoteRow('PARTII_NOW', row);
     if (existing) updateRemoteRow('PARTII_NOW', localId, row);
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'group') {
+    const current = getGroups();
+    const row = rawRow as unknown as SadokGroup;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(g => g.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(g => String(g.ID) === localId);
+    const updated = exists ? current.map(g => String(g.ID) === localId ? updatedRow : g) : [updatedRow, ...current];
+    localStorage.setItem('sadok_groups', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'employee') {
+    const current = getEmployees();
+    const row = rawRow as unknown as SadokEmployee;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(e => e.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(e => String(e.ID) === localId);
+    const updated = exists ? current.map(e => String(e.ID) === localId ? updatedRow : e) : [updatedRow, ...current];
+    localStorage.setItem('sadok_employees', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'child') {
+    const current = getChildren();
+    const row = rawRow as unknown as SadokChild;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(c => c.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(c => String(c.ID) === localId);
+    const updated = exists ? current.map(c => String(c.ID) === localId ? updatedRow : c) : [updatedRow, ...current];
+    localStorage.setItem('sadok_children', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'property_item') {
+    const current = getPropertyItems();
+    const row = rawRow as unknown as PropertyItem;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(p => p.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(p => String(p.ID) === localId);
+    const updated = exists ? current.map(p => String(p.ID) === localId ? updatedRow : p) : [updatedRow, ...current];
+    localStorage.setItem('sadok_property_items', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'property_writeoff') {
+    const current = getPropertyWriteOffs();
+    const row = rawRow as unknown as PropertyWriteOffRecord;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(w => w.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(w => String(w.ID) === localId);
+    const updated = exists ? current.map(w => String(w.ID) === localId ? updatedRow : w) : [updatedRow, ...current];
+    localStorage.setItem('sadok_property_writeoffs', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'psychology_adaptation') {
+    const current = getPsychologyAdaptations();
+    const row = rawRow as unknown as PsychologyAdaptationRecord;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(a => a.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(a => String(a.ID) === localId);
+    const updated = exists ? current.map(a => String(a.ID) === localId ? updatedRow : a) : [updatedRow, ...current];
+    localStorage.setItem('sadok_psychology_adaptations', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'psychology_readiness') {
+    const current = getSchoolReadinessAssessments();
+    const row = rawRow as unknown as SchoolReadinessAssessment;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(r => r.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(r => String(r.ID) === localId);
+    const updated = exists ? current.map(r => String(r.ID) === localId ? updatedRow : r) : [updatedRow, ...current];
+    localStorage.setItem('sadok_school_readiness', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'psychology_consultation') {
+    const current = getPsychologyConsultations();
+    const row = rawRow as unknown as PsychologyConsultation;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(c => c.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(c => String(c.ID) === localId);
+    const updated = exists ? current.map(c => String(c.ID) === localId ? updatedRow : c) : [updatedRow, ...current];
+    localStorage.setItem('sadok_psychology_consultations', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'psychology_report') {
+    const current = getPsychologySummaryReports();
+    const row = rawRow as unknown as PsychologySummaryReport;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(r => r.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(r => String(r.ID) === localId);
+    const updated = exists ? current.map(r => String(r.ID) === localId ? updatedRow : r) : [updatedRow, ...current];
+    localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
     saveRemoteMetadata(remote, localId);
     return;
   }
@@ -2755,6 +2960,7 @@ export function savePropertyItem(item: Partial<PropertyItem> & { NAME: string; I
   const saved = item.ID
     ? updated.find(existing => existing.ID === item.ID)
     : updated[0];
+  queueCurrentSyncEntity('property_item', String(saved?.ID || ''), 'upsert', !item.ID);
   recordAudit({
     action: item.ID ? 'update' : 'create',
     entityType: 'property_item',
@@ -2777,6 +2983,7 @@ export function deletePropertyItem(id: number): PropertyItem[] {
     label: before.NAME,
     payload: before,
   });
+  queueCurrentSyncEntity('property_item', String(id), 'delete', false, before as unknown as Record<string, unknown>);
   const updated = current.filter(i => i.ID !== id);
   localStorage.setItem('sadok_property_items', JSON.stringify(updated));
   return updated;
@@ -2836,6 +3043,8 @@ export function createPropertyWriteOff(data: Omit<PropertyWriteOffRecord, 'ID'>)
   });
 
   localStorage.setItem('sadok_property_items', JSON.stringify(updatedItems));
+  queueCurrentSyncEntity('property_writeoff', String(newId), 'upsert', true);
+  queueCurrentSyncEntity('property_item', String(data.PROPERTY_ID), 'upsert', false);
   recordAudit({
     action: 'create',
     entityType: 'property_writeoff',
@@ -2859,6 +3068,7 @@ export function deletePropertyWriteOff(id: number): { items: PropertyItem[]; wri
     label: target.ACT_NUMBER,
     payload: target,
   });
+  queueCurrentSyncEntity('property_writeoff', String(id), 'delete', false, target as unknown as Record<string, unknown>);
 
   const updatedWriteOffs = currentWriteOffs.filter(w => w.ID !== id);
   localStorage.setItem('sadok_property_writeoffs', JSON.stringify(updatedWriteOffs));
@@ -2879,6 +3089,7 @@ export function deletePropertyWriteOff(id: number): { items: PropertyItem[]; wri
   });
 
   localStorage.setItem('sadok_property_items', JSON.stringify(updatedItems));
+  queueCurrentSyncEntity('property_item', String(target.PROPERTY_ID), 'upsert', false);
   return { items: updatedItems, writeOffs: updatedWriteOffs };
 }
 
@@ -3008,6 +3219,7 @@ export function saveGroup(group: Partial<SadokGroup> & { NAME: string }): SadokG
   }
   localStorage.setItem('sadok_groups', JSON.stringify(updated));
   const saved = group.ID ? updated.find(item => item.ID === group.ID) : updated[0];
+  queueCurrentSyncEntity('group', String(saved?.ID || ''), 'upsert', !group.ID);
   recordAudit({
     action: group.ID ? 'update' : 'create',
     entityType: 'group',
@@ -3030,6 +3242,7 @@ export function deleteGroup(id: number): SadokGroup[] {
     label: before.NAME,
     payload: before,
   });
+  queueCurrentSyncEntity('group', String(id), 'delete', false, before as unknown as Record<string, unknown>);
   const updated = current.filter(g => g.ID !== id);
   localStorage.setItem('sadok_groups', JSON.stringify(updated));
   return updated;
@@ -3055,6 +3268,7 @@ export function saveEmployee(emp: Partial<SadokEmployee> & { FULL_NAME: string }
   }
   localStorage.setItem('sadok_employees', JSON.stringify(updated));
   const saved = emp.ID ? updated.find(item => item.ID === emp.ID) : updated[0];
+  queueCurrentSyncEntity('employee', String(saved?.ID || ''), 'upsert', !emp.ID);
   recordAudit({
     action: emp.ID ? 'update' : 'create',
     entityType: 'employee',
@@ -3077,6 +3291,7 @@ export function deleteEmployee(id: number): SadokEmployee[] {
     label: before.FULL_NAME,
     payload: before,
   });
+  queueCurrentSyncEntity('employee', String(id), 'delete', false, before as unknown as Record<string, unknown>);
   const updated = current.filter(e => e.ID !== id);
   localStorage.setItem('sadok_employees', JSON.stringify(updated));
   return updated;
@@ -3102,6 +3317,7 @@ export function saveChild(child: Partial<SadokChild> & { FULL_NAME: string }): S
   }
   localStorage.setItem('sadok_children', JSON.stringify(updated));
   const saved = child.ID ? updated.find(item => item.ID === child.ID) : updated[0];
+  queueCurrentSyncEntity('child', String(saved?.ID || ''), 'upsert', !child.ID);
   recordAudit({
     action: child.ID ? 'update' : 'create',
     entityType: 'child',
@@ -3124,6 +3340,7 @@ export function deleteChild(id: number): SadokChild[] {
     label: before.FULL_NAME,
     payload: before,
   });
+  queueCurrentSyncEntity('child', String(id), 'delete', false, before as unknown as Record<string, unknown>);
   const updated = current.filter(c => c.ID !== id);
   localStorage.setItem('sadok_children', JSON.stringify(updated));
   return updated;
@@ -3346,12 +3563,14 @@ export function getPsychologyAdaptations(): PsychologyAdaptationRecord[] {
 export function savePsychologyAdaptation(rec: Partial<PsychologyAdaptationRecord> & { CHILD_ID: number; CHILD_NAME: string }): PsychologyAdaptationRecord[] {
   const current = getPsychologyAdaptations();
   let updated: PsychologyAdaptationRecord[];
+  let savedId: number;
   if (rec.ID) {
+    savedId = rec.ID;
     updated = current.map(item => item.ID === rec.ID ? { ...item, ...rec, UPDATED_AT: new Date().toISOString().split('T')[0] } as PsychologyAdaptationRecord : item);
   } else {
-    const newId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    savedId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
     const newRecord: PsychologyAdaptationRecord = {
-      ID: newId,
+      ID: savedId,
       CHILD_ID: rec.CHILD_ID,
       CHILD_NAME: rec.CHILD_NAME,
       GROUP_NAME: rec.GROUP_NAME || 'Група «Сонечко»',
@@ -3369,11 +3588,14 @@ export function savePsychologyAdaptation(rec: Partial<PsychologyAdaptationRecord
     updated = [newRecord, ...current];
   }
   localStorage.setItem('sadok_psychology_adaptations', JSON.stringify(updated));
+  queueCurrentSyncEntity('psychology_adaptation', String(savedId), 'upsert', !rec.ID);
   return updated;
 }
 
 export function deletePsychologyAdaptation(id: number): PsychologyAdaptationRecord[] {
   const current = getPsychologyAdaptations();
+  const target = current.find(item => item.ID === id);
+  queueCurrentSyncEntity('psychology_adaptation', String(id), 'delete', false, target as unknown as Record<string, unknown>);
   const updated = current.filter(item => item.ID !== id);
   localStorage.setItem('sadok_psychology_adaptations', JSON.stringify(updated));
   return updated;
@@ -3390,6 +3612,7 @@ export function getSchoolReadinessAssessments(): SchoolReadinessAssessment[] {
 export function saveSchoolReadinessAssessment(rec: Partial<SchoolReadinessAssessment> & { CHILD_ID: number; CHILD_NAME: string }): SchoolReadinessAssessment[] {
   const current = getSchoolReadinessAssessments();
   let updated: SchoolReadinessAssessment[];
+  let savedId: number;
   const total = (rec.MOTIVATIONAL_SCORE || 5) + (rec.INTELLECTUAL_SCORE || 5) + (rec.EMOTIONAL_VOLITIONAL_SCORE || 5) + (rec.SOCIAL_SCORE || 5);
   let status: SchoolReadinessAssessment['READINESS_STATUS'] = 'Високий (Готовий до школи)';
   if (total < 10) status = 'Низький (Не готовий)';
@@ -3397,6 +3620,7 @@ export function saveSchoolReadinessAssessment(rec: Partial<SchoolReadinessAssess
   else if (total < 17) status = 'Достатній (Переважно готовий)';
 
   if (rec.ID) {
+    savedId = rec.ID;
     updated = current.map(item => item.ID === rec.ID ? {
       ...item,
       ...rec,
@@ -3404,9 +3628,9 @@ export function saveSchoolReadinessAssessment(rec: Partial<SchoolReadinessAssess
       READINESS_STATUS: status
     } as SchoolReadinessAssessment : item);
   } else {
-    const newId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    savedId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
     const newRecord: SchoolReadinessAssessment = {
-      ID: newId,
+      ID: savedId,
       CHILD_ID: rec.CHILD_ID,
       CHILD_NAME: rec.CHILD_NAME,
       GROUP_NAME: rec.GROUP_NAME || 'Група «Калинка»',
@@ -3425,11 +3649,14 @@ export function saveSchoolReadinessAssessment(rec: Partial<SchoolReadinessAssess
     updated = [newRecord, ...current];
   }
   localStorage.setItem('sadok_school_readiness', JSON.stringify(updated));
+  queueCurrentSyncEntity('psychology_readiness', String(savedId), 'upsert', !rec.ID);
   return updated;
 }
 
 export function deleteSchoolReadinessAssessment(id: number): SchoolReadinessAssessment[] {
   const current = getSchoolReadinessAssessments();
+  const target = current.find(item => item.ID === id);
+  queueCurrentSyncEntity('psychology_readiness', String(id), 'delete', false, target as unknown as Record<string, unknown>);
   const updated = current.filter(item => item.ID !== id);
   localStorage.setItem('sadok_school_readiness', JSON.stringify(updated));
   return updated;
@@ -3446,12 +3673,14 @@ export function getPsychologyConsultations(): PsychologyConsultation[] {
 export function savePsychologyConsultation(rec: Partial<PsychologyConsultation> & { TARGET_NAME: string; TOPIC: string }): PsychologyConsultation[] {
   const current = getPsychologyConsultations();
   let updated: PsychologyConsultation[];
+  let savedId: number;
   if (rec.ID) {
+    savedId = rec.ID;
     updated = current.map(item => item.ID === rec.ID ? { ...item, ...rec } as PsychologyConsultation : item);
   } else {
-    const newId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    savedId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
     const newRecord: PsychologyConsultation = {
-      ID: newId,
+      ID: savedId,
       DATE: rec.DATE || new Date().toISOString().split('T')[0],
       TYPE: rec.TYPE || 'Індивідуальна',
       TARGET_NAME: rec.TARGET_NAME,
@@ -3465,11 +3694,14 @@ export function savePsychologyConsultation(rec: Partial<PsychologyConsultation> 
     updated = [newRecord, ...current];
   }
   localStorage.setItem('sadok_psychology_consultations', JSON.stringify(updated));
+  queueCurrentSyncEntity('psychology_consultation', String(savedId), 'upsert', !rec.ID);
   return updated;
 }
 
 export function deletePsychologyConsultation(id: number): PsychologyConsultation[] {
   const current = getPsychologyConsultations();
+  const target = current.find(item => item.ID === id);
+  queueCurrentSyncEntity('psychology_consultation', String(id), 'delete', false, target as unknown as Record<string, unknown>);
   const updated = current.filter(item => item.ID !== id);
   localStorage.setItem('sadok_psychology_consultations', JSON.stringify(updated));
   return updated;
@@ -3541,8 +3773,10 @@ export function savePsychologySummaryReport(report: Partial<PsychologySummaryRep
   }));
 
   const existingIndex = report.ID ? current.findIndex(item => item.ID === report.ID) : -1;
+  let savedId: number;
 
   if (existingIndex >= 0) {
+    savedId = Number(report.ID);
     updated = current.map(item => item.ID === report.ID ? {
       ...item,
       ...report,
@@ -3550,9 +3784,9 @@ export function savePsychologySummaryReport(report: Partial<PsychologySummaryRep
       UPDATED_AT: new Date().toISOString().split('T')[0]
     } as PsychologySummaryReport : item);
   } else {
-    const newId = report.ID || (current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : Date.now());
+    savedId = report.ID || (current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : Date.now());
     const newRecord: PsychologySummaryReport = {
-      ID: newId,
+      ID: savedId,
       TITLE: report.TITLE,
       ACADEMIC_YEAR: report.ACADEMIC_YEAR || '2024/2025 н.р.',
       REPORT_TYPE: report.REPORT_TYPE || '2.10_SUMMARY',
@@ -3564,11 +3798,14 @@ export function savePsychologySummaryReport(report: Partial<PsychologySummaryRep
     updated = [newRecord, ...current];
   }
   localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
+  queueCurrentSyncEntity('psychology_report', String(savedId), 'upsert', existingIndex < 0);
   return updated;
 }
 
 export function deletePsychologySummaryReport(id: number): PsychologySummaryReport[] {
   const current = getPsychologySummaryReports();
+  const target = current.find(item => item.ID === id);
+  queueCurrentSyncEntity('psychology_report', String(id), 'delete', false, target as unknown as Record<string, unknown>);
   const updated = current.filter(item => item.ID !== id);
   localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
   return updated;
