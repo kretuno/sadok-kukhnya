@@ -155,7 +155,7 @@ export function SearchableSelect({
       {isOpen && (
         <div
           role="listbox"
-          className="absolute z-[100] mt-1 max-h-64 w-full min-w-52 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+          className="absolute z-[100] mt-1 max-h-48 w-full min-w-52 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
         >
           {filteredOptions.length > 0 ? filteredOptions.map((option, index) => (
             <button

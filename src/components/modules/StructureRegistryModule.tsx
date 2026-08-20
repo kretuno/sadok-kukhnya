@@ -897,36 +897,38 @@ export const StructureRegistryModule: React.FC = () => {
 
       {/* EDIT MODALS FOR GROUP, EMPLOYEE, CHILD */}
       {isGroupModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between font-bold text-sm">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[90vh] flex flex-col my-auto overflow-hidden">
+            <div className="px-6 py-3.5 bg-slate-900 text-white flex items-center justify-between font-bold text-sm shrink-0">
               <span>{editingGroup ? 'Редагувати групу' : 'Додати групу / приміщення'}</span>
               <button onClick={() => setIsGroupModalOpen(false)}><X className="w-5 h-5 text-slate-400 hover:text-white" /></button>
             </div>
-            <form onSubmit={handleSaveGroup} className="p-6 space-y-3 text-xs">
-              <div>
-                <label className="block font-bold mb-1">Назва групи / приміщення *</label>
-                <input type="text" required value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Група «Сонечко»" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveGroup} className="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
+              <div className="space-y-3">
                 <div>
-                  <label className="block font-bold mb-1">Вікова категорія</label>
-                  <SearchableSelect value={groupAgeCategory} onChange={(e) => setGroupAgeCategory(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg">
-                    <option value="Ясла (1-3 роки)">Ясла (1-3 роки)</option>
-                    <option value="Молодша (3-4 роки)">Молодша (3-4 роки)</option>
-                    <option value="Середня (4-5 років)">Середня (4-5 років)</option>
-                    <option value="Старша (5-7 років)">Старша (5-7 років)</option>
-                    <option value="Спеціалізоване приміщення">Спеціалізоване приміщення</option>
-                  </SearchableSelect>
+                  <label className="block font-bold mb-1">Назва групи / приміщення *</label>
+                  <input type="text" required value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Група «Сонечко»" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold" />
                 </div>
-                <div>
-                  <label className="block font-bold mb-1">Кімната №</label>
-                  <input type="text" value={groupRoom} onChange={(e) => setGroupRoom(e.target.value)} placeholder="101" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-mono" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1">Вікова категорія</label>
+                    <SearchableSelect value={groupAgeCategory} onChange={(e) => setGroupAgeCategory(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg">
+                      <option value="Ясла (1-3 роки)">Ясла (1-3 роки)</option>
+                      <option value="Молодша (3-4 роки)">Молодша (3-4 роки)</option>
+                      <option value="Середня (4-5 років)">Середня (4-5 років)</option>
+                      <option value="Старша (5-7 років)">Старша (5-7 років)</option>
+                      <option value="Спеціалізоване приміщення">Спеціалізоване приміщення</option>
+                    </SearchableSelect>
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1">Кімната №</label>
+                    <input type="text" value={groupRoom} onChange={(e) => setGroupRoom(e.target.value)} placeholder="101" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-mono" />
+                  </div>
                 </div>
               </div>
-              <div className="pt-3 border-t flex justify-end space-x-2">
-                <button type="button" onClick={() => setIsGroupModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 rounded-xl font-bold">Скасувати</button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold">Зберегти</button>
+              <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
+                <button type="button" onClick={() => setIsGroupModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-bold hover:bg-slate-300 transition">Скасувати</button>
+                <button type="submit" className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-md">Зберегти</button>
               </div>
             </form>
           </div>
@@ -934,44 +936,46 @@ export const StructureRegistryModule: React.FC = () => {
       )}
 
       {isEmployeeModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between font-bold text-sm">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-lg max-h-[90vh] flex flex-col my-auto overflow-hidden">
+            <div className="px-6 py-3.5 bg-slate-900 text-white flex items-center justify-between font-bold text-sm shrink-0">
               <span>{editingEmployee ? 'Редагувати співробітника' : 'Додати нового співробітника'}</span>
               <button onClick={() => setIsEmployeeModalOpen(false)}><X className="w-5 h-5 text-slate-400 hover:text-white" /></button>
             </div>
-            <form onSubmit={handleSaveEmployee} className="p-6 space-y-3 text-xs">
-              <div>
-                <label className="block font-bold mb-1">ПІБ Співробітника *</label>
-                <input type="text" required value={empFullName} onChange={(e) => setEmpFullName(e.target.value)} placeholder="Петренко Олена Іванівна" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveEmployee} className="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
+              <div className="space-y-3.5">
                 <div>
-                  <label className="block font-bold mb-1">Посада</label>
-                  <input type="text" required value={empPosition} onChange={(e) => setEmpPosition(e.target.value)} placeholder="Вихователь" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg" />
+                  <label className="block font-bold mb-1">ПІБ Співробітника *</label>
+                  <input type="text" required value={empFullName} onChange={(e) => setEmpFullName(e.target.value)} placeholder="Петренко Олена Іванівна" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold" />
                 </div>
-                <div>
-                  <label className="block font-bold mb-1">Телефон</label>
-                  <input type="text" value={empPhone} onChange={(e) => setEmpPhone(e.target.value)} placeholder="(098) 123-45-67" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-mono" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1">Посада</label>
+                    <input type="text" required value={empPosition} onChange={(e) => setEmpPosition(e.target.value)} placeholder="Вихователь" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block font-bold mb-1">Телефон</label>
+                    <input type="text" value={empPhone} onChange={(e) => setEmpPhone(e.target.value)} placeholder="(098) 123-45-67" className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg font-mono" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold mb-1">Закріплена група / локація</label>
+                    <SearchableSelect value={empGroupName} onChange={(e) => setEmpGroupName(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg">
+                      {groups.map(g => <option key={g.ID} value={g.NAME}>{g.NAME}</option>)}
+                    </SearchableSelect>
+                  </div>
+                  <div className="flex items-center pt-1 sm:pt-5">
+                    <label className="flex items-center space-x-2 font-bold text-amber-600 dark:text-amber-400 cursor-pointer">
+                      <input type="checkbox" checked={empIsMvo} onChange={(e) => setEmpIsMvo(e.target.checked)} className="w-4 h-4 rounded text-blue-600" />
+                      <span>Матеріально-відповідальна особа (МВО)</span>
+                    </label>
+                  </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold mb-1">Закріплена група / локація</label>
-                  <SearchableSelect value={empGroupName} onChange={(e) => setEmpGroupName(e.target.value)} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-lg">
-                    {groups.map(g => <option key={g.ID} value={g.NAME}>{g.NAME}</option>)}
-                  </SearchableSelect>
-                </div>
-                <div className="flex items-center pt-5">
-                  <label className="flex items-center space-x-2 font-bold text-amber-600 dark:text-amber-400 cursor-pointer">
-                    <input type="checkbox" checked={empIsMvo} onChange={(e) => setEmpIsMvo(e.target.checked)} className="w-4 h-4 rounded text-blue-600" />
-                    <span>Матеріально-відповідальна особа (МВО)</span>
-                  </label>
-                </div>
-              </div>
-              <div className="pt-3 border-t flex justify-end space-x-2">
-                <button type="button" onClick={() => setIsEmployeeModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 rounded-xl font-bold">Скасувати</button>
-                <button type="submit" className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold">Зберегти</button>
+              <div className="pt-4 mt-4 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
+                <button type="button" onClick={() => setIsEmployeeModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-bold hover:bg-slate-300 transition">Скасувати</button>
+                <button type="submit" className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition shadow-md">Зберегти</button>
               </div>
             </form>
           </div>
@@ -979,8 +983,8 @@ export const StructureRegistryModule: React.FC = () => {
       )}
 
       {isChildModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col my-auto">
             <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between font-bold text-sm shrink-0">
               <span>{editingChild ? `Редагування особової картки: ${editingChild.FULL_NAME}` : 'Зарахування нового вихованця'}</span>
               <button onClick={() => setIsChildModalOpen(false)}><X className="w-5 h-5 text-slate-400 hover:text-white" /></button>
@@ -1103,7 +1107,7 @@ export const StructureRegistryModule: React.FC = () => {
                 )}
               </div>
 
-              {/* SECTION 4: DIET & HEALTH */}
+              {/* SECTION 4: HEALTH & PSYCHOLOGY NOTES */}
               <div className="space-y-3 bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-2xl border">
                 <div className="font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider text-[11px]">
                   4. Особливі примітки (Дієта для Кухні, Медсестра, Психолог)
@@ -1124,9 +1128,9 @@ export const StructureRegistryModule: React.FC = () => {
                 </div>
               </div>
 
-              <div className="pt-3 border-t flex justify-end space-x-2 shrink-0">
-                <button type="button" onClick={() => setIsChildModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 rounded-xl font-bold">Скасувати</button>
-                <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30">Зберегти картку вихованця</button>
+              <div className="pt-4 mt-2 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
+                <button type="button" onClick={() => setIsChildModalOpen(false)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl font-bold hover:bg-slate-300 transition">Скасувати</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition">Зберегти картку вихованця</button>
               </div>
             </form>
           </div>
