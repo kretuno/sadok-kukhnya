@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
-import { getProducts, getStockBatches, getInvoices, getInstitutions } from '../../services/db';
+import { DATABASE_SYNC_EVENT, getProducts, getStockBatches, getInvoices, getInstitutions } from '../../services/db';
 import { Product, StockBatch, InvoiceHeader } from '../../types';
 import { FileText, Calculator, BarChart3, TrendingUp, Calendar, Filter, Printer, Download, Search, DollarSign, PackageCheck, Building } from 'lucide-react';
 
@@ -37,6 +37,8 @@ export const ReportsModule: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    window.addEventListener(DATABASE_SYNC_EVENT, loadData);
+    return () => window.removeEventListener(DATABASE_SYNC_EVENT, loadData);
   }, []);
 
   const loadData = () => {

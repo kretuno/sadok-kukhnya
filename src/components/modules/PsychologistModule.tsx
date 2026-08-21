@@ -26,6 +26,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import {
+  DATABASE_SYNC_EVENT,
   getChildren,
   getPsychologyAdaptations,
   savePsychologyAdaptation,
@@ -115,6 +116,8 @@ export const PsychologistModule: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    window.addEventListener(DATABASE_SYNC_EVENT, loadData);
+    return () => window.removeEventListener(DATABASE_SYNC_EVENT, loadData);
   }, []);
 
   // Unique groups list

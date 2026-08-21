@@ -154,7 +154,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
       </div>
 
       {/* Main Module Tabs */}
-      <div className="flex items-center space-x-1 px-3 pt-2 bg-slate-800 dark:bg-slate-900">
+      <div className="flex items-center space-x-1 px-3 pt-2 bg-slate-800 dark:bg-slate-900 overflow-x-auto whitespace-nowrap scrollbar-thin">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -162,7 +162,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex items-center space-x-2 px-4 py-2 text-xs font-medium rounded-t-lg transition border-t border-x ${
+              className={`flex items-center space-x-2 px-4 py-2 text-xs font-medium rounded-t-lg transition border-t border-x shrink-0 ${
                 isActive
                   ? 'bg-slate-100 dark:bg-slate-950 text-blue-600 dark:text-blue-400 border-slate-300 dark:border-slate-800 shadow-sm font-semibold'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/60 border-transparent'

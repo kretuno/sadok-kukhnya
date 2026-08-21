@@ -3,6 +3,7 @@ import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
 import React, { useState, useEffect } from 'react';
 import { SadokGroup, SadokEmployee, SadokChild } from '../../types';
 import { 
+  DATABASE_SYNC_EVENT,
   getGroups, saveGroup, deleteGroup,
   getEmployees, saveEmployee, deleteEmployee,
   getChildren, saveChild, deleteChild
@@ -107,6 +108,8 @@ export const StructureRegistryModule: React.FC = () => {
 
   useEffect(() => {
     loadAllData();
+    window.addEventListener(DATABASE_SYNC_EVENT, loadAllData);
+    return () => window.removeEventListener(DATABASE_SYNC_EVENT, loadAllData);
   }, []);
 
   const loadAllData = () => {

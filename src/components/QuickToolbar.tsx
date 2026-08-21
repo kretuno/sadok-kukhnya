@@ -25,8 +25,8 @@ export const QuickToolbar: React.FC<QuickToolbarProps> = ({
   title
 }) => {
   return (
-    <div className="flex items-center justify-between px-4 py-2 bg-slate-200/80 dark:bg-slate-900/80 border-b border-slate-300 dark:border-slate-800 text-xs no-print">
-      <div className="flex items-center space-x-2">
+    <div className="flex items-center justify-between px-4 py-2 bg-slate-200/80 dark:bg-slate-900/80 border-b border-slate-300 dark:border-slate-800 text-xs no-print flex-wrap gap-2">
+      <div className="flex items-center space-x-2 flex-wrap gap-y-1">
         {onAdd && (
           <button
             onClick={onAdd}

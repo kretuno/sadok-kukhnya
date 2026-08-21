@@ -3,6 +3,7 @@ import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
 import React, { useState, useEffect } from 'react';
 import { PropertyItem, PropertyLocationDistribution, PropertyWriteOffRecord } from '../../types';
 import { 
+  DATABASE_SYNC_EVENT,
   getPropertyItems, 
   savePropertyItem, 
   deletePropertyItem, 
@@ -120,6 +121,8 @@ export const PropertyManagementModule: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    window.addEventListener(DATABASE_SYNC_EVENT, loadData);
+    return () => window.removeEventListener(DATABASE_SYNC_EVENT, loadData);
   }, []);
 
   const loadData = () => {
