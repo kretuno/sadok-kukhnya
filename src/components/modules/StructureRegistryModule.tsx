@@ -1,6 +1,6 @@
 import { SearchableSelect } from "../common/SearchableSelect";
 import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { SadokGroup, SadokEmployee, SadokChild } from '../../types';
 import { 
   DATABASE_SYNC_EVENT,
@@ -31,13 +31,28 @@ import {
   Brain,
   MapPin,
   Briefcase,
-  AlertTriangle
+  AlertTriangle,
+  HelpCircle,
+  Filter,
+  ArrowUpDown,
+  SlidersHorizontal,
+  Sparkles,
+  UserPlus,
+  RotateCcw
 } from 'lucide-react';
 
 export const StructureRegistryModule: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'groups' | 'employees' | 'children'>('groups');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Children Filtering & Sorting State
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'Навчається' | 'Вибув' | 'Тимчасово відсутній' | 'Випускник'>('all');
+  const [selectedBenefitFilter, setSelectedBenefitFilter] = useState<string>('all');
+  const [selectedGenderFilter, setSelectedGenderFilter] = useState<string>('all');
+  const [selectedDietFilter, setSelectedDietFilter] = useState<boolean>(false);
+  const [sortField, setSortField] = useState<'name' | 'birth_date' | 'enrollment_date' | 'group' | 'status'>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   // Data lists
   const [groups, setGroups] = useState<SadokGroup[]>([]);
@@ -293,13 +308,52 @@ export const StructureRegistryModule: React.FC = () => {
     (e.GROUP_NAME || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredChildren = children.filter(c => {
-    const matchesSearch = c.FULL_NAME.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.GROUP_NAME.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.PARENT_NAME || '').toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesGroup = selectedGroupFilter ? c.GROUP_NAME === selectedGroupFilter : true;
-    return matchesSearch && matchesGroup;
-  });
+  const distinctBenefitCategories = useMemo(() => {
+    return Array.from(new Set(children.map(c => c.BENEFIT_CATEGORY || 'Загальна підстава').filter(Boolean)));
+  }, [children]);
+
+  const filteredChildren = useMemo(() => {
+    return children
+      .filter(c => {
+        const q = searchTerm.trim().toLowerCase();
+        const matchesSearch = !q || (
+          c.FULL_NAME.toLowerCase().includes(q) ||
+          c.GROUP_NAME.toLowerCase().includes(q) ||
+          (c.PARENT_NAME || '').toLowerCase().includes(q) ||
+          (c.MOTHER_NAME || '').toLowerCase().includes(q) ||
+          (c.FATHER_NAME || '').toLowerCase().includes(q) ||
+          (c.PARENT_PHONE || '').includes(q) ||
+          (c.MOTHER_PHONE || '').includes(q) ||
+          (c.FATHER_PHONE || '').includes(q) ||
+          (c.BIRTH_CERTIFICATE || '').toLowerCase().includes(q) ||
+          (c.ADDRESS || '').toLowerCase().includes(q) ||
+          (c.DIET_NOTES || '').toLowerCase().includes(q)
+        );
+
+        const matchesGroup = !selectedGroupFilter || selectedGroupFilter === 'all' || c.GROUP_NAME === selectedGroupFilter;
+        const matchesStatus = selectedStatusFilter === 'all' || c.STATUS === selectedStatusFilter;
+        const matchesBenefit = selectedBenefitFilter === 'all' || (c.BENEFIT_CATEGORY || 'Загальна підстава') === selectedBenefitFilter;
+        const matchesGender = selectedGenderFilter === 'all' || c.GENDER === selectedGenderFilter;
+        const matchesDiet = !selectedDietFilter || Boolean(c.DIET_NOTES);
+
+        return matchesSearch && matchesGroup && matchesStatus && matchesBenefit && matchesGender && matchesDiet;
+      })
+      .sort((a, b) => {
+        let comp = 0;
+        if (sortField === 'name') {
+          comp = a.FULL_NAME.localeCompare(b.FULL_NAME, 'uk-UA');
+        } else if (sortField === 'birth_date') {
+          comp = (a.BIRTH_DATE || '').localeCompare(b.BIRTH_DATE || '');
+        } else if (sortField === 'enrollment_date') {
+          comp = (a.ENROLLMENT_DATE || '').localeCompare(b.ENROLLMENT_DATE || '');
+        } else if (sortField === 'group') {
+          comp = (a.GROUP_NAME || '').localeCompare(b.GROUP_NAME || '', 'uk-UA');
+        } else if (sortField === 'status') {
+          comp = (a.STATUS || '').localeCompare(b.STATUS || '', 'uk-UA');
+        }
+        return sortDirection === 'asc' ? comp : -comp;
+      });
+  }, [children, searchTerm, selectedGroupFilter, selectedStatusFilter, selectedBenefitFilter, selectedGenderFilter, selectedDietFilter, sortField, sortDirection]);
 
   // Exports
   const handleExportExcel = () => {
@@ -312,8 +366,8 @@ export const StructureRegistryModule: React.FC = () => {
       const rows = filteredEmployees.map(e => [e.FULL_NAME, e.POSITION, e.PHONE || '', e.IS_MVO ? 'Так' : 'Ні', e.GROUP_NAME || '']);
       exportToExcel('SADOK_Кадровий_склад', 'Співробітники', headers, rows);
     } else {
-      const headers = ['ПІБ Вихованця', 'Дата народження', 'Група', 'Батьки', 'Телефон батьків', 'Статус'];
-      const rows = filteredChildren.map(c => [c.FULL_NAME, c.BIRTH_DATE, c.GROUP_NAME, c.PARENT_NAME || '', c.PARENT_PHONE || '', c.STATUS]);
+      const headers = ['ПІБ Вихованця', 'Дата народження', 'Група', 'Пільгова категорія', 'Батьки', 'Телефон батьків', 'Статус', 'Особливості дієти'];
+      const rows = filteredChildren.map(c => [c.FULL_NAME, c.BIRTH_DATE, c.GROUP_NAME, c.BENEFIT_CATEGORY || 'Загальна', c.PARENT_NAME || c.MOTHER_NAME || '', c.PARENT_PHONE || c.MOTHER_PHONE || '', c.STATUS, c.DIET_NOTES || '']);
       exportToExcel('SADOK_Контингент_Вихованців', 'Діти', headers, rows);
     }
   };
@@ -322,13 +376,13 @@ export const StructureRegistryModule: React.FC = () => {
     const title = activeSubTab === 'groups' ? 'Реєстр груп та приміщень ЗДО' : (activeSubTab === 'employees' ? 'Кадровий склад та МВО' : 'Списковий склад вихованців ЗДО');
     const headers = activeSubTab === 'groups' 
       ? ['№', 'Група', 'Категорія', 'Кімната', 'Вихователь', 'Дітей']
-      : (activeSubTab === 'employees' ? ['ПІБ Співробітника', 'Посада', 'Телефон', 'МВО', 'Локація'] : ['ПІБ Дитини', 'Група', 'Дата народж.', 'Батьки', 'Статус']);
+      : (activeSubTab === 'employees' ? ['ПІБ Співробітника', 'Посада', 'Телефон', 'МВО', 'Локація'] : ['ПІБ Дитини', 'Група', 'Дата народж.', 'Батьки & Тел.', 'Статус']);
     
     const rows = activeSubTab === 'groups'
       ? filteredGroups.map(g => [g.NUMBER || g.GROUP_NUMBER ? `№${g.NUMBER || g.GROUP_NUMBER}` : '-', g.NAME, g.AGE_CATEGORY, g.ROOM_NUMBER || '-', g.TEACHER_NAME || '-', `${g.CHILDREN_COUNT} осіб`])
       : (activeSubTab === 'employees'
         ? filteredEmployees.map(e => [e.FULL_NAME, e.POSITION, e.PHONE || '-', e.IS_MVO ? 'Так' : 'Ні', e.GROUP_NAME || '-'])
-        : filteredChildren.map(c => [c.FULL_NAME, c.GROUP_NAME, c.BIRTH_DATE, c.PARENT_NAME || '-', c.STATUS]));
+        : filteredChildren.map(c => [c.FULL_NAME, c.GROUP_NAME, c.BIRTH_DATE, `${c.PARENT_NAME || c.MOTHER_NAME || '-'} (${c.PARENT_PHONE || c.MOTHER_PHONE || ''})`, c.STATUS]));
 
     exportToPDF(title, headers, rows);
   };
@@ -417,10 +471,37 @@ export const StructureRegistryModule: React.FC = () => {
           onShowGuide={() => setIsGuideOpen(true)}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
-          title="SADOK Контингент — Організаційна структура, кадри та вихованці ЗДО №145"
+          title="Контингент та Кадри"
         />
 
         <div className="flex-1 overflow-auto p-4 space-y-4">
+          {/* HEADER BANNER */}
+          <div className="card-glass p-3.5 flex flex-wrap items-center justify-between gap-3 border-l-4 border-l-indigo-600 shadow-sm">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-700 text-white rounded-xl shadow-md flex items-center justify-center shrink-0">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-base sm:text-lg font-black text-slate-800 dark:text-slate-100 flex items-center gap-2 flex-wrap">
+                  <span>SADOK Контингент</span>
+                  <span className="text-xs px-2.5 py-0.5 bg-indigo-100 dark:bg-indigo-950/80 text-indigo-800 dark:text-indigo-300 font-bold rounded-md border border-indigo-200 dark:border-indigo-800">ЗДО №145</span>
+                </h1>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Організаційна структура, кадри та вихованці закладу дошкільної освіти
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsGuideOpen(true)}
+                className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs transition flex items-center space-x-1.5 shadow-xs"
+              >
+                <HelpCircle className="w-4 h-4 text-blue-600" />
+                <span>Як заповнювати</span>
+              </button>
+            </div>
+          </div>
           {/* SUB-TAB SELECTION BAR */}
           <div className="card-glass p-2.5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center space-x-2">
@@ -622,94 +703,359 @@ export const StructureRegistryModule: React.FC = () => {
 
           {/* CHILDREN TAB */}
           {activeSubTab === 'children' && (
-            <div className="space-y-3">
-              {/* Filter banner if specific group selected */}
+            <div className="space-y-3.5">
+              {/* STATUS SUMMARY STATS BAR (Interactive Click-to-Filter) */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => { setSelectedStatusFilter('all'); setSelectedDietFilter(false); }}
+                  className={`p-3 rounded-2xl border text-left transition shadow-xs cursor-pointer ${
+                    selectedStatusFilter === 'all' && !selectedDietFilter
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-300'
+                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-blue-300 text-slate-700 dark:text-slate-200'
+                  }`}
+                >
+                  <div className="text-[10px] font-bold uppercase opacity-80">Всі вихованці</div>
+                  <div className="text-xl font-black mt-0.5">{children.length}</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setSelectedStatusFilter('Навчається'); setSelectedDietFilter(false); }}
+                  className={`p-3 rounded-2xl border text-left transition shadow-xs cursor-pointer ${
+                    selectedStatusFilter === 'Навчається'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-md ring-2 ring-emerald-300'
+                      : 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/50 hover:border-emerald-400 text-emerald-800 dark:text-emerald-300'
+                  }`}
+                >
+                  <div className="text-[10px] font-bold uppercase opacity-80 flex items-center gap-1">
+                    <span>🟢 Навчаються</span>
+                  </div>
+                  <div className="text-xl font-black mt-0.5">{children.filter(c => c.STATUS === 'Навчається').length}</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setSelectedStatusFilter('Вибув'); setSelectedDietFilter(false); }}
+                  className={`p-3 rounded-2xl border text-left transition shadow-xs cursor-pointer ${
+                    selectedStatusFilter === 'Вибув'
+                      ? 'bg-rose-600 text-white border-rose-600 shadow-md ring-2 ring-rose-300'
+                      : 'bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50 hover:border-rose-400 text-rose-800 dark:text-rose-300'
+                  }`}
+                >
+                  <div className="text-[10px] font-bold uppercase opacity-80 flex items-center gap-1">
+                    <span>🔴 Вибули</span>
+                  </div>
+                  <div className="text-xl font-black mt-0.5">{children.filter(c => c.STATUS === 'Вибув').length}</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setSelectedStatusFilter('Тимчасово відсутній'); setSelectedDietFilter(false); }}
+                  className={`p-3 rounded-2xl border text-left transition shadow-xs cursor-pointer ${
+                    selectedStatusFilter === 'Тимчасово відсутній'
+                      ? 'bg-amber-500 text-white border-amber-500 shadow-md ring-2 ring-amber-300'
+                      : 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/50 hover:border-amber-400 text-amber-800 dark:text-amber-300'
+                  }`}
+                >
+                  <div className="text-[10px] font-bold uppercase opacity-80 flex items-center gap-1">
+                    <span>🟡 Тимч. відсутні</span>
+                  </div>
+                  <div className="text-xl font-black mt-0.5">{children.filter(c => c.STATUS === 'Тимчасово відсутній').length}</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => { setSelectedStatusFilter('Випускник'); setSelectedDietFilter(false); }}
+                  className={`p-3 rounded-2xl border text-left transition shadow-xs cursor-pointer ${
+                    selectedStatusFilter === 'Випускник'
+                      ? 'bg-purple-600 text-white border-purple-600 shadow-md ring-2 ring-purple-300'
+                      : 'bg-purple-50/50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-900/50 hover:border-purple-400 text-purple-800 dark:text-purple-300'
+                  }`}
+                >
+                  <div className="text-[10px] font-bold uppercase opacity-80 flex items-center gap-1">
+                    <span>🎓 Випускники</span>
+                  </div>
+                  <div className="text-xl font-black mt-0.5">{children.filter(c => c.STATUS === 'Випускник').length}</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedDietFilter(prev => !prev)}
+                  className={`p-3 rounded-2xl border text-left transition shadow-xs cursor-pointer ${
+                    selectedDietFilter
+                      ? 'bg-amber-600 text-white border-amber-600 shadow-md ring-2 ring-amber-300'
+                      : 'bg-amber-50/30 dark:bg-amber-950/10 border-slate-200 dark:border-slate-800 hover:border-amber-400 text-amber-900 dark:text-amber-300'
+                  }`}
+                >
+                  <div className="text-[10px] font-bold uppercase opacity-80 flex items-center gap-1">
+                    <span>🍎 Спецдієта</span>
+                  </div>
+                  <div className="text-xl font-black mt-0.5">{children.filter(c => Boolean(c.DIET_NOTES)).length}</div>
+                </button>
+              </div>
+
+              {/* ADVANCED FILTER & SORT TOOLBAR */}
+              <div className="card-glass p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  {/* Group Filter */}
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-slate-500 dark:text-slate-400 font-bold text-[11px] whitespace-nowrap">Група:</span>
+                    <select
+                      value={selectedGroupFilter || 'all'}
+                      onChange={(e) => setSelectedGroupFilter(e.target.value === 'all' ? null : e.target.value)}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-semibold text-xs shadow-xs outline-none cursor-pointer"
+                    >
+                      <option value="all">Всі групи ({children.length})</option>
+                      {groups.map(g => (
+                        <option key={g.ID} value={g.NAME}>
+                          {g.NAME} ({children.filter(c => c.GROUP_NAME === g.NAME).length})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Status Filter */}
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-slate-500 dark:text-slate-400 font-bold text-[11px] whitespace-nowrap">Статус:</span>
+                    <select
+                      value={selectedStatusFilter}
+                      onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-semibold text-xs shadow-xs outline-none cursor-pointer"
+                    >
+                      <option value="all">Всі статуси ({children.length})</option>
+                      <option value="Навчається">🟢 Навчаються ({children.filter(c => c.STATUS === 'Навчається').length})</option>
+                      <option value="Вибув">🔴 Вибули ({children.filter(c => c.STATUS === 'Вибув').length})</option>
+                      <option value="Тимчасово відсутній">🟡 Тимчасово відсутні ({children.filter(c => c.STATUS === 'Тимчасово відсутній').length})</option>
+                      <option value="Випускник">🎓 Випускники ({children.filter(c => c.STATUS === 'Випускник').length})</option>
+                    </select>
+                  </div>
+
+                  {/* Benefit Category Filter */}
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-slate-500 dark:text-slate-400 font-bold text-[11px] whitespace-nowrap">Пільга:</span>
+                    <select
+                      value={selectedBenefitFilter}
+                      onChange={(e) => setSelectedBenefitFilter(e.target.value)}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-semibold text-xs shadow-xs outline-none cursor-pointer"
+                    >
+                      <option value="all">Всі категорії</option>
+                      {distinctBenefitCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Gender Filter */}
+                  <div className="flex items-center space-x-1.5">
+                    <span className="text-slate-500 dark:text-slate-400 font-bold text-[11px] whitespace-nowrap">Стать:</span>
+                    <select
+                      value={selectedGenderFilter}
+                      onChange={(e) => setSelectedGenderFilter(e.target.value)}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-semibold text-xs shadow-xs outline-none cursor-pointer"
+                    >
+                      <option value="all">Всі (хлопчики & дівчатка)</option>
+                      <option value="Чоловіча">👦 Хлопчики ({children.filter(c => c.GENDER === 'Чоловіча').length})</option>
+                      <option value="Жіноча">👧 Дівчатка ({children.filter(c => c.GENDER === 'Жіноча').length})</option>
+                    </select>
+                  </div>
+
+                  {/* Reset Filters button if any filter is active */}
+                  {(selectedGroupFilter || selectedStatusFilter !== 'all' || selectedBenefitFilter !== 'all' || selectedGenderFilter !== 'all' || selectedDietFilter || searchTerm) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedGroupFilter(null);
+                        setSelectedStatusFilter('all');
+                        setSelectedBenefitFilter('all');
+                        setSelectedGenderFilter('all');
+                        setSelectedDietFilter(false);
+                        setSearchTerm('');
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[11px] transition flex items-center space-x-1 cursor-pointer"
+                      title="Скинути всі фільтри"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Скинути фільтри</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Sorting Controls */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-slate-500 dark:text-slate-400 font-bold text-[11px] whitespace-nowrap flex items-center gap-1">
+                    <ArrowUpDown className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Сортувати:</span>
+                  </span>
+                  <select
+                    value={sortField}
+                    onChange={(e) => setSortField(e.target.value as any)}
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-semibold text-xs shadow-xs outline-none cursor-pointer"
+                  >
+                    <option value="name">🔤 За ПІБ дитини</option>
+                    <option value="birth_date">🎂 За датою народження</option>
+                    <option value="enrollment_date">📅 За датою зарахування</option>
+                    <option value="group">🏫 За групою</option>
+                    <option value="status">📋 За статусом</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 transition font-bold text-xs shadow-xs cursor-pointer flex items-center gap-1"
+                    title={sortDirection === 'asc' ? 'Порядок: За зростанням (А-Я / 0-9)' : 'Порядок: За спаданням (Я-А / 9-0)'}
+                  >
+                    <span>{sortDirection === 'asc' ? '▲ Зростання' : '▼ Спадання'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter badge if active */}
               {selectedGroupFilter && (
                 <div className="flex items-center justify-between bg-blue-100 dark:bg-blue-950/80 p-3 rounded-xl border border-blue-300 text-xs">
                   <div className="flex items-center space-x-2 font-bold text-blue-900 dark:text-blue-200">
                     <Home className="w-4 h-4 text-blue-600" />
-                    <span>Фільтр за групою: {selectedGroupFilter}</span>
+                    <span>Фільтр за групою: <strong>{selectedGroupFilter}</strong> ({filteredChildren.length} вихованців)</span>
                   </div>
                   <button 
+                    type="button"
                     onClick={() => setSelectedGroupFilter(null)}
-                    className="px-3 py-1 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-bold rounded-lg hover:bg-slate-200 transition text-[11px]"
+                    className="px-3 py-1 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 font-bold rounded-lg hover:bg-slate-200 transition text-[11px] cursor-pointer"
                   >
                     Показати всі групи
                   </button>
                 </div>
               )}
 
-              <div className="card-glass overflow-hidden">
+              {/* CHILDREN TABLE */}
+              <div className="card-glass overflow-hidden shadow-md">
                 <div className="overflow-x-auto">
                   <table className="table-grid w-full text-xs">
                     <thead>
                       <tr>
-                        <th>ПІБ Вихованця (Дитини)</th>
-                        <th className="w-28 text-center">Дата народження</th>
-                        <th>Група</th>
+                        <th 
+                          onClick={() => { setSortField('name'); setSortDirection(prev => sortField === 'name' && prev === 'asc' ? 'desc' : 'asc'); }}
+                          className="cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 transition select-none"
+                          title="Натисніть для сортування за ПІБ"
+                        >
+                          <div className="flex items-center space-x-1.5">
+                            <span>ПІБ Вихованця (Дитини)</span>
+                            {sortField === 'name' && (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          onClick={() => { setSortField('birth_date'); setSortDirection(prev => sortField === 'birth_date' && prev === 'asc' ? 'desc' : 'asc'); }}
+                          className="w-32 text-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 transition select-none"
+                          title="Натисніть для сортування за датою народження"
+                        >
+                          <div className="flex items-center justify-center space-x-1">
+                            <span>Дата народж.</span>
+                            {sortField === 'birth_date' && (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                            )}
+                          </div>
+                        </th>
+                        <th 
+                          onClick={() => { setSortField('group'); setSortDirection(prev => sortField === 'group' && prev === 'asc' ? 'desc' : 'asc'); }}
+                          className="cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 transition select-none"
+                          title="Натисніть для сортування за групою"
+                        >
+                          <div className="flex items-center space-x-1.5">
+                            <span>Група</span>
+                            {sortField === 'group' && (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                            )}
+                          </div>
+                        </th>
                         <th>Пільгова категорія</th>
                         <th>Батьки & Телефон</th>
                         <th>🍎 Дієта / Алергії</th>
-                        <th className="w-36 text-center">Статус</th>
+                        <th 
+                          onClick={() => { setSortField('status'); setSortDirection(prev => sortField === 'status' && prev === 'asc' ? 'desc' : 'asc'); }}
+                          className="w-48 text-center cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-800 transition select-none"
+                          title="Натисніть для сортування за статусом"
+                        >
+                          <div className="flex items-center justify-center space-x-1">
+                            <span>Статус</span>
+                            {sortField === 'status' && (
+                              <span className="text-blue-600 font-bold">{sortDirection === 'asc' ? '▲' : '▼'}</span>
+                            )}
+                          </div>
+                        </th>
                         <th className="w-24 text-center">Дії</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredChildren.map(c => (
-                        <tr key={c.ID} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
-                          <td className="font-bold text-slate-800 dark:text-slate-100">
-                            <button 
-                              onClick={() => setViewingChild(c)}
-                              className="hover:text-blue-600 font-bold text-left transition underline decoration-dotted flex items-center space-x-1.5"
-                            >
-                              <span>{c.GENDER === 'Жіноча' ? '👧' : '👦'} {c.FULL_NAME}</span>
-                            </button>
-                          </td>
-                          <td className="text-center font-mono text-slate-600">{c.BIRTH_DATE}</td>
-                          <td className="font-bold text-blue-600 dark:text-blue-400">{c.GROUP_NAME}</td>
-                          <td>
-                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-semibold text-[11px]">
-                              {c.BENEFIT_CATEGORY || 'Загальна'}
-                            </span>
-                          </td>
-                          <td className="font-medium text-slate-700 dark:text-slate-300">
-                            <div>{c.MOTHER_NAME || c.PARENT_NAME || '-'}</div>
-                            <div className="font-mono text-[11px] text-blue-600 font-bold">{c.MOTHER_PHONE || c.PARENT_PHONE || ''}</div>
-                          </td>
-                          <td>
-                            {c.DIET_NOTES ? (
-                              <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded font-bold text-[10px] inline-flex items-center space-x-1">
-                                <span>🍎 {c.DIET_NOTES}</span>
-                              </span>
-                            ) : (
-                              <span className="text-slate-400 text-[11px]">Звичайна</span>
-                            )}
-                          </td>
-                          <td className="text-center">
-                            <SearchableSelect
-                              value={c.STATUS}
-                              onChange={(e) => handleQuickStatusChange(c, e.target.value as any)}
-                              className={`px-2 py-1 rounded-lg font-bold text-[11px] border cursor-pointer ${
-                                c.STATUS === 'Навчається' ? 'bg-emerald-50 text-emerald-800 border-emerald-300' :
-                                (c.STATUS === 'Вибув' ? 'bg-rose-50 text-rose-800 border-rose-300 font-black' :
-                                (c.STATUS === 'Тимчасово відсутній' ? 'bg-amber-50 text-amber-800 border-amber-300' : 'bg-purple-50 text-purple-800 border-purple-300'))
-                              }`}
-                            >
-                              <option value="Навчається">🟢 Навчається</option>
-                              <option value="Вибув">🔴 Вибув</option>
-                              <option value="Тимчасово відсутній">🟡 Тимчасово відсутній</option>
-                              <option value="Випускник">🎓 Випускник</option>
-                            </SearchableSelect>
-                          </td>
-                          <td className="text-center">
-                            <div className="flex items-center justify-center space-x-1">
-                              <button onClick={() => setViewingChild(c)} className="p-1 text-indigo-600 hover:bg-indigo-50 rounded" title="Переглянути Особову картку"><FileText className="w-4 h-4" /></button>
-                              <button onClick={() => handleOpenChildModal(c)} className="p-1 text-blue-600 hover:bg-blue-50 rounded" title="Редагувати картку"><Edit3 className="w-4 h-4" /></button>
-                              <button onClick={() => handleDeleteChild(c.ID)} className="p-1 text-rose-500 hover:bg-rose-50 rounded" title="Вилучити"><Trash2 className="w-4 h-4" /></button>
-                            </div>
+                      {filteredChildren.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="py-8 text-center text-slate-400">
+                            <Baby className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                            <p className="font-bold text-slate-600 dark:text-slate-300 text-sm">Вихованців не знайдено за вибраними фільтрами</p>
+                            <p className="text-xs text-slate-400 mt-1">Спробуйте змінити критерії пошуку або скинути фільтри</p>
                           </td>
                         </tr>
-                      ))}
+                      ) : (
+                        filteredChildren.map(c => (
+                          <tr key={c.ID} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
+                            <td className="font-bold text-slate-800 dark:text-slate-100">
+                              <button 
+                                onClick={() => setViewingChild(c)}
+                                className="hover:text-blue-600 font-bold text-left transition underline decoration-dotted flex items-center space-x-1.5"
+                              >
+                                <span>{c.GENDER === 'Жіноча' ? '👧' : '👦'} {c.FULL_NAME}</span>
+                              </button>
+                            </td>
+                            <td className="text-center font-mono text-slate-600 dark:text-slate-400">{c.BIRTH_DATE}</td>
+                            <td className="font-bold text-blue-600 dark:text-blue-400">{c.GROUP_NAME}</td>
+                            <td>
+                              <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-semibold text-[11px]">
+                                {c.BENEFIT_CATEGORY || 'Загальна'}
+                              </span>
+                            </td>
+                            <td className="font-medium text-slate-700 dark:text-slate-300">
+                              <div>{c.MOTHER_NAME || c.PARENT_NAME || '-'}</div>
+                              <div className="font-mono text-[11px] text-blue-600 dark:text-blue-400 font-bold">{c.MOTHER_PHONE || c.PARENT_PHONE || ''}</div>
+                            </td>
+                            <td>
+                              {c.DIET_NOTES ? (
+                                <span className="px-2 py-0.5 bg-amber-100 text-amber-900 dark:bg-amber-950/80 dark:text-amber-200 border border-amber-300 dark:border-amber-800 rounded font-bold text-[10px] inline-flex items-center space-x-1">
+                                  <span>🍎 {c.DIET_NOTES}</span>
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">Звичайна</span>
+                              )}
+                            </td>
+                            <td className="text-center">
+                              <select
+                                value={c.STATUS}
+                                onChange={(e) => handleQuickStatusChange(c, e.target.value as any)}
+                                className={`w-full min-w-[155px] px-2.5 py-1.5 rounded-lg font-bold text-xs border shadow-xs cursor-pointer outline-none transition ${
+                                  c.STATUS === 'Навчається'
+                                    ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                                    : (c.STATUS === 'Вибув'
+                                      ? 'bg-rose-50 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 font-black'
+                                      : (c.STATUS === 'Тимчасово відсутній'
+                                        ? 'bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                                        : 'bg-purple-50 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700'))
+                                }`}
+                              >
+                                <option value="Навчається">🟢 Навчається</option>
+                                <option value="Вибув">🔴 Вибув</option>
+                                <option value="Тимчасово відсутній">🟡 Тимчасово відсутній</option>
+                                <option value="Випускник">🎓 Випускник</option>
+                              </select>
+                            </td>
+                            <td className="text-center">
+                              <div className="flex items-center justify-center space-x-1">
+                                <button onClick={() => setViewingChild(c)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition" title="Переглянути Особову картку"><FileText className="w-4 h-4" /></button>
+                                <button onClick={() => handleOpenChildModal(c)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition" title="Редагувати картку"><Edit3 className="w-4 h-4" /></button>
+                                <button onClick={() => handleDeleteChild(c.ID)} className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition" title="Вилучити"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -867,18 +1213,26 @@ export const StructureRegistryModule: React.FC = () => {
               </div>
 
               {/* QUICK STATUS SWITCHER INSIDE MODAL */}
-              <div className="p-3 bg-slate-100 dark:bg-slate-800 border rounded-xl flex items-center justify-between">
+              <div className="p-3 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-3">
                 <span className="font-bold text-slate-800 dark:text-slate-200">Поточний статус у закладі:</span>
-                <SearchableSelect
+                <select
                   value={viewingChild.STATUS}
                   onChange={(e) => handleQuickStatusChange(viewingChild, e.target.value as any)}
-                  className="px-3 py-1 bg-white dark:bg-slate-900 border rounded-lg font-bold text-xs"
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs border shadow-xs cursor-pointer outline-none transition ${
+                    viewingChild.STATUS === 'Навчається'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
+                      : (viewingChild.STATUS === 'Вибув'
+                        ? 'bg-rose-50 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 font-black'
+                        : (viewingChild.STATUS === 'Тимчасово відсутній'
+                          ? 'bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                          : 'bg-purple-50 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700'))
+                  }`}
                 >
                   <option value="Навчається">🟢 Навчається</option>
                   <option value="Вибув">🔴 Вибув</option>
                   <option value="Тимчасово відсутній">🟡 Тимчасово відсутній</option>
                   <option value="Випускник">🎓 Випускник</option>
-                </SearchableSelect>
+                </select>
               </div>
 
               <div className="pt-2 flex justify-between items-center shrink-0">
