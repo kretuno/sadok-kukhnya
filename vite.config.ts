@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['logo.svg', 'logo.png', 'sql-wasm.js', 'sql-wasm.wasm', 'medsestra.db', 'medsestra.bin'],
       manifest: {
         name: 'SADOK Екосистема',
@@ -28,6 +28,8 @@ export default defineConfig({
       },
       workbox: {
         cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         navigateFallback: 'index.html',
         globPatterns: ['**/*.{js,css,html,png,svg,wasm,db,bin}'],
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
