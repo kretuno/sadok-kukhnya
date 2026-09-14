@@ -20,6 +20,7 @@ const ReportsModule = lazy(() => import('./components/modules/ReportsModule').th
 const PrintCenterModule = lazy(() => import('./components/modules/PrintCenterModule').then(m => ({ default: m.PrintCenterModule })));
 const AboutModule = lazy(() => import('./components/modules/AboutModule').then(m => ({ default: m.AboutModule })));
 const SettingsModule = lazy(() => import('./components/modules/SettingsModule').then(m => ({ default: m.SettingsModule })));
+const MedicalModule = lazy(() => import('./components/modules/MedicalModule').then(m => ({ default: m.MedicalModule })));
 
 function ModuleLoadingFallback() {
   return (
@@ -182,6 +183,7 @@ export function App() {
             {activeTab === 'menu_planner' && <MenuPlannerModule />}
             {activeTab === 'property' && <PropertyManagementModule />}
             {activeTab === 'cadres' && <StructureRegistryModule />}
+            {activeTab === 'medical' && <MedicalModule />}
             {activeTab === 'psychologist' && <PsychologistModule />}
             {activeTab === 'recipes' && <RecipeCatalogModule />}
             {activeTab === 'products' && <ProductsModule />}

@@ -29,6 +29,9 @@ export function entityTypeOrder(entityType: string, deleted = false): number {
     psychology_readiness: 12,
     psychology_consultation: 13,
     psychology_report: 14,
+    medical_card: 15,
+    medical_vaccination: 16,
+    medical_anthropometry: 17,
   };
   const order = normalOrder[entityType] || 99;
   return deleted ? 100 - order : order;

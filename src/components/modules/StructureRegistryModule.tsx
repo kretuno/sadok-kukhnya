@@ -1,5 +1,6 @@
 import { SearchableSelect } from "../common/SearchableSelect";
 import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
+import { MassGroupTransferModal } from "../common/MassGroupTransferModal";
 import React, { useState, useEffect, useMemo } from 'react';
 import { SadokGroup, SadokEmployee, SadokChild } from '../../types';
 import { 
@@ -64,6 +65,7 @@ export const StructureRegistryModule: React.FC = () => {
   const [viewingEmployee, setViewingEmployee] = useState<SadokEmployee | null>(null);
   const [viewingGroup, setViewingGroup] = useState<SadokGroup | null>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isMassTransferOpen, setIsMassTransferOpen] = useState(false);
 
   // Edit Modals
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -493,6 +495,14 @@ export const StructureRegistryModule: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsMassTransferOpen(true)}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl font-bold text-xs transition flex items-center space-x-1.5 shadow-md shadow-purple-600/20 cursor-pointer"
+                title="Масове переведення дітей між групами та випуск старших груп до школи"
+              >
+                <Calendar className="w-4 h-4 text-amber-300" />
+                <span>1 Вересня (Переведення груп)</span>
+              </button>
               <button
                 onClick={() => setIsGuideOpen(true)}
                 className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-xs transition flex items-center space-x-1.5 shadow-xs"
@@ -1758,6 +1768,15 @@ export const StructureRegistryModule: React.FC = () => {
           'Будь-який список (Групи, Кадри, Діти) можна миттєво експортувати в Excel (.xlsx) або PDF кнопками на верхній панелі.',
           'При редагуванні групи можна вказати як стандартну вікову категорію, так і спеціальну (Логопедична, Інклюзивна, Санаторна тощо).'
         ]}
+      />
+
+      {/* MASS GROUP TRANSFER MODAL ("1 ВЕРЕСНЯ") */}
+      <MassGroupTransferModal
+        isOpen={isMassTransferOpen}
+        onClose={() => setIsMassTransferOpen(false)}
+        groups={groups}
+        children={children}
+        onComplete={loadAllData}
       />
     </>
   );

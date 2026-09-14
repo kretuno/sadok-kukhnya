@@ -7,7 +7,8 @@ import {
   ProductHistoryData, ProductHistoryBatch, ProductHistoryUsage, PropertyItem, PropertyWriteOffRecord,
   SadokGroup, SadokEmployee, SadokChild, DishCostProfile, DishCostHistoryEntry,
   MenuApproval, DocumentRegistryEntry, PsychologyAdaptationRecord, SchoolReadinessAssessment, PsychologyConsultation,
-  PsychologyReportRow, PsychologySummaryReport
+  PsychologyReportRow, PsychologySummaryReport,
+  SadokMedicalCard, SadokVaccination, SadokAnthropometry
 } from '../types';
 import {
   planFifoDeductions,
@@ -1159,6 +1160,15 @@ function buildSyncPayload(
       productSyncId: ensureSyncMetadata('product', String(row.ID_PRODUKTA)).SYNC_ID,
     };
   }
+  if (entityType === 'medical_card') {
+    return { row: getMedicalCards().find(m => String(m.ID) === localId) || null };
+  }
+  if (entityType === 'medical_vaccination') {
+    return { row: getVaccinations().find(v => String(v.ID) === localId) || null };
+  }
+  if (entityType === 'medical_anthropometry') {
+    return { row: getAnthropometries().find(a => String(a.ID) === localId) || null };
+  }
   return { row };
 }
 
@@ -1225,6 +1235,9 @@ function ensureAllSyncMetadata(): void {
   getSchoolReadinessAssessments().forEach(r => ensureSyncMetadata('psychology_readiness', String(r.ID)));
   getPsychologyConsultations().forEach(c => ensureSyncMetadata('psychology_consultation', String(c.ID)));
   getPsychologySummaryReports().forEach(r => ensureSyncMetadata('psychology_report', String(r.ID)));
+  getMedicalCards().forEach(m => ensureSyncMetadata('medical_card', String(m.ID)));
+  getVaccinations().forEach(v => ensureSyncMetadata('medical_vaccination', String(v.ID)));
+  getAnthropometries().forEach(a => ensureSyncMetadata('medical_anthropometry', String(a.ID)));
 }
 
 export function exportLocalSyncEntities(entityTypes?: Iterable<SyncEntityType>): LocalSyncEntity[] {
@@ -1298,6 +1311,9 @@ export function reconcileLocalBootstrapSnapshot(
         psychology_readiness: 12,
         psychology_consultation: 13,
         psychology_report: 14,
+        medical_card: 15,
+        medical_vaccination: 16,
+        medical_anthropometry: 17,
       };
       return order[left.ENTITY_TYPE] - order[right.ENTITY_TYPE];
     });
@@ -1338,6 +1354,15 @@ export function reconcileLocalBootstrapSnapshot(
       }
       if (row.ENTITY_TYPE === 'psychology_report') {
         localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(getPsychologySummaryReports().filter(r => String(r.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'medical_card') {
+        localStorage.setItem('sadok_medical_cards', JSON.stringify(getMedicalCards().filter(m => String(m.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'medical_vaccination') {
+        localStorage.setItem('sadok_vaccinations', JSON.stringify(getVaccinations().filter(v => String(v.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'medical_anthropometry') {
+        localStorage.setItem('sadok_anthropometries', JSON.stringify(getAnthropometries().filter(a => String(a.ID) !== row.LOCAL_ID)));
       }
       db.run('DELETE FROM SADOK_ENTITY_SYNC_META WHERE SYNC_ID=?', [row.SYNC_ID]);
     });
@@ -1444,6 +1469,15 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
       }
       if (remote.entityType === 'psychology_report') {
         localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(getPsychologySummaryReports().filter(r => String(r.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'medical_card') {
+        localStorage.setItem('sadok_medical_cards', JSON.stringify(getMedicalCards().filter(m => String(m.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'medical_vaccination') {
+        localStorage.setItem('sadok_vaccinations', JSON.stringify(getVaccinations().filter(v => String(v.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'medical_anthropometry') {
+        localStorage.setItem('sadok_anthropometries', JSON.stringify(getAnthropometries().filter(a => String(a.ID) !== existing.LOCAL_ID)));
       }
       saveRemoteMetadata(remote, existing.LOCAL_ID);
     }
@@ -1613,6 +1647,42 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
     const exists = current.some(r => String(r.ID) === localId);
     const updated = exists ? current.map(r => String(r.ID) === localId ? updatedRow : r) : [updatedRow, ...current];
     localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'medical_card') {
+    const current = getMedicalCards();
+    const row = rawRow as unknown as SadokMedicalCard;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(m => m.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(m => String(m.ID) === localId);
+    const updated = exists ? current.map(m => String(m.ID) === localId ? updatedRow : m) : [updatedRow, ...current];
+    localStorage.setItem('sadok_medical_cards', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'medical_vaccination') {
+    const current = getVaccinations();
+    const row = rawRow as unknown as SadokVaccination;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(v => v.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(v => String(v.ID) === localId);
+    const updated = exists ? current.map(v => String(v.ID) === localId ? updatedRow : v) : [updatedRow, ...current];
+    localStorage.setItem('sadok_vaccinations', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'medical_anthropometry') {
+    const current = getAnthropometries();
+    const row = rawRow as unknown as SadokAnthropometry;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(a => a.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(a => String(a.ID) === localId);
+    const updated = exists ? current.map(a => String(a.ID) === localId ? updatedRow : a) : [updatedRow, ...current];
+    localStorage.setItem('sadok_anthropometries', JSON.stringify(updated));
     saveRemoteMetadata(remote, localId);
     return;
   }
@@ -3808,5 +3878,330 @@ export function deletePsychologySummaryReport(id: number): PsychologySummaryRepo
   queueCurrentSyncEntity('psychology_report', String(id), 'delete', false, target as unknown as Record<string, unknown>);
   const updated = current.filter(item => item.ID !== id);
   localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
+  return updated;
+}
+
+// ==========================================
+// 1 ВЕРЕСНЯ: МАСОВЕ ПЕРЕВЕДЕННЯ КОНТИНГЕНТУ
+// ==========================================
+export interface ChildGroupTransferItem {
+  childId: number;
+  targetGroupName: string;
+  targetStatus?: 'Навчається' | 'Випускник' | 'Вибув';
+}
+
+export function batchTransferChildren(transfers: ChildGroupTransferItem[]): SadokChild[] {
+  requirePermission('registry.write');
+  const current = getChildren();
+  const transferMap = new Map(transfers.map(t => [t.childId, t]));
+
+  const updated = current.map(c => {
+    const t = transferMap.get(c.ID);
+    if (!t) return c;
+    return {
+      ...c,
+      GROUP_NAME: t.targetGroupName,
+      STATUS: t.targetStatus || c.STATUS,
+    };
+  });
+
+  localStorage.setItem('sadok_children', JSON.stringify(updated));
+  transfers.forEach(t => {
+    queueCurrentSyncEntity('child', String(t.childId), 'upsert', false);
+  });
+
+  recordAudit({
+    action: 'update',
+    entityType: 'child',
+    entityId: 'batch-transfer',
+    summary: `Масове переведення «1 Вересня»: переведено ${transfers.length} вихованців`,
+    after: { transferredCount: transfers.length },
+  });
+
+  return updated;
+}
+
+// ==========================================
+// SADOK МЕДИЧНИЙ: КАРТКИ, ЩЕПЛЕННЯ, АНТРОПОМЕТРІЯ
+// ==========================================
+
+const INITIAL_MEDICAL_CARDS: SadokMedicalCard[] = [
+  {
+    ID: 1,
+    CHILD_ID: 1,
+    CHILD_NAME: 'Коваленко Данило Олександрович',
+    GROUP_NAME: 'Група «Сонечко» (Ясельна)',
+    BIRTH_DATE: '2022-05-14',
+    HEALTH_GROUP: 'I (Здорові)',
+    PHYSICAL_GROUP: 'Основна',
+    DESK_FURNITURE_SIZE: '1 (85-100 см)',
+    DIET_PRECAUTIONS: 'Безлактозна дієта',
+    CHRONIC_CONDITIONS: 'Немає',
+    VISION_HEARING_NOTES: 'Зір 1.0, слух у нормі',
+    DOCTOR_CONCLUSION: 'Соматично здоровий. Допущений до відвідування ЗДО.',
+    UPDATED_AT: '2026-09-01'
+  },
+  {
+    ID: 2,
+    CHILD_ID: 2,
+    CHILD_NAME: 'Шевченко Марія Вікторівна',
+    GROUP_NAME: 'Група «Сонечко» (Ясельна)',
+    BIRTH_DATE: '2022-08-20',
+    HEALTH_GROUP: 'I (Здорові)',
+    PHYSICAL_GROUP: 'Основна',
+    DESK_FURNITURE_SIZE: '1 (85-100 см)',
+    DIET_PRECAUTIONS: 'Звичайне харчування',
+    CHRONIC_CONDITIONS: 'Немає',
+    VISION_HEARING_NOTES: 'У нормі',
+    DOCTOR_CONCLUSION: 'Практично здорова.',
+    UPDATED_AT: '2026-09-01'
+  }
+];
+
+const INITIAL_VACCINATIONS: SadokVaccination[] = [
+  {
+    ID: 1,
+    CHILD_ID: 1,
+    CHILD_NAME: 'Коваленко Данило Олександрович',
+    GROUP_NAME: 'Група «Сонечко» (Ясельна)',
+    VACCINE_TYPE: 'БЦЖ',
+    DOSE_STAGE: 'V (В пологовому)',
+    ADMINISTERED_DATE: '2022-05-17',
+    SERIES_NUMBER: 'BCG-4491',
+    REACTION: 'Звичайна',
+    STATUS: 'Зроблено',
+    NOTES: 'Рубчик 5 мм'
+  },
+  {
+    ID: 2,
+    CHILD_ID: 1,
+    CHILD_NAME: 'Коваленко Данило Олександрович',
+    GROUP_NAME: 'Група «Сонечко» (Ясельна)',
+    VACCINE_TYPE: 'КПК',
+    DOSE_STAGE: 'V1 (12 місяців)',
+    ADMINISTERED_DATE: '2023-05-20',
+    SERIES_NUMBER: 'MMR-9021',
+    REACTION: 'Звичайна',
+    STATUS: 'Зроблено',
+    NOTES: 'Вакцина Пріорикс'
+  },
+  {
+    ID: 3,
+    CHILD_ID: 1,
+    CHILD_NAME: 'Коваленко Данило Олександрович',
+    GROUP_NAME: 'Група «Сонечко» (Ясельна)',
+    VACCINE_TYPE: 'АКДП / АДП-м',
+    DOSE_STAGE: 'R1 (18 місяців)',
+    ADMINISTERED_DATE: '2023-11-15',
+    SERIES_NUMBER: 'DTP-3011',
+    REACTION: 'Звичайна',
+    STATUS: 'Зроблено',
+    NOTES: 'Гексаксим'
+  },
+  {
+    ID: 4,
+    CHILD_ID: 2,
+    CHILD_NAME: 'Шевченко Марія Вікторівна',
+    GROUP_NAME: 'Група «Сонечко» (Ясельна)',
+    VACCINE_TYPE: 'БЦЖ',
+    DOSE_STAGE: 'V (В пологовому)',
+    ADMINISTERED_DATE: '2022-08-23',
+    SERIES_NUMBER: 'BCG-5002',
+    REACTION: 'Звичайна',
+    STATUS: 'Зроблено',
+    NOTES: 'Рубчик 4 мм'
+  }
+];
+
+const INITIAL_ANTHROPOMETRY: SadokAnthropometry[] = [
+  {
+    ID: 1,
+    CHILD_ID: 1,
+    CHILD_NAME: 'Коваленко Данило Олександрович',
+    GROUP_NAME: 'Група «Сонечко» (Ясельна)',
+    DATE: '2026-09-02',
+    SEASON: 'Осінь',
+    HEIGHT_CM: 98,
+    WEIGHT_KG: 15.2,
+    CHEST_CM: 52,
+    EVALUATION: 'Нормальний розвиток',
+    NOTES: 'Відповідає віковій нормі'
+  },
+  {
+    ID: 2,
+    CHILD_ID: 2,
+    CHILD_NAME: 'Шевченко Марія Вікторівна',
+    GROUP_NAME: 'Група «Сонечко» (Ясельна)',
+    DATE: '2026-09-02',
+    SEASON: 'Осінь',
+    HEIGHT_CM: 95,
+    WEIGHT_KG: 14.1,
+    CHEST_CM: 50,
+    EVALUATION: 'Нормальний розвиток',
+    NOTES: 'Гармонійний розвиток'
+  }
+];
+
+// Medical Cards
+export function getMedicalCards(): SadokMedicalCard[] {
+  const saved = localStorage.getItem('sadok_medical_cards');
+  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+  localStorage.setItem('sadok_medical_cards', JSON.stringify(INITIAL_MEDICAL_CARDS));
+  return INITIAL_MEDICAL_CARDS;
+}
+
+export function saveMedicalCard(card: Partial<SadokMedicalCard> & { CHILD_ID: number; CHILD_NAME: string }): SadokMedicalCard[] {
+  requirePermission('registry.write');
+  const current = getMedicalCards();
+  let updated: SadokMedicalCard[];
+  let savedId: number;
+
+  const existing = current.find(item => (card.ID && item.ID === card.ID) || item.CHILD_ID === card.CHILD_ID);
+  if (existing) {
+    savedId = existing.ID;
+    updated = current.map(item => item.ID === existing.ID ? {
+      ...item,
+      ...card,
+      UPDATED_AT: new Date().toISOString().split('T')[0]
+    } as SadokMedicalCard : item);
+  } else {
+    savedId = card.ID || (current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1);
+    const newRecord: SadokMedicalCard = {
+      ID: savedId,
+      CHILD_ID: card.CHILD_ID,
+      CHILD_NAME: card.CHILD_NAME,
+      GROUP_NAME: card.GROUP_NAME || 'Група «Сонечко»',
+      BIRTH_DATE: card.BIRTH_DATE || '2022-01-01',
+      HEALTH_GROUP: card.HEALTH_GROUP || 'I (Здорові)',
+      PHYSICAL_GROUP: card.PHYSICAL_GROUP || 'Основна',
+      DESK_FURNITURE_SIZE: card.DESK_FURNITURE_SIZE || '1 (85-100 см)',
+      DIET_PRECAUTIONS: card.DIET_PRECAUTIONS || 'Звичайне харчування',
+      CHRONIC_CONDITIONS: card.CHRONIC_CONDITIONS || 'Немає',
+      VISION_HEARING_NOTES: card.VISION_HEARING_NOTES || 'У нормі',
+      DOCTOR_CONCLUSION: card.DOCTOR_CONCLUSION || 'Допущений до відвідування ЗДО',
+      UPDATED_AT: new Date().toISOString().split('T')[0]
+    };
+    updated = [newRecord, ...current];
+  }
+
+  localStorage.setItem('sadok_medical_cards', JSON.stringify(updated));
+  queueCurrentSyncEntity('medical_card', String(savedId), 'upsert', !existing);
+  return updated;
+}
+
+export function deleteMedicalCard(id: number): SadokMedicalCard[] {
+  requirePermission('registry.write');
+  const current = getMedicalCards();
+  const target = current.find(item => item.ID === id);
+  if (target) {
+    queueCurrentSyncEntity('medical_card', String(id), 'delete', false, target as unknown as Record<string, unknown>);
+  }
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_medical_cards', JSON.stringify(updated));
+  return updated;
+}
+
+// Vaccinations
+export function getVaccinations(): SadokVaccination[] {
+  const saved = localStorage.getItem('sadok_vaccinations');
+  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+  localStorage.setItem('sadok_vaccinations', JSON.stringify(INITIAL_VACCINATIONS));
+  return INITIAL_VACCINATIONS;
+}
+
+export function saveVaccination(vac: Partial<SadokVaccination> & { CHILD_ID: number; CHILD_NAME: string; VACCINE_TYPE: SadokVaccination['VACCINE_TYPE'] }): SadokVaccination[] {
+  requirePermission('registry.write');
+  const current = getVaccinations();
+  let updated: SadokVaccination[];
+  let savedId: number;
+
+  if (vac.ID) {
+    savedId = vac.ID;
+    updated = current.map(item => item.ID === vac.ID ? { ...item, ...vac } as SadokVaccination : item);
+  } else {
+    savedId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newRecord: SadokVaccination = {
+      ID: savedId,
+      CHILD_ID: vac.CHILD_ID,
+      CHILD_NAME: vac.CHILD_NAME,
+      GROUP_NAME: vac.GROUP_NAME || 'Група «Сонечко»',
+      VACCINE_TYPE: vac.VACCINE_TYPE,
+      DOSE_STAGE: vac.DOSE_STAGE || 'V1',
+      ADMINISTERED_DATE: vac.ADMINISTERED_DATE || new Date().toISOString().split('T')[0],
+      SERIES_NUMBER: vac.SERIES_NUMBER || '',
+      REACTION: vac.REACTION || 'Звичайна',
+      EXEMPTION_REASON: vac.EXEMPTION_REASON || '',
+      STATUS: vac.STATUS || 'Зроблено',
+      NOTES: vac.NOTES || ''
+    };
+    updated = [newRecord, ...current];
+  }
+
+  localStorage.setItem('sadok_vaccinations', JSON.stringify(updated));
+  queueCurrentSyncEntity('medical_vaccination', String(savedId), 'upsert', !vac.ID);
+  return updated;
+}
+
+export function deleteVaccination(id: number): SadokVaccination[] {
+  requirePermission('registry.write');
+  const current = getVaccinations();
+  const target = current.find(item => item.ID === id);
+  if (target) {
+    queueCurrentSyncEntity('medical_vaccination', String(id), 'delete', false, target as unknown as Record<string, unknown>);
+  }
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_vaccinations', JSON.stringify(updated));
+  return updated;
+}
+
+// Anthropometry
+export function getAnthropometries(): SadokAnthropometry[] {
+  const saved = localStorage.getItem('sadok_anthropometries');
+  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
+  localStorage.setItem('sadok_anthropometries', JSON.stringify(INITIAL_ANTHROPOMETRY));
+  return INITIAL_ANTHROPOMETRY;
+}
+
+export function saveAnthropometry(rec: Partial<SadokAnthropometry> & { CHILD_ID: number; CHILD_NAME: string }): SadokAnthropometry[] {
+  requirePermission('registry.write');
+  const current = getAnthropometries();
+  let updated: SadokAnthropometry[];
+  let savedId: number;
+
+  if (rec.ID) {
+    savedId = rec.ID;
+    updated = current.map(item => item.ID === rec.ID ? { ...item, ...rec } as SadokAnthropometry : item);
+  } else {
+    savedId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newRecord: SadokAnthropometry = {
+      ID: savedId,
+      CHILD_ID: rec.CHILD_ID,
+      CHILD_NAME: rec.CHILD_NAME,
+      GROUP_NAME: rec.GROUP_NAME || 'Група «Сонечко»',
+      DATE: rec.DATE || new Date().toISOString().split('T')[0],
+      SEASON: rec.SEASON || (new Date().getMonth() >= 8 ? 'Осінь' : 'Весна'),
+      HEIGHT_CM: Number(rec.HEIGHT_CM) || 100,
+      WEIGHT_KG: Number(rec.WEIGHT_KG) || 16,
+      CHEST_CM: rec.CHEST_CM ? Number(rec.CHEST_CM) : undefined,
+      EVALUATION: rec.EVALUATION || 'Нормальний розвиток',
+      NOTES: rec.NOTES || ''
+    };
+    updated = [newRecord, ...current];
+  }
+
+  localStorage.setItem('sadok_anthropometries', JSON.stringify(updated));
+  queueCurrentSyncEntity('medical_anthropometry', String(savedId), 'upsert', !rec.ID);
+  return updated;
+}
+
+export function deleteAnthropometry(id: number): SadokAnthropometry[] {
+  requirePermission('registry.write');
+  const current = getAnthropometries();
+  const target = current.find(item => item.ID === id);
+  if (target) {
+    queueCurrentSyncEntity('medical_anthropometry', String(id), 'delete', false, target as unknown as Record<string, unknown>);
+  }
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_anthropometries', JSON.stringify(updated));
   return updated;
 }

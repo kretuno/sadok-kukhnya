@@ -1,6 +1,7 @@
 import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState } from 'react';
 import { APP_VERSION } from '../../config/version';
+import { DirectorDashboardView } from '../dashboard/DirectorDashboardView';
 import {
   Utensils,
   Package,
@@ -43,6 +44,7 @@ interface ProjectModuleItem {
 }
 
 export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule }) => {
+  const [activeHubView, setActiveHubView] = useState<'dashboard' | 'catalog'>('dashboard');
   const [selectedInDevModule, setSelectedInDevModule] = useState<ProjectModuleItem | null>(null);
 
   // Feedback Form State
@@ -149,13 +151,13 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
       badgeLetter: 'S',
       gradient: 'from-emerald-500 to-teal-600 shadow-emerald-500/30',
       icon: HeartPulse,
-      status: 'in_dev',
-      description: 'Медична карта дитини, антропометрія, журнал профілактичних щеплень, медогляди та контроль соматичного здоров’я.',
+      status: 'active',
+      description: 'Медична карта вихованця, Листок здоров\'я з меблями за ДБН, журнал профілактичних щеплень (Форма № 063/о) та сезонна антропометрія.',
       features: [
-        'Картка профілактичних щеплень (Форма № 063/о)',
-        'Журнал обліку захворюваності та відвідуваності',
-        'Журнал антропометричних вимірювань та загартовування',
-        'Облік диспансерної групи та дієтичного харчування'
+        'Листок здоров\'я та маркування меблів за ДБН В.2.2-4:2018',
+        'Картка профілактичних щеплень (Форма первинного обліку № 063/о)',
+        'Журнал сезонної антропометрії (Осінь / Весна)',
+        'Облік груп здоров\'я (I/II/III) та дієтичного харчування'
       ]
     },
     {
@@ -217,19 +219,58 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
         </div>
       </div>
 
-      {/* MODULES GRID SECTION */}
-      <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 space-y-6">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
-          <div className="flex items-center space-x-2">
-            <Building className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-            <h2 className="text-sm font-extrabold text-slate-800 dark:text-white tracking-wide uppercase">
-              Модулі та субсистеми SADOK
-            </h2>
-          </div>
-          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
-            6 Спеціалізованих модулів
-          </span>
+      {/* VIEW SWITCHER: DASHBOARD vs CATALOG */}
+      <div className="max-w-6xl w-full mx-auto px-4 md:px-6 pt-5 pb-0 flex flex-wrap items-center justify-between gap-4">
+        <div className="bg-slate-200/90 dark:bg-slate-900/90 p-1.5 rounded-2xl flex items-center space-x-1 border border-slate-300 dark:border-slate-800 shadow-inner">
+          <button
+            onClick={() => setActiveHubView('dashboard')}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center space-x-2 cursor-pointer ${
+              activeHubView === 'dashboard'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <BarChart3 className="w-4 h-4" />
+            <span>Дашборд керівника («Садок на долоні»)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveHubView('catalog')}
+            className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center space-x-2 cursor-pointer ${
+              activeHubView === 'catalog'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Building className="w-4 h-4" />
+            <span>Каталог модулів ЗДО</span>
+          </button>
         </div>
+
+        <div className="hidden sm:flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400 font-semibold">
+          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+          <span>КЗДО (ясла-садок) КТ №145 КМР</span>
+        </div>
+      </div>
+
+      {activeHubView === 'dashboard' ? (
+        <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 space-y-6">
+          <DirectorDashboardView onNavigateTab={onSelectModule} />
+        </div>
+      ) : (
+        /* MODULES GRID SECTION */
+        <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 space-y-6">
+          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+            <div className="flex items-center space-x-2">
+              <Building className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <h2 className="text-sm font-extrabold text-slate-800 dark:text-white tracking-wide uppercase">
+                Модулі та субсистеми SADOK
+              </h2>
+            </div>
+            <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-0.5 rounded-full border border-slate-200 dark:border-slate-700 shadow-sm">
+              6 Спеціалізованих модулів
+            </span>
+          </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((proj) => {
@@ -475,6 +516,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
           </div>
         </div>
       </div>
+      )}
 
       {/* MODAL: IN DEVELOPMENT ANNOUNCEMENT */}
       {selectedInDevModule && (

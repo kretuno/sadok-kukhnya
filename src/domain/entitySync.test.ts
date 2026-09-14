@@ -33,6 +33,10 @@ describe('entity synchronization conflict rules', () => {
     expect(entityTypeOrder('menu_entry')).toBeLessThan(entityTypeOrder('menu_approval'));
     expect(entityTypeOrder('property_item')).toBeLessThan(entityTypeOrder('property_writeoff'));
     expect(entityTypeOrder('property_writeoff', true)).toBeLessThan(entityTypeOrder('property_item', true));
+    expect(entityTypeOrder('child')).toBeLessThan(entityTypeOrder('medical_card'));
+    expect(entityTypeOrder('medical_card')).toBeLessThan(entityTypeOrder('medical_vaccination'));
+    expect(entityTypeOrder('medical_vaccination')).toBeLessThan(entityTypeOrder('medical_anthropometry'));
+    expect(entityTypeOrder('medical_anthropometry', true)).toBeLessThan(entityTypeOrder('child', true));
   });
 
   it('removes only untouched seed records absent from the authoritative cloud snapshot', () => {

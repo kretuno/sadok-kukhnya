@@ -19,7 +19,10 @@ export type SyncEntityType =
   | 'psychology_adaptation'
   | 'psychology_readiness'
   | 'psychology_consultation'
-  | 'psychology_report';
+  | 'psychology_report'
+  | 'medical_card'
+  | 'medical_vaccination'
+  | 'medical_anthropometry';
 
 export interface EntitySyncMutation {
   id: string;

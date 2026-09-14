@@ -375,4 +375,57 @@ export interface PsychologySummaryReport {
   UPDATED_AT: string;
 }
 
+export interface SadokMedicalCard {
+  ID: number;
+  CHILD_ID: number;
+  CHILD_NAME: string;
+  GROUP_NAME: string;
+  BIRTH_DATE?: string;
+  HEALTH_GROUP: 'I (Здорові)' | 'II (Група ризику)' | 'III (Хронічні захворювання)';
+  PHYSICAL_GROUP: 'Основна' | 'Підготовча' | 'Спеціальна';
+  DESK_FURNITURE_SIZE: '0 (до 85 см)' | '1 (85-100 см)' | '2 (100-115 см)' | '3 (115-130 см)';
+  DIET_PRECAUTIONS: string; // e.g. "Безлактозна дієта", "Алергія на цитрусові"
+  CHRONIC_CONDITIONS?: string;
+  VISION_HEARING_NOTES?: string;
+  DOCTOR_CONCLUSION?: string;
+  UPDATED_AT: string;
+}
+
+export interface SadokVaccination {
+  ID: number;
+  CHILD_ID: number;
+  CHILD_NAME: string;
+  GROUP_NAME: string;
+  VACCINE_TYPE: 'БЦЖ' | 'Гепатит B' | 'Поліомієліт' | 'АКДП / АДП-м' | 'КПК' | 'ХІБ' | 'Інше';
+  DOSE_STAGE: string; // e.g. "V1 (1 доза)", "V2", "R1 (Ревакцинація)"
+  ADMINISTERED_DATE: string; // YYYY-MM-DD
+  SERIES_NUMBER?: string;
+  REACTION: 'Звичайна' | 'Слабка' | 'Місцева' | 'Ускладнена' | 'Відсутня';
+  EXEMPTION_REASON?: string; // Медвідвід або відмова батьків
+  STATUS: 'Зроблено' | 'Заплановано' | 'Прострочено' | 'Медвідвід';
+  NOTES?: string;
+}
+
+export interface SadokAnthropometry {
+  ID: number;
+  CHILD_ID: number;
+  CHILD_NAME: string;
+  GROUP_NAME: string;
+  DATE: string; // YYYY-MM-DD
+  SEASON: 'Осінь' | 'Весна';
+  HEIGHT_CM: number;
+  WEIGHT_KG: number;
+  CHEST_CM?: number;
+  EVALUATION: 'Нормальний розвиток' | 'Дефіцит ваги' | 'Надлишкова вага' | 'Високий зріст' | 'Низький зріст';
+  NOTES?: string;
+}
+
+export interface ChildGroupTransferItem {
+  childId: number;
+  targetGroupName: string;
+  targetStatus?: 'Навчається' | 'Випускник' | 'Вибув';
+}
+
+
+
 

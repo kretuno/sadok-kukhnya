@@ -102,6 +102,7 @@ const OPERATIONAL_ENTITY_TYPES: SyncEntityType[] = [
 const STRUCTURE_ENTITY_TYPES: SyncEntityType[] = [
   'group', 'employee', 'child', 'property_item', 'property_writeoff',
   'psychology_adaptation', 'psychology_readiness', 'psychology_consultation', 'psychology_report',
+  'medical_card', 'medical_vaccination', 'medical_anthropometry',
 ];
 const ALL_ENTITY_TYPES: SyncEntityType[] = [
   ...CATALOG_ENTITY_TYPES,

@@ -19,7 +19,8 @@ import {
   LayoutGrid,
   Users,
   BookOpenCheck,
-  Brain
+  Brain,
+  HeartPulse
 } from 'lucide-react';
 
 interface HeaderNavbarProps {
@@ -42,6 +43,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
   const isPropertyContext = activeTab === 'property';
   const isCadresContext = activeTab === 'cadres';
   const isPsychologistContext = activeTab === 'psychologist';
+  const isMedicalContext = activeTab === 'medical';
   const isPortalContext = activeTab === 'portal';
 
   const kitchenNavItems = [
@@ -78,6 +80,13 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
     { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
   ];
 
+  const medicalNavItems = [
+    { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
+    { id: 'medical', label: 'Медичний кабінет', icon: HeartPulse, hotkey: 'F10' },
+    { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
+    { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
+  ];
+
   const portalNavItems = [
     { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
     { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
@@ -90,14 +99,16 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
       ? cadresNavItems 
       : (isPsychologistContext
         ? psychologistNavItems
-        : (isPortalContext ? portalNavItems : kitchenNavItems)));
+        : (isMedicalContext
+          ? medicalNavItems
+          : (isPortalContext ? portalNavItems : kitchenNavItems))));
 
   return (
     <header className="bg-slate-800 text-white dark:bg-slate-900 border-b border-slate-700 shadow-md no-print sticky top-0 z-40 shrink-0">
       {/* Top Delphi Menu Bar */}
       <div className="flex items-center justify-between px-4 py-1.5 bg-slate-900 dark:bg-slate-950 text-xs border-b border-slate-700/60">
         <div className="flex items-center space-x-6 overflow-x-auto max-w-full">
-          <SadokLogo size="sm" subtitle={isPropertyContext ? `Майно v${APP_VERSION}` : (isCadresContext ? `Контингент v${APP_VERSION}` : (isPsychologistContext ? `Психолог v${APP_VERSION}` : `v${APP_VERSION}`))} />
+          <SadokLogo size="sm" subtitle={isPropertyContext ? `Майно v${APP_VERSION}` : (isCadresContext ? `Контингент v${APP_VERSION}` : (isPsychologistContext ? `Психолог v${APP_VERSION}` : (isMedicalContext ? `Медкабінет v${APP_VERSION}` : `v${APP_VERSION}`)))} />
           <nav className="flex space-x-4 text-slate-300 overflow-x-auto whitespace-nowrap py-0.5 shrink-0">
             <button onClick={() => setActiveTab('portal')} className="text-amber-400 font-extrabold hover:text-amber-300 transition flex items-center space-x-1"><span>🏠 Головне меню</span></button>
             {isPropertyContext && (
@@ -116,7 +127,12 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
                 <button onClick={() => setActiveTab('psychologist')} className="hover:text-white transition font-bold text-purple-300">Психологічний супровід</button>
               </>
             )}
-            {!isPropertyContext && !isCadresContext && !isPsychologistContext && !isPortalContext && (
+            {isMedicalContext && (
+              <>
+                <button onClick={() => setActiveTab('medical')} className="hover:text-white transition font-bold text-emerald-300">Медичний кабінет (Ф. 063/о)</button>
+              </>
+            )}
+            {!isPropertyContext && !isCadresContext && !isPsychologistContext && !isMedicalContext && !isPortalContext && (
               <>
                 <button onClick={() => setActiveTab('menu_planner')} className="hover:text-white transition">Файл</button>
                 <button onClick={() => setActiveTab('products')} className="hover:text-white transition">Довідники</button>
