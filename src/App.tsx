@@ -1,23 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { HeaderNavbar } from './components/HeaderNavbar';
-import { MenuPlannerModule } from './components/modules/MenuPlannerModule';
-import { RecipeCatalogModule } from './components/modules/RecipeCatalogModule';
-import { ProductsModule } from './components/modules/ProductsModule';
-import { SanpinNormsModule } from './components/modules/SanpinNormsModule';
-import { WarehouseModule } from './components/modules/WarehouseModule';
-import { ReportsModule } from './components/modules/ReportsModule';
-import { AboutModule } from './components/modules/AboutModule';
-import { SettingsModule } from './components/modules/SettingsModule';
 import { initDatabase } from './services/db';
 import { CheckCircle2, Loader2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
-
-import { PortalHubModule } from './components/modules/PortalHubModule';
-import { PropertyManagementModule } from './components/modules/PropertyManagementModule';
-import { StructureRegistryModule } from './components/modules/StructureRegistryModule';
-import { PrintCenterModule } from './components/modules/PrintCenterModule';
-import { PsychologistModule } from './components/modules/PsychologistModule';
 import { GovernanceError } from './services/governance';
 import { applyFullscreenModals, getFullscreenModals, UI_PREFERENCES_EVENT } from './services/uiPreferences';
+import { PwaUpdateNotification } from './components/common/PwaUpdateNotification';
+
+// Lazy-loaded modules for lightning-fast startup and memory efficiency
+const PortalHubModule = lazy(() => import('./components/modules/PortalHubModule').then(m => ({ default: m.PortalHubModule })));
+const MenuPlannerModule = lazy(() => import('./components/modules/MenuPlannerModule').then(m => ({ default: m.MenuPlannerModule })));
+const PropertyManagementModule = lazy(() => import('./components/modules/PropertyManagementModule').then(m => ({ default: m.PropertyManagementModule })));
+const StructureRegistryModule = lazy(() => import('./components/modules/StructureRegistryModule').then(m => ({ default: m.StructureRegistryModule })));
+const PsychologistModule = lazy(() => import('./components/modules/PsychologistModule').then(m => ({ default: m.PsychologistModule })));
+const RecipeCatalogModule = lazy(() => import('./components/modules/RecipeCatalogModule').then(m => ({ default: m.RecipeCatalogModule })));
+const ProductsModule = lazy(() => import('./components/modules/ProductsModule').then(m => ({ default: m.ProductsModule })));
+const SanpinNormsModule = lazy(() => import('./components/modules/SanpinNormsModule').then(m => ({ default: m.SanpinNormsModule })));
+const WarehouseModule = lazy(() => import('./components/modules/WarehouseModule').then(m => ({ default: m.WarehouseModule })));
+const ReportsModule = lazy(() => import('./components/modules/ReportsModule').then(m => ({ default: m.ReportsModule })));
+const PrintCenterModule = lazy(() => import('./components/modules/PrintCenterModule').then(m => ({ default: m.PrintCenterModule })));
+const AboutModule = lazy(() => import('./components/modules/AboutModule').then(m => ({ default: m.AboutModule })));
+const SettingsModule = lazy(() => import('./components/modules/SettingsModule').then(m => ({ default: m.SettingsModule })));
+
+function ModuleLoadingFallback() {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center min-h-[350px] p-6 text-slate-500 dark:text-slate-400">
+      <div className="p-3 bg-blue-50 dark:bg-blue-950/60 rounded-2xl border border-blue-200 dark:border-blue-900/50 mb-3 shadow-sm animate-pulse">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+      </div>
+      <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+        Завантаження розділу…
+      </span>
+      <span className="text-[11px] text-slate-400 mt-1">Оптимізація пам'яті для швидкої роботи</span>
+    </div>
+  );
+}
 
 export function App() {
   const [activeTab, setActiveTab] = useState<string>('portal');
@@ -161,7 +177,7 @@ export function App() {
         )}
 
         {dbStatus === 'ready' && (
-          <>
+          <Suspense fallback={<ModuleLoadingFallback />}>
             {activeTab === 'portal' && <PortalHubModule onSelectModule={(tab) => setActiveTab(tab)} />}
             {activeTab === 'menu_planner' && <MenuPlannerModule />}
             {activeTab === 'property' && <PropertyManagementModule />}
@@ -175,9 +191,12 @@ export function App() {
             {activeTab === 'print_center' && <PrintCenterModule />}
             {activeTab === 'about' && <AboutModule />}
             {activeTab === 'settings' && <SettingsModule />}
-          </>
+          </Suspense>
         )}
       </main>
+
+      {/* PWA Update Toast Notification */}
+      <PwaUpdateNotification />
 
       {/* Status bar */}
       <footer className="bg-slate-800 text-slate-300 dark:bg-slate-950 px-4 py-1 border-t border-slate-700 text-[11px] flex justify-between items-center no-print">

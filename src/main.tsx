@@ -4,7 +4,7 @@ import App from './App';
 import './index.css';
 import { registerSW } from 'virtual:pwa-register';
 import { persistDurableLocalState, restoreDurableLocalState } from './services/durableStorage';
-import { initializeInstallPrompt, OFFLINE_READY_EVENT } from './services/offlineSupport';
+import { initializeInstallPrompt, OFFLINE_READY_EVENT, notifyPwaUpdateAvailable } from './services/offlineSupport';
 
 async function startApplication() {
   initializeInstallPrompt();
@@ -20,10 +20,25 @@ async function startApplication() {
     </React.StrictMode>
   );
 
-  registerSW({
+  const updateSW = registerSW({
     immediate: true,
+    onNeedRefresh: () => {
+      notifyPwaUpdateAvailable(() => {
+        void updateSW(true);
+      });
+    },
     onOfflineReady: () => window.dispatchEvent(new CustomEvent(OFFLINE_READY_EVENT)),
-    onRegisteredSW: () => window.dispatchEvent(new CustomEvent(OFFLINE_READY_EVENT)),
+    onRegisteredSW: (_swUrl, r) => {
+      if (r) {
+        window.setInterval(() => {
+          void r.update().catch(() => undefined);
+        }, 15 * 60 * 1000);
+        window.addEventListener('focus', () => {
+          void r.update().catch(() => undefined);
+        });
+      }
+      window.dispatchEvent(new CustomEvent(OFFLINE_READY_EVENT));
+    },
     onRegisterError: error => console.warn('[PWA] Service worker registration failed:', error),
   });
 

@@ -40,3 +40,28 @@ export async function installApplication(): Promise<boolean> {
 export function isServiceWorkerActive(): boolean {
   return Boolean(navigator.serviceWorker?.controller);
 }
+
+export const PWA_UPDATE_EVENT = 'sadok-pwa-update';
+
+let pendingUpdateFn: (() => void) | null = null;
+let updateAvailable = false;
+
+export function notifyPwaUpdateAvailable(reloadFn?: () => void): void {
+  updateAvailable = true;
+  if (reloadFn) {
+    pendingUpdateFn = reloadFn;
+  }
+  window.dispatchEvent(new CustomEvent(PWA_UPDATE_EVENT));
+}
+
+export function isPwaUpdateAvailable(): boolean {
+  return updateAvailable;
+}
+
+export function triggerPwaUpdate(): void {
+  if (pendingUpdateFn) {
+    pendingUpdateFn();
+  } else {
+    window.location.reload();
+  }
+}
