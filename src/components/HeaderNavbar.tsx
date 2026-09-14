@@ -23,6 +23,8 @@ import {
   HeartPulse
 } from 'lucide-react';
 
+import { PortalRole } from '../services/portalSecurity';
+
 interface HeaderNavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -30,6 +32,8 @@ interface HeaderNavbarProps {
   setDarkMode: (val: boolean) => void;
   fontScale: number;
   setFontScale: React.Dispatch<React.SetStateAction<number>>;
+  portalRole?: PortalRole;
+  onExitToLanding?: () => void;
 }
 
 export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
@@ -38,7 +42,9 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
   darkMode,
   setDarkMode,
   fontScale,
-  setFontScale
+  setFontScale,
+  portalRole,
+  onExitToLanding
 }) => {
   const isPropertyContext = activeTab === 'property';
   const isCadresContext = activeTab === 'cadres';
@@ -150,7 +156,33 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
         </div>
 
         {/* System Controls */}
-        <div className="flex items-center space-x-3 text-slate-300">
+        <div className="flex items-center space-x-2.5 text-slate-300">
+          {portalRole === 'director' && (
+            <span className="hidden sm:inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 font-bold text-[11px]">
+              <span>👑</span>
+              <span>Керівник</span>
+            </span>
+          )}
+          {portalRole === 'staff' && (
+            <span className="hidden sm:inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-[11px]">
+              <span>🏢</span>
+              <span>Персонал</span>
+            </span>
+          )}
+
+          {onExitToLanding && (
+            <button
+              onClick={onExitToLanding}
+              className="px-2.5 py-1 bg-rose-500/20 hover:bg-rose-600 border border-rose-500/40 hover:border-rose-400 text-rose-300 hover:text-white rounded-lg font-bold text-xs transition flex items-center space-x-1.5 cursor-pointer shadow-sm"
+              title="Повернутися на головну материнську сторінку порталу"
+            >
+              <span>🚪</span>
+              <span>На головну</span>
+            </button>
+          )}
+
+          <div className="h-4 w-px bg-slate-700 mx-0.5 hidden sm:block" />
+
           <button
             onClick={() => setFontScale(prev => (prev === 1 ? 1.15 : (prev === 1.15 ? 0.9 : 1)))}
             className="px-2 py-0.5 bg-slate-800 rounded border border-slate-700 hover:bg-slate-700 text-[11px]"

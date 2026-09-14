@@ -5,6 +5,14 @@ import { CheckCircle2, Loader2, AlertCircle, Wifi, WifiOff } from 'lucide-react'
 import { GovernanceError } from './services/governance';
 import { applyFullscreenModals, getFullscreenModals, UI_PREFERENCES_EVENT } from './services/uiPreferences';
 import { PwaUpdateNotification } from './components/common/PwaUpdateNotification';
+import { MainPortalLanding } from './components/landing/MainPortalLanding';
+import { ParentSpaceView } from './components/landing/ParentSpaceView';
+import { 
+  getCurrentPortalRole, 
+  clearPortalRole, 
+  PORTAL_ROLE_EVENT, 
+  PortalRole 
+} from './services/portalSecurity';
 
 // Lazy-loaded modules for lightning-fast startup and memory efficiency
 const PortalHubModule = lazy(() => import('./components/modules/PortalHubModule').then(m => ({ default: m.PortalHubModule })));
@@ -45,6 +53,20 @@ export function App() {
   const [dbStatus, setDbStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [dbError, setDbError] = useState<string>('');
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [portalRole, setPortalRole] = useState<PortalRole>(() => getCurrentPortalRole());
+
+  useEffect(() => {
+    const handleRoleChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ role: PortalRole }>;
+      if (customEvent.detail?.role) {
+        setPortalRole(customEvent.detail.role);
+      } else {
+        setPortalRole(getCurrentPortalRole());
+      }
+    };
+    window.addEventListener(PORTAL_ROLE_EVENT, handleRoleChange);
+    return () => window.removeEventListener(PORTAL_ROLE_EVENT, handleRoleChange);
+  }, []);
 
   useEffect(() => {
     const updateNetwork = () => setIsOnline(navigator.onLine);
@@ -121,6 +143,7 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (portalRole !== 'director' && portalRole !== 'staff') return;
       if (e.key === 'F1') { e.preventDefault(); setActiveTab('about'); }
       else if (e.key === 'F2') { e.preventDefault(); setActiveTab('menu_planner'); }
       else if (e.key === 'F3') { e.preventDefault(); setActiveTab('recipes'); }
@@ -135,7 +158,7 @@ export function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [portalRole]);
 
   // Read institution name from localStorage if set
   const instData = (() => {
@@ -143,6 +166,45 @@ export function App() {
   })();
   const instName = instData.name || 'SADOK Екосистема';
 
+  // Role: Guest (Mother Landing Page with 3 Doors)
+  if (portalRole === 'guest') {
+    return (
+      <div
+        className={`min-h-screen ${darkMode ? 'dark' : ''}`}
+        style={{ fontSize: `${fontScale * 100}%` }}
+      >
+        <MainPortalLanding
+          onSelectRole={(role) => {
+            setPortalRole(role);
+            if (role === 'director') {
+              setActiveTab('portal');
+            }
+          }}
+        />
+        <PwaUpdateNotification />
+      </div>
+    );
+  }
+
+  // Role: Parent (Open Parent Space with Menu, Schedule, Services)
+  if (portalRole === 'parent') {
+    return (
+      <div
+        className={`min-h-screen ${darkMode ? 'dark' : ''}`}
+        style={{ fontSize: `${fontScale * 100}%` }}
+      >
+        <ParentSpaceView
+          onBackToLanding={() => {
+            clearPortalRole();
+            setPortalRole('guest');
+          }}
+        />
+        <PwaUpdateNotification />
+      </div>
+    );
+  }
+
+  // Role: Director or Staff (Full application workspace)
   return (
     <div
       className={`flex flex-col min-h-screen md:h-screen md:overflow-hidden ${darkMode ? 'dark' : ''}`}
@@ -155,6 +217,11 @@ export function App() {
         setDarkMode={setDarkMode}
         fontScale={fontScale}
         setFontScale={setFontScale}
+        portalRole={portalRole}
+        onExitToLanding={() => {
+          clearPortalRole();
+          setPortalRole('guest');
+        }}
       />
 
       <main className="flex-1 flex flex-col min-h-0 overflow-y-auto md:overflow-hidden relative bg-slate-100 dark:bg-slate-950">
