@@ -45,6 +45,9 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes('db_data') || id.includes('importedTechCards')) {
+            return 'vendor-db-data';
+          }
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom')) {
               return 'vendor-react';
