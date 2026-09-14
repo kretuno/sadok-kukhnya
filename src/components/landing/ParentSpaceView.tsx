@@ -15,17 +15,24 @@ import {
   Users, 
   ShieldCheck,
   Smile,
-  Bell,
-  SunMedium
+  SunMedium,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { getMenuEntries, getDishes } from '../../services/db';
 import { MenuHeader, Dish } from '../../types';
 
 interface ParentSpaceViewProps {
   onBackToLanding: () => void;
+  darkMode?: boolean;
+  onToggleDarkMode?: () => void;
 }
 
-export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({ onBackToLanding }) => {
+export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({ 
+  onBackToLanding,
+  darkMode = false,
+  onToggleDarkMode
+}) => {
   const [activeTab, setActiveTab] = useState<'menu' | 'schedule' | 'services' | 'contacts'>('menu');
   const [todayDate] = useState(new Date().toISOString().split('T')[0]);
   const [menuEntries, setMenuEntries] = useState<MenuHeader[]>([]);
@@ -130,6 +137,21 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({ onBackToLandin
               <SunMedium className="w-3.5 h-3.5 text-amber-600" />
               <span>Сьогодні: {new Date().toLocaleDateString('uk-UA', { weekday: 'short', day: 'numeric', month: 'long' })}</span>
             </div>
+
+            {onToggleDarkMode && (
+              <button
+                onClick={onToggleDarkMode}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 transition cursor-pointer flex items-center justify-center shadow-xs"
+                title={darkMode ? 'Перемкнути на світлу тему' : 'Перемкнути на темну тему'}
+                aria-label="Перемикач теми оформлення"
+              >
+                {darkMode ? (
+                  <Sun className="w-4 h-4 text-amber-400" />
+                ) : (
+                  <Moon className="w-4 h-4 text-slate-700" />
+                )}
+              </button>
+            )}
           </div>
         </div>
       </header>

@@ -180,6 +180,8 @@ export function App() {
               setActiveTab('portal');
             }
           }}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(prev => !prev)}
         />
         <PwaUpdateNotification />
       </div>
@@ -198,6 +200,8 @@ export function App() {
             clearPortalRole();
             setPortalRole('guest');
           }}
+          darkMode={darkMode}
+          onToggleDarkMode={() => setDarkMode(prev => !prev)}
         />
         <PwaUpdateNotification />
       </div>
