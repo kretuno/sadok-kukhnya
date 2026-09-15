@@ -250,7 +250,7 @@ export function App() {
 
         {dbStatus === 'ready' && (
           <Suspense fallback={<ModuleLoadingFallback />}>
-            {activeTab === 'portal' && <PortalHubModule onSelectModule={(tab) => setActiveTab(tab)} />}
+            {activeTab === 'portal' && <PortalHubModule onSelectModule={(tab) => setActiveTab(tab)} portalRole={portalRole} />}
             {activeTab === 'menu_planner' && <MenuPlannerModule />}
             {activeTab === 'property' && <PropertyManagementModule />}
             {activeTab === 'cadres' && <StructureRegistryModule />}

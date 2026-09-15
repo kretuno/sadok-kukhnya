@@ -1,0 +1,5 @@
+# Graphify should map application source, not bundled/vendor artifacts or source archives.
+/public/sql-wasm.js
+/graphify-out/
+/backups/
+/картки/

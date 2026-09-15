@@ -2,6 +2,7 @@ import { SearchableSelect } from "../common/SearchableSelect";
 import React, { useState } from 'react';
 import { APP_VERSION } from '../../config/version';
 import { DirectorDashboardView } from '../dashboard/DirectorDashboardView';
+import type { PortalRole } from '../../services/portalSecurity';
 import {
   Utensils,
   Package,
@@ -29,6 +30,7 @@ import {
 
 interface PortalHubModuleProps {
   onSelectModule: (tabId: string) => void;
+  portalRole?: PortalRole;
 }
 
 interface ProjectModuleItem {
@@ -43,8 +45,9 @@ interface ProjectModuleItem {
   features: string[];
 }
 
-export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule }) => {
-  const [activeHubView, setActiveHubView] = useState<'dashboard' | 'catalog'>('dashboard');
+export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule, portalRole }) => {
+  const isDirector = portalRole === 'director';
+  const [activeHubView, setActiveHubView] = useState<'dashboard' | 'catalog'>(isDirector ? 'dashboard' : 'catalog');
   const [selectedInDevModule, setSelectedInDevModule] = useState<ProjectModuleItem | null>(null);
 
   // Feedback Form State
@@ -222,6 +225,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
       {/* VIEW SWITCHER: DASHBOARD vs CATALOG */}
       <div className="max-w-6xl w-full mx-auto px-4 md:px-6 pt-5 pb-0 flex flex-wrap items-center justify-between gap-4">
         <div className="bg-slate-200/90 dark:bg-slate-900/90 p-1.5 rounded-2xl flex items-center space-x-1 border border-slate-300 dark:border-slate-800 shadow-inner">
+          {isDirector && (
           <button
             onClick={() => setActiveHubView('dashboard')}
             className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center space-x-2 cursor-pointer ${
@@ -233,6 +237,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
             <BarChart3 className="w-4 h-4" />
             <span>Дашборд керівника («Садок на долоні»)</span>
           </button>
+          )}
 
           <button
             onClick={() => setActiveHubView('catalog')}
@@ -253,7 +258,7 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
         </div>
       </div>
 
-      {activeHubView === 'dashboard' ? (
+      {activeHubView === 'dashboard' && isDirector ? (
         <div className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-6 space-y-6">
           <DirectorDashboardView onNavigateTab={onSelectModule} />
         </div>
