@@ -375,6 +375,71 @@ export interface PsychologySummaryReport {
   UPDATED_AT: string;
 }
 
+export type PsychologyDailyActivityType =
+  | 'Діагностична'
+  | 'Корекційно-розвиткова'
+  | 'Консультаційна'
+  | 'Просвітницька'
+  | 'Організаційно-методична';
+
+export type PsychologyDailyCategory =
+  | 'Діти'
+  | 'Батьки'
+  | 'Педагоги'
+  | 'Методична / Самоосвіта';
+
+export interface PsychologyDailyLogEntry {
+  ID: number;
+  DATE: string; // YYYY-MM-DD
+  ACTIVITY_TYPE: PsychologyDailyActivityType;
+  CATEGORY: PsychologyDailyCategory;
+  TARGET_NAME: string; // Назва групи / ПІБ дитини / Батьки / Педколектив
+  CHILD_ID?: number;
+  GROUP_NAME?: string;
+  CONTENT_TOPIC: string; // Зміст проведеної роботи
+  HOURS_SPENT: number; // e.g. 1.5, 2, 0.5
+  RESULTS_NOTES?: string; // Результати, висновки, примітки
+  CREATED_AT?: string;
+}
+
+export type PsychologySpecialCategory =
+  | 'ООП (ІПР / Інклюзія)'
+  | 'ВПО (Внутрішньо переміщені)'
+  | 'Діти військовослужбовців / УБД'
+  | 'Підвищена тривожність / Стрес'
+  | 'Діти з кризових сімей / СЖО';
+
+export type PsychologyDynamicStatus =
+  | 'Позитивна динаміка'
+  | 'Стабільний стан'
+  | 'Потребує посиленої уваги'
+  | 'Критичний стан / Направлено до фахівців';
+
+export interface PsychologySpecialSupportEntry {
+  ID: number;
+  CHILD_ID: number;
+  CHILD_NAME: string;
+  GROUP_NAME: string;
+  CATEGORY: PsychologySpecialCategory;
+  DIAGNOSTIC_DATE: string;
+  ANXIETY_SCORE: number; // 1 to 5
+  STRESS_REACTION: string; // e.g. Реакція на сирени, тривожність
+  SHELTER_BEHAVIOR: string; // Поведінка в укритті під час повітряної тривоги
+  INDIVIDUAL_PLAN: string; // Заходи індивідуальної програми розвитку (ІПР)
+  DYNAMIC_STATUS: PsychologyDynamicStatus;
+  NOTES?: string;
+  UPDATED_AT: string;
+}
+
+export interface PsychologyMemo {
+  id: string;
+  title: string;
+  targetAudience: 'Батькам' | 'Вихователям' | 'Для укриття (ДСНС/Психолог)';
+  category: 'Адаптація' | 'Безпека і тривожність' | 'Особливості поведінки' | 'Підготовка до школи';
+  summary: string;
+  tips: string[];
+}
+
 export interface SadokMedicalCard {
   ID: number;
   CHILD_ID: number;

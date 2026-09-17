@@ -23,7 +23,17 @@ import {
   FolderOpen,
   Layout,
   Maximize2,
-  HelpCircle
+  HelpCircle,
+  Clock,
+  ShieldAlert,
+  BookOpen,
+  HeartPulse,
+  AlertTriangle,
+  CheckCircle2,
+  Calendar,
+  Award,
+  FileCheck,
+  Eye
 } from 'lucide-react';
 import {
   DATABASE_SYNC_EVENT,
@@ -40,7 +50,14 @@ import {
   getPsychologySummaryReports,
   savePsychologySummaryReport,
   deletePsychologySummaryReport,
-  generateDefaultReport210
+  generateDefaultReport210,
+  getPsychologyDailyLogEntries,
+  savePsychologyDailyLogEntry,
+  deletePsychologyDailyLogEntry,
+  getPsychologySpecialSupportEntries,
+  savePsychologySpecialSupportEntry,
+  deletePsychologySpecialSupportEntry,
+  getPsychologyMemos
 } from '../../services/db';
 import { exportToExcel } from '../../services/export';
 import {
@@ -49,11 +66,24 @@ import {
   SchoolReadinessAssessment,
   PsychologyConsultation,
   PsychologySummaryReport,
-  PsychologyReportRow
+  PsychologyReportRow,
+  PsychologyDailyLogEntry,
+  PsychologyDailyActivityType,
+  PsychologyDailyCategory,
+  PsychologySpecialSupportEntry,
+  PsychologySpecialCategory,
+  PsychologyDynamicStatus,
+  PsychologyMemo
 } from '../../types';
+import {
+  calculateWeeklyWorkload,
+  tallySpecialSupport
+} from '../../domain/psychologist';
 
 export const PsychologistModule: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'adaptation' | 'readiness' | 'consultations' | 'reports' | 'conclusions'>('overview');
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'daily_log' | 'mental_health' | 'adaptation' | 'readiness' | 'consultations' | 'recommendations' | 'reports' | 'conclusions'
+  >('overview');
   
   // Data state
   const [children, setChildren] = useState<SadokChild[]>([]);
@@ -61,10 +91,16 @@ export const PsychologistModule: React.FC = () => {
   const [readinessList, setReadinessList] = useState<SchoolReadinessAssessment[]>([]);
   const [consultations, setConsultations] = useState<PsychologyConsultation[]>([]);
   const [reportsList, setReportsList] = useState<PsychologySummaryReport[]>([]);
+  const [dailyLogs, setDailyLogs] = useState<PsychologyDailyLogEntry[]>([]);
+  const [specialSupports, setSpecialSupports] = useState<PsychologySpecialSupportEntry[]>([]);
+  const [memos, setMemos] = useState<PsychologyMemo[]>([]);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
+  const [dailyActivityFilter, setDailyActivityFilter] = useState<string>('all');
+  const [specialSupportFilter, setSpecialSupportFilter] = useState<string>('all');
+  const [memoAudienceFilter, setMemoAudienceFilter] = useState<string>('all');
 
   // Reports state
   const [selectedReportId, setSelectedReportId] = useState<number>(1);
@@ -75,6 +111,14 @@ export const PsychologistModule: React.FC = () => {
   const [printOrientation, setPrintOrientation] = useState<'landscape' | 'portrait'>('landscape');
 
   // Modals state
+  const [isDailyLogModalOpen, setIsDailyLogModalOpen] = useState(false);
+  const [editingDailyLog, setEditingDailyLog] = useState<Partial<PsychologyDailyLogEntry> | null>(null);
+
+  const [isSpecialSupportModalOpen, setIsSpecialSupportModalOpen] = useState(false);
+  const [editingSpecialSupport, setEditingSpecialSupport] = useState<Partial<PsychologySpecialSupportEntry> | null>(null);
+
+  const [selectedMemoForPrint, setSelectedMemoForPrint] = useState<PsychologyMemo | null>(null);
+
   const [isAdaptationModalOpen, setIsAdaptationModalOpen] = useState(false);
   const [editingAdaptation, setEditingAdaptation] = useState<Partial<PsychologyAdaptationRecord> | null>(null);
 
@@ -97,6 +141,12 @@ export const PsychologistModule: React.FC = () => {
     setReadinessList(rd);
     const cs = getPsychologyConsultations();
     setConsultations(cs);
+    const dl = getPsychologyDailyLogEntries();
+    setDailyLogs(dl);
+    const ss = getPsychologySpecialSupportEntries();
+    setSpecialSupports(ss);
+    const mm = getPsychologyMemos();
+    setMemos(mm);
     
     const rps = getPsychologySummaryReports();
     setReportsList(rps);
@@ -124,6 +174,34 @@ export const PsychologistModule: React.FC = () => {
   const groupsList = Array.from(new Set(children.map(c => c.GROUP_NAME).filter(Boolean)));
 
   // Filtered lists
+  const filteredDailyLogs = dailyLogs.filter(d => {
+    const matchesSearch = d.CONTENT_TOPIC.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          d.TARGET_NAME.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          (d.GROUP_NAME && d.GROUP_NAME.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesGroup = selectedGroup === 'all' || d.GROUP_NAME === selectedGroup;
+    const matchesActivity = dailyActivityFilter === 'all' || d.ACTIVITY_TYPE === dailyActivityFilter;
+    return matchesSearch && matchesGroup && matchesActivity;
+  });
+
+  const filteredSpecialSupports = specialSupports.filter(s => {
+    const matchesSearch = s.CHILD_NAME.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          s.GROUP_NAME.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          s.SHELTER_BEHAVIOR.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          s.INDIVIDUAL_PLAN.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          s.CATEGORY.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesGroup = selectedGroup === 'all' || s.GROUP_NAME === selectedGroup;
+    const matchesCat = specialSupportFilter === 'all' || s.CATEGORY === specialSupportFilter;
+    return matchesSearch && matchesGroup && matchesCat;
+  });
+
+  const filteredMemos = memos.filter(m => {
+    const matchesAudience = memoAudienceFilter === 'all' || m.targetAudience === memoAudienceFilter;
+    const matchesSearch = m.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          m.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          m.category.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesAudience && matchesSearch;
+  });
+
   const filteredAdaptations = adaptations.filter(a => {
     const matchesSearch = a.CHILD_NAME.toLowerCase().includes(searchQuery.toLowerCase()) || a.GROUP_NAME.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesGroup = selectedGroup === 'all' || a.GROUP_NAME === selectedGroup;
@@ -141,6 +219,10 @@ export const PsychologistModule: React.FC = () => {
     const matchesGroup = selectedGroup === 'all' || c.GROUP_NAME === selectedGroup;
     return matchesSearch && matchesGroup;
   });
+
+  // Workload calculations (МОН України)
+  const workload = calculateWeeklyWorkload(dailyLogs);
+  const supportTally = tallySpecialSupport(specialSupports);
 
   // Handlers for Adaptation
   const handleSaveAdaptation = (e: React.FormEvent) => {
@@ -216,6 +298,72 @@ export const PsychologistModule: React.FC = () => {
     if (confirm('Видалити запис про консультацію?')) {
       deletePsychologyConsultation(id);
       setConsultations(getPsychologyConsultations());
+    }
+  };
+
+  // Handlers for Daily Log
+  const handleSaveDailyLog = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDailyLog?.CONTENT_TOPIC || !editingDailyLog?.HOURS_SPENT || !editingDailyLog?.ACTIVITY_TYPE) {
+      alert('Будь ласка, заповніть зміст роботи, тривалість у годинах та вид діяльності');
+      return;
+    }
+    savePsychologyDailyLogEntry(editingDailyLog as any);
+    setDailyLogs(getPsychologyDailyLogEntries());
+    setIsDailyLogModalOpen(false);
+    setEditingDailyLog(null);
+  };
+
+  const handleDeleteDailyLog = (id: number) => {
+    if (confirm('Видалити запис щоденного обліку?')) {
+      deletePsychologyDailyLogEntry(id);
+      setDailyLogs(getPsychologyDailyLogEntries());
+    }
+  };
+
+  const handleExportDailyLogExcel = () => {
+    const headers = ['ID', 'Дата', 'Напрям діяльності', 'Категорія', 'Об\'єкт / Учасники', 'Група', 'Зміст роботи', 'Години', 'Результати / Примітки'];
+    const rows = filteredDailyLogs.map(d => [
+      d.ID,
+      d.DATE,
+      d.ACTIVITY_TYPE,
+      d.CATEGORY,
+      d.TARGET_NAME,
+      d.GROUP_NAME || '—',
+      d.CONTENT_TOPIC,
+      d.HOURS_SPENT,
+      d.RESULTS_NOTES || ''
+    ]);
+    exportToExcel(
+      `Журнал_щоденного_обліку_роботи_психолога_${new Date().toISOString().split('T')[0]}`,
+      'Щоденний облік',
+      headers,
+      rows
+    );
+  };
+
+  // Handlers for Special Support
+  const handleSaveSpecialSupport = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSpecialSupport?.CHILD_ID || !editingSpecialSupport?.CATEGORY) {
+      alert('Будь ласка, оберіть вихованця та категорію супроводу');
+      return;
+    }
+    const child = children.find(c => c.ID === editingSpecialSupport.CHILD_ID);
+    savePsychologySpecialSupportEntry({
+      ...editingSpecialSupport,
+      CHILD_NAME: child ? child.FULL_NAME : (editingSpecialSupport.CHILD_NAME || 'Невідомо'),
+      GROUP_NAME: child ? child.GROUP_NAME : (editingSpecialSupport.GROUP_NAME || 'Група')
+    } as any);
+    setSpecialSupports(getPsychologySpecialSupportEntries());
+    setIsSpecialSupportModalOpen(false);
+    setEditingSpecialSupport(null);
+  };
+
+  const handleDeleteSpecialSupport = (id: number) => {
+    if (confirm('Видалити картку спеціального психологічного супроводу?')) {
+      deletePsychologySpecialSupportEntry(id);
+      setSpecialSupports(getPsychologySpecialSupportEntries());
     }
   };
 
@@ -485,6 +633,58 @@ export const PsychologistModule: React.FC = () => {
 
         {/* Global Controls & Actions */}
         <div className="flex items-center space-x-2">
+          {activeTab === 'daily_log' && (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleExportDailyLogExcel}
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-md transition"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Excel</span>
+              </button>
+              <button
+                onClick={() => {
+                  setEditingDailyLog({
+                    DATE: new Date().toISOString().split('T')[0],
+                    ACTIVITY_TYPE: 'Діагностична',
+                    CATEGORY: 'Діти',
+                    TARGET_NAME: '',
+                    CONTENT_TOPIC: '',
+                    HOURS_SPENT: 1.5,
+                    RESULTS_NOTES: ''
+                  });
+                  setIsDailyLogModalOpen(true);
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium text-xs shadow-md transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Записати щоденну роботу</span>
+              </button>
+            </div>
+          )}
+
+          {activeTab === 'mental_health' && (
+            <button
+              onClick={() => {
+                setEditingSpecialSupport({
+                  CHILD_ID: children[0]?.ID || 0,
+                  CATEGORY: 'ООП (ІПР / Інклюзія)',
+                  DIAGNOSTIC_DATE: new Date().toISOString().split('T')[0],
+                  ANXIETY_SCORE: 3,
+                  STRESS_REACTION: '',
+                  SHELTER_BEHAVIOR: '',
+                  INDIVIDUAL_PLAN: '',
+                  DYNAMIC_STATUS: 'Стабільний стан'
+                });
+                setIsSpecialSupportModalOpen(true);
+              }}
+              className="flex items-center space-x-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-medium text-xs shadow-md transition"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Додати картку супроводу</span>
+            </button>
+          )}
+
           {activeTab === 'adaptation' && (
             <button
               onClick={() => {
@@ -580,7 +780,7 @@ export const PsychologistModule: React.FC = () => {
 
               <button
                 onClick={handleCreateNewReport}
-                className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border rounded-xl font-bold text-xs hover:bg-slate-200 transition"
+                className="flex items-center space-x-1.5 px-3 py-2 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 rounded-xl font-bold text-xs hover:bg-purple-200 transition"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Новий звіт</span>
@@ -630,14 +830,17 @@ export const PsychologistModule: React.FC = () => {
       </header>
 
       {/* Sub-navbar / Navigation Tabs */}
-      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-2 flex items-center justify-between no-print shrink-0 overflow-x-auto">
-        <div className="flex space-x-1">
+      <div className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-2 flex items-center justify-between no-print shrink-0 overflow-x-auto gap-4">
+        <div className="flex space-x-1 shrink-0">
           {[
-            { id: 'overview', label: 'Огляд & Статистика', icon: BarChart3 },
+            { id: 'overview', label: 'Огляд & Баланс часу', icon: BarChart3 },
+            { id: 'daily_log', label: 'Щоденний облік роботи', icon: Clock, badge: dailyLogs.length },
+            { id: 'mental_health', label: 'Супровід: Воєнний стан / ООП', icon: ShieldAlert, badge: specialSupports.length },
             { id: 'adaptation', label: 'Картки Адаптації', icon: Smile, badge: adaptations.length },
             { id: 'readiness', label: 'Готовність до Школи', icon: GraduationCap, badge: readinessList.length },
             { id: 'consultations', label: 'Журнал Консультацій', icon: MessageSquare, badge: consultations.length },
-            { id: 'reports', label: 'Звіти', icon: FileText, badge: reportsList.length },
+            { id: 'recommendations', label: 'Банк пам\'яток та порад', icon: BookOpen, badge: memos.length },
+            { id: 'reports', label: 'Звіти (Форма 2.10)', icon: FileText, badge: reportsList.length },
             { id: 'conclusions', label: 'Психологічні Висновки', icon: Brain }
           ].map(tab => {
             const Icon = tab.icon;
@@ -646,7 +849,7 @@ export const PsychologistModule: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center space-x-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition ${
+                className={`flex items-center space-x-2 px-3 py-2 rounded-xl text-xs font-semibold transition whitespace-nowrap ${
                   isActive
                     ? 'bg-purple-600 text-white shadow-sm'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -668,27 +871,77 @@ export const PsychologistModule: React.FC = () => {
 
         {/* Filters */}
         {activeTab !== 'overview' && activeTab !== 'conclusions' && activeTab !== 'reports' && (
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3 shrink-0">
             <div className="relative">
               <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
               <input
                 type="text"
-                placeholder="Пошук вихованця чи теми..."
+                placeholder="Пошук..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 w-48"
+                className="pl-8 pr-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 w-44"
               />
             </div>
-            <SearchableSelect
-              value={selectedGroup}
-              onChange={e => setSelectedGroup(e.target.value)}
-              className="py-1.5 px-3 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="all">Усі групи</option>
-              {groupsList.map(g => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </SearchableSelect>
+
+            {/* Daily Log Activity Filter */}
+            {activeTab === 'daily_log' && (
+              <SearchableSelect
+                value={dailyActivityFilter}
+                onChange={e => setDailyActivityFilter(e.target.value)}
+                className="py-1.5 px-3 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">Усі напрями роботи</option>
+                <option value="Діагностична">Діагностична</option>
+                <option value="Корекційно-розвиткова">Корекційно-розвиткова</option>
+                <option value="Консультаційна">Консультаційна</option>
+                <option value="Просвітницька">Просвітницька</option>
+                <option value="Організаційно-методична">Організаційно-методична</option>
+              </SearchableSelect>
+            )}
+
+            {/* Special Support Category Filter */}
+            {activeTab === 'mental_health' && (
+              <SearchableSelect
+                value={specialSupportFilter}
+                onChange={e => setSpecialSupportFilter(e.target.value)}
+                className="py-1.5 px-3 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">Усі категорії вихованців</option>
+                <option value="ООП (ІПР / Інклюзія)">ООП (ІПР / Інклюзія)</option>
+                <option value="ВПО (Внутрішньо переміщені)">ВПО (Внутрішньо переміщені)</option>
+                <option value="Діти військовослужбовців / УБД">Діти військовослужбовців / УБД</option>
+                <option value="Підвищена тривожність / Стрес">Підвищена тривожність / Стрес</option>
+                <option value="Діти з кризових сімей / СЖО">Діти з кризових сімей / СЖО</option>
+              </SearchableSelect>
+            )}
+
+            {/* Recommendations Audience Filter */}
+            {activeTab === 'recommendations' && (
+              <SearchableSelect
+                value={memoAudienceFilter}
+                onChange={e => setMemoAudienceFilter(e.target.value)}
+                className="py-1.5 px-3 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">Усі адресати</option>
+                <option value="Батькам">Батькам</option>
+                <option value="Вихователям">Вихователям</option>
+                <option value="Для укриття (ДСНС/Психолог)">Для укриття (ДСНС/Психолог)</option>
+              </SearchableSelect>
+            )}
+
+            {/* Group Filter (when relevant) */}
+            {activeTab !== 'recommendations' && (
+              <SearchableSelect
+                value={selectedGroup}
+                onChange={e => setSelectedGroup(e.target.value)}
+                className="py-1.5 px-3 text-xs bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="all">Усі групи</option>
+                {groupsList.map(g => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </SearchableSelect>
+            )}
           </div>
         )}
       </div>
@@ -713,6 +966,17 @@ export const PsychologistModule: React.FC = () => {
 
               <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
                 <div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Супровід (ООП / ВПО / СЖО)</div>
+                  <div className="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{supportTally.total}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">{supportTally.oopCount} ООП • {supportTally.vpoCount} ВПО • {supportTally.militaryFamilyCount} сім'ї ЗСУ</div>
+                </div>
+                <div className="p-3 bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 rounded-xl">
+                  <ShieldAlert className="w-6 h-6" />
+                </div>
+              </div>
+
+              <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+                <div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Легка адаптація</div>
                   <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{easyAdaptationCount}</div>
                   <div className="text-[11px] text-slate-400 mt-0.5">з {totalTracked} оцінених дітей</div>
@@ -726,83 +990,138 @@ export const PsychologistModule: React.FC = () => {
                 <div>
                   <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Готові до школи</div>
                   <div className="text-2xl font-black text-blue-600 dark:text-blue-400 mt-1">{readyForSchoolCount}</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">з {readinessList.length} вихованців старших груп</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">з {readinessList.length} випускників</div>
                 </div>
                 <div className="p-3 bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 rounded-xl">
                   <GraduationCap className="w-6 h-6" />
                 </div>
               </div>
+            </div>
 
-              <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+            {/* Workload Balance Widget (МОН України: 20 год / 20 год) */}
+            <div className="p-6 bg-gradient-to-br from-purple-900 to-slate-900 text-white rounded-3xl shadow-lg border border-purple-800/40">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-purple-800/60 pb-4 mb-5">
                 <div>
-                  <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Проведено консультацій</div>
-                  <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{consultations.length}</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">з батьками та вихователями</div>
+                  <div className="flex items-center space-x-2">
+                    <Clock className="w-5 h-5 text-purple-300" />
+                    <h2 className="text-base font-bold tracking-tight">Тижневий баланс навантаження практичного психолога</h2>
+                  </div>
+                  <p className="text-xs text-purple-200/80 mt-1">
+                    Норматив МОН України: ставка 40 год/тиждень (20 год практичної роботи + 20 год організаційно-методичної)
+                  </p>
                 </div>
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-xl">
-                  <MessageSquare className="w-6 h-6" />
+                <button
+                  onClick={() => setActiveTab('daily_log')}
+                  className="px-4 py-2 bg-purple-500 hover:bg-purple-400 text-white rounded-xl text-xs font-bold transition shadow flex items-center space-x-1.5 self-start md:self-auto"
+                >
+                  <span>Відкрити щоденний журнал</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Practical Work Block (20h norm) */}
+                <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-semibold text-purple-200">1. Практична робота з дітьми та учасниками</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      workload.isPracticalFulfilled ? 'bg-emerald-500 text-white' : 'bg-purple-700 text-purple-100'
+                    }`}>
+                      {workload.practicalHours} / 20 год
+                    </span>
+                  </div>
+                  <div className="w-full bg-purple-950/60 rounded-full h-3 overflow-hidden mb-2">
+                    <div
+                      className="bg-emerald-400 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${workload.practicalProgressPct}%` }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-purple-200/70">
+                    Діагностика, корекційно-розвиткові заняття, консультації батьків та просвітницька робота з вихователями.
+                  </p>
+                </div>
+
+                {/* Methodological Work Block (20h norm) */}
+                <div className="bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-semibold text-purple-200">2. Організаційно-методична діяльність</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      workload.isMethodologicalFulfilled ? 'bg-emerald-500 text-white' : 'bg-purple-700 text-purple-100'
+                    }`}>
+                      {workload.methodologicalHours} / 20 год
+                    </span>
+                  </div>
+                  <div className="w-full bg-purple-950/60 rounded-full h-3 overflow-hidden mb-2">
+                    <div
+                      className="bg-blue-400 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${workload.methodologicalProgressPct}%` }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-purple-200/70">
+                    Оформлення документації, ведення ІПР дітей з ООП, підготовка стимульного матеріалу, психолого-педагогічні консиліуми.
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Quick Actions & Sections Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Card 1: Adaptation overview */}
+              {/* Card 1: Special support (ООП / ВПО / Укриття) */}
               <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center space-x-2 text-purple-600 dark:text-purple-400 font-bold mb-3">
-                    <Smile className="w-5 h-5" />
-                    <span>Карти адаптації</span>
+                  <div className="flex items-center space-x-2 text-rose-600 dark:text-rose-400 font-bold mb-3">
+                    <ShieldAlert className="w-5 h-5" />
+                    <span>Супровід в умовах воєнного стану</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                    Моніторинг емоційного стану, рівня тривожності, апетиту та сну новоприбулих дітей ясельних і молодших груп.
+                    Психологічний супровід дітей ООП, ВПО, сімей захисників та алгоритми стабілізації в укритті ЗДО №145 під час тривоги.
                   </p>
-                  <div className="space-y-2 mb-4">
+                  <div className="space-y-1.5 mb-4">
                     <div className="flex justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span>Легка адаптація:</span>
-                      <span className="font-bold text-emerald-600">{easyAdaptationCount}</span>
+                      <span>Інклюзія / ООП (ІПР):</span>
+                      <span className="font-bold text-purple-600">{supportTally.oopCount}</span>
                     </div>
                     <div className="flex justify-between text-xs py-1 border-b border-slate-100 dark:border-slate-800">
-                      <span>Середня адаптація:</span>
-                      <span className="font-bold text-amber-600">{mediumAdaptationCount}</span>
+                      <span>Внутрішньо переміщені (ВПО):</span>
+                      <span className="font-bold text-blue-600">{supportTally.vpoCount}</span>
                     </div>
                     <div className="flex justify-between text-xs py-1">
-                      <span>Важка адаптація (під контролем):</span>
-                      <span className="font-bold text-rose-600">{hardAdaptationCount}</span>
+                      <span>Діти військовослужбовців:</span>
+                      <span className="font-bold text-amber-600">{supportTally.militaryFamilyCount}</span>
                     </div>
                   </div>
                 </div>
                 <button
-                  onClick={() => setActiveTab('adaptation')}
-                  className="w-full py-2 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-semibold rounded-xl text-xs hover:bg-purple-100 transition flex items-center justify-center space-x-1"
+                  onClick={() => setActiveTab('mental_health')}
+                  className="w-full py-2 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 font-semibold rounded-xl text-xs hover:bg-rose-100 transition flex items-center justify-center space-x-1"
                 >
-                  <span>Перейти до адаптацій</span>
+                  <span>Перейти до супроводу</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Card 2: School Readiness */}
+              {/* Card 2: Memos Bank */}
               <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center space-x-2 text-blue-600 dark:text-blue-400 font-bold mb-3">
-                    <GraduationCap className="w-5 h-5" />
-                    <span>Готовність до школи</span>
+                  <div className="flex items-center space-x-2 text-purple-600 dark:text-purple-400 font-bold mb-3">
+                    <BookOpen className="w-5 h-5" />
+                    <span>Банк пам'яток та порад</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                    Оцінка 4 сфер розвитку (мотиваційна, інтелектуальна, емоційно-вольова, соціальна) перед вступом до 1 класу.
+                    Готові практичні рекомендації для батьків та вихователів з можливістю друку на офіційному бланку закладу.
                   </p>
-                  <div className="bg-blue-50/50 dark:bg-blue-950/30 p-3 rounded-xl border border-blue-100 dark:border-blue-900/50 mb-4">
-                    <div className="text-xs font-semibold text-blue-900 dark:text-blue-200">Автоматичний висновок</div>
-                    <div className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
-                      Формування психолого-педагогічного резюме та рекомендацій вихователям та батькам.
+                  <div className="space-y-1.5 mb-4">
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs border border-purple-200 dark:border-purple-900">
+                      <div className="font-semibold text-purple-900 dark:text-purple-200">6 готових пам'яток</div>
+                      <div className="text-[10px] text-slate-500 mt-0.5">Адаптація, поведінка в укритті, СДУГ, криза 3 років, дитячі страхи</div>
                     </div>
                   </div>
                 </div>
                 <button
-                  onClick={() => setActiveTab('readiness')}
-                  className="w-full py-2 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 font-semibold rounded-xl text-xs hover:bg-blue-100 transition flex items-center justify-center space-x-1"
+                  onClick={() => setActiveTab('recommendations')}
+                  className="w-full py-2 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-semibold rounded-xl text-xs hover:bg-purple-100 transition flex items-center justify-center space-x-1"
                 >
-                  <span>Перейти до готовності</span>
+                  <span>Відкрити банк пам'яток</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -810,28 +1129,285 @@ export const PsychologistModule: React.FC = () => {
               {/* Card 3: Official Reports (ГОРОНО) */}
               <div className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center space-x-2 text-purple-600 dark:text-purple-400 font-bold mb-3">
+                  <div className="flex items-center space-x-2 text-indigo-600 dark:text-indigo-400 font-bold mb-3">
                     <FileText className="w-5 h-5" />
-                    <span>Офіційні Звіти (ГОРОНО)</span>
+                    <span>Звіти (Форма 2.10 ГОРОНО)</span>
                   </div>
                   <p className="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                    Форма 2.10: Зведені дані щодо роботи працівників психологічної служби за навчальний рік.
+                    Зведені дані щодо роботи працівників психологічної служби за навчальний рік.
                   </p>
                   <div className="space-y-1.5 mb-4">
-                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs border border-purple-200 dark:border-purple-900">
-                      <div className="font-semibold text-purple-900 dark:text-purple-200">Форма 2.10 (Точно 1 в 1 ГОРОНО)</div>
+                    <div className="p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl text-xs border border-indigo-200 dark:border-indigo-900">
+                      <div className="font-semibold text-indigo-900 dark:text-indigo-200">Офіційна Форма 2.10</div>
                       <div className="text-[10px] text-slate-500 mt-0.5">8 нормативних колонок з автопідрахунком та друком А4</div>
                     </div>
                   </div>
                 </div>
                 <button
                   onClick={() => setActiveTab('reports')}
-                  className="w-full py-2 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 font-semibold rounded-xl text-xs hover:bg-purple-100 transition flex items-center justify-center space-x-1"
+                  className="w-full py-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-semibold rounded-xl text-xs hover:bg-indigo-100 transition flex items-center justify-center space-x-1"
                 >
                   <span>Відкрити розділ Звіти</span>
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: ЖУРНАЛ ЩОДЕННОГО ОБЛІКУ РОБОТИ (МОН УКРАЇНИ) */}
+        {activeTab === 'daily_log' && (
+          <div className="space-y-4 max-w-7xl mx-auto">
+            {/* Top Summary Banner */}
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                  <Clock className="w-4 h-4 text-purple-600" />
+                  <span>Журнал щоденного обліку роботи практичного психолога</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Офіційна фіксація діяльності за напрямами: Діагностична, Корекційно-розвиткова, Консультаційна, Просвітницька, Організаційно-методична
+                </p>
+              </div>
+              <div className="flex items-center space-x-3 text-xs">
+                <div className="px-3 py-1.5 bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300 rounded-xl border border-purple-200 dark:border-purple-800">
+                  <span className="font-bold">Практична: </span>
+                  <span>{workload.practicalHours} / 20 год</span>
+                </div>
+                <div className="px-3 py-1.5 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 rounded-xl border border-blue-200 dark:border-blue-800">
+                  <span className="font-bold">Методична: </span>
+                  <span>{workload.methodologicalHours} / 20 год</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px]">
+                      <th className="py-3 px-4">Дата</th>
+                      <th className="py-3 px-4">Вид діяльності</th>
+                      <th className="py-3 px-4">Категорія</th>
+                      <th className="py-3 px-4">Об'єкт / Учасники</th>
+                      <th className="py-3 px-4">Зміст проведеної роботи</th>
+                      <th className="py-3 px-4 text-center">Години</th>
+                      <th className="py-3 px-4">Результати / примітки</th>
+                      <th className="py-3 px-4 text-right">Дії</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {filteredDailyLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-slate-400 italic">
+                          Записів не знайдено за обраними фільтрами. Натисніть «Записати щоденну роботу», щоб додати.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredDailyLogs.map(item => {
+                        const activityBadgeColor =
+                          item.ACTIVITY_TYPE === 'Діагностична' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' :
+                          item.ACTIVITY_TYPE === 'Корекційно-розвиткова' ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300' :
+                          item.ACTIVITY_TYPE === 'Консультаційна' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
+                          item.ACTIVITY_TYPE === 'Просвітницька' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                          'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
+
+                        return (
+                          <tr key={item.ID} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition">
+                            <td className="py-3 px-4 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                              {item.DATE}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-block whitespace-nowrap ${activityBadgeColor}`}>
+                                {item.ACTIVITY_TYPE}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                              {item.CATEGORY}
+                            </td>
+                            <td className="py-3 px-4 font-medium text-slate-800 dark:text-slate-200">
+                              <div>{item.TARGET_NAME}</div>
+                              {item.GROUP_NAME && (
+                                <div className="text-[10px] text-slate-400">{item.GROUP_NAME}</div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-slate-700 dark:text-slate-300 max-w-xs sm:max-w-sm">
+                              {item.CONTENT_TOPIC}
+                            </td>
+                            <td className="py-3 px-4 text-center font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                              {item.HOURS_SPENT} год
+                            </td>
+                            <td className="py-3 px-4 text-slate-500 dark:text-slate-400 text-[11px] max-w-xs">
+                              {item.RESULTS_NOTES || '—'}
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end space-x-1">
+                                <button
+                                  onClick={() => {
+                                    setEditingDailyLog(item);
+                                    setIsDailyLogModalOpen(true);
+                                  }}
+                                  className="p-1 text-slate-400 hover:text-purple-600 transition"
+                                  title="Редагувати"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteDailyLog(item.ID)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 transition"
+                                  title="Видалити"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: ПСИХОЛОГІЧНИЙ СУПРОВІД (ВОЄННИЙ СТАН, ООП ТА ВПО) */}
+        {activeTab === 'mental_health' && (
+          <div className="space-y-6 max-w-7xl mx-auto">
+            {/* Shelter Emergency Protocol Banner */}
+            <div className="p-5 bg-gradient-to-r from-amber-500/15 via-rose-500/10 to-purple-500/15 rounded-2xl border border-amber-300 dark:border-amber-800/60 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center space-x-2 text-amber-700 dark:text-amber-300 font-bold text-sm">
+                  <ShieldAlert className="w-5 h-5" />
+                  <span>Протокол психологічної безпеки в укритті ЗДО №145 (Кривий Ріг)</span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-1 max-w-3xl">
+                  Під час сигналу повітряної тривоги: 1) Спокій дорослого • 2) Заземлення «5-4-3-2-1» • 3) Дихання «Здуй свічку» 4х4 • 4) Тактильний куточок релаксу та аудіоказки
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  const shelterMemo = memos.find(m => m.id === 'memo_shelter_air_raid');
+                  if (shelterMemo) setSelectedMemoForPrint(shelterMemo);
+                }}
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow shrink-0 flex items-center space-x-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Пам'ятка укриття А4</span>
+              </button>
+            </div>
+
+            {/* Special Support Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {filteredSpecialSupports.length === 0 ? (
+                <div className="col-span-2 py-12 text-center text-slate-400 italic bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
+                  Карток спеціального супроводу за обраними критеріями не знайдено.
+                </div>
+              ) : (
+                filteredSpecialSupports.map(item => {
+                  const dynamicColor =
+                    item.DYNAMIC_STATUS === 'Позитивна динаміка' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                    item.DYNAMIC_STATUS === 'Стабільний стан' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' :
+                    item.DYNAMIC_STATUS === 'Потребує посиленої уваги' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
+                    'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300';
+
+                  return (
+                    <div
+                      key={item.ID}
+                      className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-purple-300 dark:hover:border-purple-800 transition"
+                    >
+                      <div>
+                        {/* Header */}
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div>
+                            <h4 className="font-bold text-sm text-slate-900 dark:text-white">{item.CHILD_NAME}</h4>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">{item.GROUP_NAME}</p>
+                          </div>
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 whitespace-nowrap">
+                            {item.CATEGORY}
+                          </span>
+                        </div>
+
+                        {/* Anxiety & Reactions */}
+                        <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                          <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Рівень тривожності:</span>
+                            <div className="flex items-center space-x-1 mt-0.5">
+                              {[1, 2, 3, 4, 5].map(score => (
+                                <span
+                                  key={score}
+                                  className={`w-2.5 h-2.5 rounded-full ${
+                                    score <= item.ANXIETY_SCORE
+                                      ? (item.ANXIETY_SCORE >= 4 ? 'bg-rose-500' : item.ANXIETY_SCORE === 3 ? 'bg-amber-500' : 'bg-emerald-500')
+                                      : 'bg-slate-200 dark:bg-slate-700'
+                                  }`}
+                                />
+                              ))}
+                              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 ml-1.5">
+                                {item.ANXIETY_SCORE} / 5
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-100 dark:border-slate-800">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Динаміка стану:</span>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold mt-1 inline-block ${dynamicColor}`}>
+                              {item.DYNAMIC_STATUS}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Details */}
+                        <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-slate-100">Реакція на стрес / сирени: </span>
+                            <span>{item.STRESS_REACTION}</span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-slate-100">Поведінка в укритті: </span>
+                            <span className="text-purple-700 dark:text-purple-300">{item.SHELTER_BEHAVIOR}</span>
+                          </div>
+                          <div>
+                            <span className="font-bold text-slate-900 dark:text-slate-100">Індивідуальний план / ІПР: </span>
+                            <span>{item.INDIVIDUAL_PLAN}</span>
+                          </div>
+                          {item.NOTES && (
+                            <div className="text-[11px] text-slate-500 italic mt-1">
+                              Примітка: {item.NOTES}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                        <span>Оновлено: {item.UPDATED_AT}</span>
+                        <div className="flex items-center space-x-1">
+                          <button
+                            onClick={() => {
+                              setEditingSpecialSupport(item);
+                              setIsSpecialSupportModalOpen(true);
+                            }}
+                            className="p-1 text-slate-400 hover:text-purple-600 transition"
+                            title="Редагувати"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSpecialSupport(item.ID)}
+                            className="p-1 text-slate-400 hover:text-rose-600 transition"
+                            title="Видалити"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         )}
@@ -1061,6 +1637,88 @@ export const PsychologistModule: React.FC = () => {
           </div>
         )}
 
+        {/* TAB: БАНК ПАМ'ЯТОК ТА ПОРАД ДЛЯ БАТЬКІВ І ПЕДАГОГІВ */}
+        {activeTab === 'recommendations' && (
+          <div className="space-y-6 max-w-7xl mx-auto">
+            {/* Header info banner */}
+            <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                  <BookOpen className="w-4 h-4 text-purple-600" />
+                  <span>Банк практичних пам'яток та порад психологічної служби</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Офіційні розробки практичного психолога Криворізького КЗДО КТ №145 КМР для батьків та вихователів. Будь-яку пам'ятку можна роздрукувати на бланку закладу або зберегти у PDF.
+                </p>
+              </div>
+              <div className="text-xs font-semibold px-3 py-1.5 bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 rounded-xl border border-purple-200 dark:border-purple-800">
+                Всього пам'яток у банку: {memos.length}
+              </div>
+            </div>
+
+            {/* Memos Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredMemos.map(memo => (
+                <div
+                  key={memo.id}
+                  className="p-6 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-purple-400 dark:hover:border-purple-700 transition"
+                >
+                  <div>
+                    {/* Tags */}
+                    <div className="flex items-center space-x-2 mb-3">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        memo.targetAudience === 'Батькам' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' :
+                        memo.targetAudience === 'Вихователям' ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300' :
+                        'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                      }`}>
+                        {memo.targetAudience}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {memo.category}
+                      </span>
+                    </div>
+
+                    {/* Title & Summary */}
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-white mb-2 leading-snug">
+                      {memo.title}
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 mb-4 line-clamp-3">
+                      {memo.summary}
+                    </p>
+
+                    {/* Preview of tips */}
+                    <div className="space-y-1.5 mb-4 text-xs">
+                      {memo.tips.slice(0, 3).map((tip, idx) => (
+                        <div key={idx} className="flex items-start space-x-1.5 text-slate-700 dark:text-slate-300">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                          <span className="line-clamp-2 text-[11px]">{tip}</span>
+                        </div>
+                      ))}
+                      {memo.tips.length > 3 && (
+                        <p className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold pl-5">
+                          + ще {memo.tips.length - 3} практичні рекомендації у повному тексті
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400">Формат: А4</span>
+                    <button
+                      onClick={() => setSelectedMemoForPrint(memo)}
+                      className="flex items-center space-x-1.5 px-3 py-1.5 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-700 dark:text-purple-300 rounded-xl text-xs font-bold transition"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Читати та друкувати А4</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* TAB 5: REPORTS (ЗВІТИ) - EXACT 1 IN 1 GORONO FORMAT WITH COMPACT PRINT FIT */}
         {activeTab === 'reports' && (
           <div className="space-y-6 max-w-7xl mx-auto">
@@ -1286,7 +1944,7 @@ export const PsychologistModule: React.FC = () => {
 
                     {/* Column totals */}
                     <tfoot>
-                      <tr className="bg-slate-100 print:bg-slate-200 font-extrabold text-slate-900 border-t-2 border-black">
+                      <tr className="bg-slate-200 print:bg-slate-300 font-extrabold text-slate-900 border-t-2 border-black">
                         <td className="border border-black px-2 py-1.5 print:py-1 text-right uppercase tracking-wider">
                           УСЬОГО:
                         </td>
@@ -1342,7 +2000,7 @@ export const PsychologistModule: React.FC = () => {
                 {/* Printable Signatures footer */}
                 <div className="mt-6 print:mt-4 pt-4 print:pt-2 border-t border-slate-400 flex justify-between text-xs font-bold font-serif">
                   <div>Практичний психолог ЗДО: ____________________</div>
-                  <div>Завідувач ЗДО: ____________________</div>
+                  <div>Директор КЗДО №145: ____________________ / Н. Г. Павлухіна</div>
                 </div>
               </div>
             )}
@@ -1375,14 +2033,31 @@ export const PsychologistModule: React.FC = () => {
             {selectedChildForReport && (() => {
               const childAdaptation = adaptations.find(a => a.CHILD_ID === selectedChildForReport.ID);
               const childReadiness = readinessList.find(r => r.CHILD_ID === selectedChildForReport.ID);
+              const childSpecialSupport = specialSupports.find(s => s.CHILD_ID === selectedChildForReport.ID);
               const childConsultations = consultations.filter(c => c.CHILD_ID === selectedChildForReport.ID || c.TARGET_NAME.includes(selectedChildForReport.FULL_NAME));
 
               return (
                 <div className="bg-white text-slate-900 p-8 rounded-2xl shadow-xl border border-slate-300 font-serif print:shadow-none print:border-none print:p-0">
                   {/* Header A4 */}
-                  <div className="text-center border-b-2 border-slate-900 pb-4 mb-6">
-                    <h2 className="text-lg font-bold uppercase tracking-wider">Картка Психолого-Педагогічного Супроводу Вихованця</h2>
-                    <p className="text-xs italic text-slate-600 mt-1">Заклад дошкільної освіти (ясла-садок) • Психологічна служба</p>
+                  <div className="border-b-2 border-slate-900 pb-3 mb-5">
+                    <div className="flex justify-between items-start text-xs mb-3">
+                      <div>
+                        <div className="font-bold">УКРАЇНА</div>
+                        <div>МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ</div>
+                        <div className="font-bold uppercase text-purple-950">КОМУНАЛЬНИЙ ЗАКЛАД ДОШКІЛЬНОЇ ОСВІТИ (ЯСЛА-САДОК) КОМБІНОВАНОГО ТИПУ №145 КРИВОРІЗЬКОЇ МІСЬКОЇ РАДИ</div>
+                        <div className="text-[10px] text-slate-600">ЄДРПОУ: 26136748 | м. Кривий Ріг, вул. Перлинна 23А</div>
+                      </div>
+                      <div className="text-right">
+                        <div><b>ЗАТВЕРДЖУЮ</b></div>
+                        <div>Директор КЗДО №145</div>
+                        <div className="mt-1">________________ / Н. Г. Павлухіна</div>
+                        <div className="text-[10px] text-slate-500">«_____» ____________ 2026 р.</div>
+                      </div>
+                    </div>
+                    <div className="text-center pt-2">
+                      <h2 className="text-base font-bold uppercase tracking-wider">Картка Психолого-Педагогічного Супроводу Вихованця</h2>
+                      <p className="text-[11px] italic text-slate-600">Психологічна служба закладу</p>
+                    </div>
                   </div>
 
                   {/* Child Metadata */}
@@ -1439,9 +2114,25 @@ export const PsychologistModule: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Section 3: Consultation Summary */}
+                  {/* Section 3: Special support (Воєнний стан / ООП) */}
+                  {childSpecialSupport && (
+                    <div className="mb-6">
+                      <h3 className="text-sm font-bold uppercase border-b pb-1 mb-2 text-rose-900">3. Супровід в умовах воєнного стану та ООП</h3>
+                      <div className="text-xs space-y-1.5 p-3 bg-rose-50/50 rounded-lg border border-rose-200">
+                        <p><span className="font-bold">Категорія:</span> {childSpecialSupport.CATEGORY} | <span className="font-bold">Динаміка стану:</span> {childSpecialSupport.DYNAMIC_STATUS}</p>
+                        <p><span className="font-bold">Реакція на стрес/сирени:</span> {childSpecialSupport.STRESS_REACTION}</p>
+                        <p><span className="font-bold">Поведінка в укритті ЗДО №145:</span> {childSpecialSupport.SHELTER_BEHAVIOR}</p>
+                        <p><span className="font-bold">Індивідуальна програма розвитку (ІПР):</span> {childSpecialSupport.INDIVIDUAL_PLAN}</p>
+                        {childSpecialSupport.NOTES && <p className="italic text-slate-600"><span className="font-bold">Примітка:</span> {childSpecialSupport.NOTES}</p>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Section 4: Consultation Summary */}
                   <div className="mb-8">
-                    <h3 className="text-sm font-bold uppercase border-b pb-1 mb-2 text-purple-900">3. Проведені Консультації та Супровід</h3>
+                    <h3 className="text-sm font-bold uppercase border-b pb-1 mb-2 text-purple-900">
+                      {childSpecialSupport ? '4. Проведені Консультації та Супровід' : '3. Проведені Консультації та Супровід'}
+                    </h3>
                     {childConsultations.length > 0 ? (
                       <ul className="list-disc pl-5 text-xs space-y-1">
                         {childConsultations.map(c => (
@@ -1458,7 +2149,7 @@ export const PsychologistModule: React.FC = () => {
                   {/* Signatures */}
                   <div className="pt-8 border-t flex justify-between text-xs font-bold">
                     <div>Практичний психолог ЗДО: ___________________</div>
-                    <div>Завідувач ЗДО: ___________________</div>
+                    <div>Директор КЗДО №145: ___________________ / Н. Г. Павлухіна</div>
                   </div>
                 </div>
               );
@@ -1780,6 +2471,385 @@ export const PsychologistModule: React.FC = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: DAILY LOG ENTRY (МОН УКРАЇНИ) */}
+      {isDailyLogModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center py-2 sm:py-6">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full max-h-[calc(100vh-2rem)] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="flex justify-between items-center px-5 py-3.5 border-b bg-purple-900 text-white shrink-0">
+                <h3 className="font-bold text-sm flex items-center space-x-2">
+                  <Clock className="w-4 h-4" />
+                  <span>{editingDailyLog?.ID ? 'Редагувати щоденний запис' : 'Записати щоденну роботу (МОН)'}</span>
+                </h3>
+                <button onClick={() => setIsDailyLogModalOpen(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveDailyLog} className="p-4 sm:p-6 space-y-3.5 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
+                <div className="space-y-3.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Дата проведення</label>
+                      <input
+                        type="date"
+                        value={editingDailyLog?.DATE || new Date().toISOString().split('T')[0]}
+                        onChange={e => setEditingDailyLog(prev => ({ ...prev, DATE: e.target.value }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Тривалість (годин)</label>
+                      <input
+                        type="number"
+                        step="0.25"
+                        min="0.25"
+                        max="10"
+                        value={editingDailyLog?.HOURS_SPENT || 1.5}
+                        onChange={e => setEditingDailyLog(prev => ({ ...prev, HOURS_SPENT: Number(e.target.value) }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl font-bold"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Напрям діяльності (МОН)</label>
+                      <SearchableSelect
+                        value={editingDailyLog?.ACTIVITY_TYPE || 'Діагностична'}
+                        onChange={e => setEditingDailyLog(prev => ({ ...prev, ACTIVITY_TYPE: e.target.value as any }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl font-bold"
+                      >
+                        <option value="Діагностична">Діагностична</option>
+                        <option value="Корекційно-розвиткова">Корекційно-розвиткова</option>
+                        <option value="Консультаційна">Консультаційна</option>
+                        <option value="Просвітницька">Просвітницька</option>
+                        <option value="Організаційно-методична">Організаційно-методична</option>
+                      </SearchableSelect>
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Категорія учасників</label>
+                      <SearchableSelect
+                        value={editingDailyLog?.CATEGORY || 'Діти'}
+                        onChange={e => setEditingDailyLog(prev => ({ ...prev, CATEGORY: e.target.value as any }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      >
+                        <option value="Діти">Діти</option>
+                        <option value="Батьки">Батьки</option>
+                        <option value="Педагоги">Педагоги</option>
+                        <option value="Методична / Самоосвіта">Методична / Самоосвіта</option>
+                      </SearchableSelect>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Об'єкт / Учасники (ФІО чи назва)</label>
+                      <input
+                        type="text"
+                        value={editingDailyLog?.TARGET_NAME || ''}
+                        onChange={e => setEditingDailyLog(prev => ({ ...prev, TARGET_NAME: e.target.value }))}
+                        placeholder="напр. Група «Сонечко» або ПІБ дитини"
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Вікова група (опціонально)</label>
+                      <SearchableSelect
+                        value={editingDailyLog?.GROUP_NAME || ''}
+                        onChange={e => setEditingDailyLog(prev => ({ ...prev, GROUP_NAME: e.target.value }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      >
+                        <option value="">Не вказано / Всі групи</option>
+                        {groupsList.map(g => (
+                          <option key={g} value={g}>{g}</option>
+                        ))}
+                      </SearchableSelect>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Зміст проведеної роботи</label>
+                    <textarea
+                      rows={3}
+                      value={editingDailyLog?.CONTENT_TOPIC || ''}
+                      onChange={e => setEditingDailyLog(prev => ({ ...prev, CONTENT_TOPIC: e.target.value }))}
+                      placeholder="Опишіть проведене заняття, бесіду або методичний захід..."
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Результати, висновки, примітки</label>
+                    <textarea
+                      rows={2}
+                      value={editingDailyLog?.RESULTS_NOTES || ''}
+                      onChange={e => setEditingDailyLog(prev => ({ ...prev, RESULTS_NOTES: e.target.value }))}
+                      placeholder="Короткі підсумки або рекомендації..."
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setIsDailyLogModalOpen(false)}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition"
+                  >
+                    Зберегти в журнал
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SPECIAL SUPPORT ENTRY (ВОЄННИЙ СТАН, ООП, ВПО) */}
+      {isSpecialSupportModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4 z-50 overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center py-2 sm:py-6">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full max-h-[calc(100vh-2rem)] flex flex-col shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+              <div className="flex justify-between items-center px-5 py-3.5 border-b bg-rose-900 text-white shrink-0">
+                <h3 className="font-bold text-sm flex items-center space-x-2">
+                  <ShieldAlert className="w-4 h-4" />
+                  <span>{editingSpecialSupport?.ID ? 'Редагувати картку супроводу' : 'Нова картка супроводу (ООП / ВПО / Воєнний стан)'}</span>
+                </h3>
+                <button onClick={() => setIsSpecialSupportModalOpen(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveSpecialSupport} className="p-4 sm:p-6 space-y-3.5 text-xs overflow-y-auto flex-1 flex flex-col justify-between">
+                <div className="space-y-3.5">
+                  <div>
+                    <label className="block font-bold mb-1">Вихованець</label>
+                    <SearchableSelect
+                      value={editingSpecialSupport?.CHILD_ID || ''}
+                      onChange={e => {
+                        const childId = Number(e.target.value);
+                        const ch = children.find(c => c.ID === childId);
+                        setEditingSpecialSupport(prev => ({
+                          ...prev,
+                          CHILD_ID: childId,
+                          CHILD_NAME: ch ? ch.FULL_NAME : '',
+                          GROUP_NAME: ch ? ch.GROUP_NAME : ''
+                        }));
+                      }}
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl font-bold"
+                      required
+                    >
+                      {children.map(c => (
+                        <option key={c.ID} value={c.ID}>{c.FULL_NAME} ({c.GROUP_NAME})</option>
+                      ))}
+                    </SearchableSelect>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block font-bold mb-1">Категорія супроводу</label>
+                      <SearchableSelect
+                        value={editingSpecialSupport?.CATEGORY || 'ООП (ІПР / Інклюзія)'}
+                        onChange={e => setEditingSpecialSupport(prev => ({ ...prev, CATEGORY: e.target.value as any }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl font-bold"
+                      >
+                        <option value="ООП (ІПР / Інклюзія)">ООП (ІПР / Інклюзія)</option>
+                        <option value="ВПО (Внутрішньо переміщені)">ВПО (Внутрішньо переміщені)</option>
+                        <option value="Діти військовослужбовців / УБД">Діти військовослужбовців / УБД</option>
+                        <option value="Підвищена тривожність / Стрес">Підвищена тривожність / Стрес</option>
+                        <option value="Діти з кризових сімей / СЖО">Діти з кризових сімей / СЖО</option>
+                      </SearchableSelect>
+                    </div>
+                    <div>
+                      <label className="block font-bold mb-1">Рівень тривожності (1 - 5)</label>
+                      <SearchableSelect
+                        value={editingSpecialSupport?.ANXIETY_SCORE || 3}
+                        onChange={e => setEditingSpecialSupport(prev => ({ ...prev, ANXIETY_SCORE: Number(e.target.value) }))}
+                        className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl font-bold"
+                      >
+                        <option value={1}>1 - Дуже низький (спокійна)</option>
+                        <option value={2}>2 - Помірний (адекватний)</option>
+                        <option value={3}>3 - Середній (вибіркова напруга)</option>
+                        <option value={4}>4 - Високий (страх, здригання)</option>
+                        <option value={5}>5 - Критичний (паніка, плач)</option>
+                      </SearchableSelect>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Динаміка стану вихованця</label>
+                    <SearchableSelect
+                      value={editingSpecialSupport?.DYNAMIC_STATUS || 'Стабільний стан'}
+                      onChange={e => setEditingSpecialSupport(prev => ({ ...prev, DYNAMIC_STATUS: e.target.value as any }))}
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl font-bold"
+                    >
+                      <option value="Позитивна динаміка">Позитивна динаміка</option>
+                      <option value="Стабільний стан">Стабільний стан</option>
+                      <option value="Потребує посиленої уваги">Потребує посиленої уваги</option>
+                      <option value="Критичний стан / Направлено до фахівців">Критичний стан / Направлено до фахівців</option>
+                    </SearchableSelect>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Реакція на стрес, гучні звуки, сирени</label>
+                    <input
+                      type="text"
+                      value={editingSpecialSupport?.STRESS_REACTION || ''}
+                      onChange={e => setEditingSpecialSupport(prev => ({ ...prev, STRESS_REACTION: e.target.value }))}
+                      placeholder="напр. Закриває вуха руками, плач при зміні режиму"
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Поведінка в укритті ЗДО №145</label>
+                    <input
+                      type="text"
+                      value={editingSpecialSupport?.SHELTER_BEHAVIOR || ''}
+                      onChange={e => setEditingSpecialSupport(prev => ({ ...prev, SHELTER_BEHAVIOR: e.target.value }))}
+                      placeholder="напр. Потребує тактильної іграшки, заспокоюється малюванням"
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Індивідуальний план супроводу / ІПР</label>
+                    <textarea
+                      rows={2}
+                      value={editingSpecialSupport?.INDIVIDUAL_PLAN || ''}
+                      onChange={e => setEditingSpecialSupport(prev => ({ ...prev, INDIVIDUAL_PLAN: e.target.value }))}
+                      placeholder="Корекційні сесії 2 рази на тиждень, вправи на заземлення..."
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold mb-1">Додаткові примітки (ІРЦ, лікарі, сім'я)</label>
+                    <input
+                      type="text"
+                      value={editingSpecialSupport?.NOTES || ''}
+                      onChange={e => setEditingSpecialSupport(prev => ({ ...prev, NOTES: e.target.value }))}
+                      placeholder="Висновок ІРЦ №..., рекомендації батькам..."
+                      className="w-full p-2 bg-slate-100 dark:bg-slate-800 border rounded-xl"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end space-x-2 shrink-0 sticky bottom-0 bg-white dark:bg-slate-900 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setIsSpecialSupportModalOpen(false)}
+                    className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-300 transition"
+                  >
+                    Скасувати
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shadow-md transition"
+                  >
+                    Зберегти картку
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: PRINTABLE MEMO (А4 З БЛАНКОМ ЗДО №145) */}
+      {selectedMemoForPrint && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm p-2 sm:p-6 z-50 overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center py-4">
+            <div className="bg-white text-slate-900 rounded-2xl max-w-3xl w-full p-8 shadow-2xl border border-slate-300 flex flex-col font-serif relative">
+              {/* No-print Action Controls */}
+              <div className="flex items-center justify-between pb-4 mb-6 border-b no-print">
+                <div className="text-xs font-sans text-slate-500">
+                  Перегляд пам'ятки у форматі друку А4
+                </div>
+                <div className="flex items-center space-x-2 font-sans">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex items-center space-x-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md transition"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Друкувати А4</span>
+                  </button>
+                  <button
+                    onClick={() => setSelectedMemoForPrint(null)}
+                    className="p-2 text-slate-400 hover:text-slate-700 rounded-xl transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* A4 Letterhead */}
+              <div className="border-b-2 border-slate-900 pb-3 mb-6">
+                <div className="flex justify-between items-start text-xs mb-3">
+                  <div>
+                    <div className="font-bold">УКРАЇНА</div>
+                    <div>МІНІСТЕРСТВО ОСВІТИ І НАУКИ УКРАЇНИ</div>
+                    <div className="font-bold uppercase text-purple-950">КОМУНАЛЬНИЙ ЗАКЛАД ДОШКІЛЬНОЇ ОСВІТИ (ЯСЛА-САДОК) КОМБІНОВАНОГО ТИПУ №145 КРИВОРІЗЬКОЇ МІСЬКОЇ РАДИ</div>
+                    <div className="text-[10px] text-slate-600">ЄДРПОУ: 26136748 | м. Кривий Ріг, вул. Перлинна 23А</div>
+                  </div>
+                  <div className="text-right">
+                    <div><b>ЗАТВЕРДЖУЮ</b></div>
+                    <div>Директор КЗДО №145</div>
+                    <div className="mt-1">________________ / Н. Г. Павлухіна</div>
+                    <div className="text-[10px] text-slate-500">«_____» ____________ 2026 р.</div>
+                  </div>
+                </div>
+                <div className="text-center pt-2">
+                  <span className="text-[10px] font-sans font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 inline-block mb-1">
+                    Психологічна служба • Пам'ятка ({selectedMemoForPrint.targetAudience})
+                  </span>
+                  <h2 className="text-lg font-bold text-slate-900 leading-snug">
+                    {selectedMemoForPrint.title}
+                  </h2>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl mb-6 text-xs italic text-slate-700">
+                {selectedMemoForPrint.summary}
+              </div>
+
+              {/* Tips list */}
+              <div className="space-y-3 mb-8 text-xs leading-relaxed">
+                <h3 className="font-bold text-sm uppercase tracking-wide border-b pb-1 text-purple-900 font-sans">
+                  Практичні рекомендації практичного психолога:
+                </h3>
+                <ul className="space-y-2.5 pt-2">
+                  {selectedMemoForPrint.tips.map((tip, idx) => (
+                    <li key={idx} className="flex items-start space-x-2">
+                      <span className="font-bold font-sans text-purple-700 shrink-0">{idx + 1}.</span>
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Letterhead Signatures footer */}
+              <div className="mt-8 pt-4 border-t flex justify-between text-xs font-bold">
+                <div>Практичний психолог ЗДО: ____________________</div>
+                <div>Директор КЗДО №145: ____________________ / Н. Г. Павлухіна</div>
+              </div>
             </div>
           </div>
         </div>

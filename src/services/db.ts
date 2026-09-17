@@ -8,6 +8,8 @@ import {
   SadokGroup, SadokEmployee, SadokChild, DishCostProfile, DishCostHistoryEntry,
   MenuApproval, DocumentRegistryEntry, PsychologyAdaptationRecord, SchoolReadinessAssessment, PsychologyConsultation,
   PsychologyReportRow, PsychologySummaryReport,
+  PsychologyDailyLogEntry, PsychologyDailyActivityType, PsychologyDailyCategory,
+  PsychologySpecialSupportEntry, PsychologySpecialCategory, PsychologyDynamicStatus, PsychologyMemo,
   SadokMedicalCard, SadokVaccination, SadokAnthropometry,
   DailyAttendanceRecord, BrackerageReadyEntry, BrackerageRawEntry
 } from '../types';
@@ -1159,6 +1161,12 @@ function getRawSyncRow(entityType: SyncEntityType, localId: string): Record<stri
   if (entityType === 'psychology_report') {
     return getPsychologySummaryReports().find(r => String(r.ID) === localId) as unknown as Record<string, unknown>;
   }
+  if (entityType === 'psychology_daily_log') {
+    return getPsychologyDailyLogEntries().find(d => String(d.ID) === localId) as unknown as Record<string, unknown>;
+  }
+  if (entityType === 'psychology_special_support') {
+    return getPsychologySpecialSupportEntries().find(s => String(s.ID) === localId) as unknown as Record<string, unknown>;
+  }
   const tables: Record<string, string> = {
     menu_entry: 'MENU',
     menu_approval: 'MENU_APPROVALS',
@@ -1286,6 +1294,8 @@ function ensureAllSyncMetadata(): void {
   getSchoolReadinessAssessments().forEach(r => ensureSyncMetadata('psychology_readiness', String(r.ID)));
   getPsychologyConsultations().forEach(c => ensureSyncMetadata('psychology_consultation', String(c.ID)));
   getPsychologySummaryReports().forEach(r => ensureSyncMetadata('psychology_report', String(r.ID)));
+  getPsychologyDailyLogEntries().forEach(d => ensureSyncMetadata('psychology_daily_log', String(d.ID)));
+  getPsychologySpecialSupportEntries().forEach(s => ensureSyncMetadata('psychology_special_support', String(s.ID)));
   getMedicalCards().forEach(m => ensureSyncMetadata('medical_card', String(m.ID)));
   getVaccinations().forEach(v => ensureSyncMetadata('medical_vaccination', String(v.ID)));
   getAnthropometries().forEach(a => ensureSyncMetadata('medical_anthropometry', String(a.ID)));
@@ -1362,9 +1372,11 @@ export function reconcileLocalBootstrapSnapshot(
         psychology_readiness: 12,
         psychology_consultation: 13,
         psychology_report: 14,
-        medical_card: 15,
-        medical_vaccination: 16,
-        medical_anthropometry: 17,
+        psychology_daily_log: 15,
+        psychology_special_support: 16,
+        medical_card: 17,
+        medical_vaccination: 18,
+        medical_anthropometry: 19,
       };
       return order[left.ENTITY_TYPE] - order[right.ENTITY_TYPE];
     });
@@ -1405,6 +1417,12 @@ export function reconcileLocalBootstrapSnapshot(
       }
       if (row.ENTITY_TYPE === 'psychology_report') {
         localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(getPsychologySummaryReports().filter(r => String(r.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'psychology_daily_log') {
+        localStorage.setItem('sadok_psychology_daily_logs', JSON.stringify(getPsychologyDailyLogEntries().filter(d => String(d.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'psychology_special_support') {
+        localStorage.setItem('sadok_psychology_special_support', JSON.stringify(getPsychologySpecialSupportEntries().filter(s => String(s.ID) !== row.LOCAL_ID)));
       }
       if (row.ENTITY_TYPE === 'medical_card') {
         localStorage.setItem('sadok_medical_cards', JSON.stringify(getMedicalCards().filter(m => String(m.ID) !== row.LOCAL_ID)));
@@ -1520,6 +1538,12 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
       }
       if (remote.entityType === 'psychology_report') {
         localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(getPsychologySummaryReports().filter(r => String(r.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'psychology_daily_log') {
+        localStorage.setItem('sadok_psychology_daily_logs', JSON.stringify(getPsychologyDailyLogEntries().filter(d => String(d.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'psychology_special_support') {
+        localStorage.setItem('sadok_psychology_special_support', JSON.stringify(getPsychologySpecialSupportEntries().filter(s => String(s.ID) !== existing.LOCAL_ID)));
       }
       if (remote.entityType === 'medical_card') {
         localStorage.setItem('sadok_medical_cards', JSON.stringify(getMedicalCards().filter(m => String(m.ID) !== existing.LOCAL_ID)));
@@ -1698,6 +1722,30 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
     const exists = current.some(r => String(r.ID) === localId);
     const updated = exists ? current.map(r => String(r.ID) === localId ? updatedRow : r) : [updatedRow, ...current];
     localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'psychology_daily_log') {
+    const current = getPsychologyDailyLogEntries();
+    const row = rawRow as unknown as PsychologyDailyLogEntry;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(d => d.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(d => String(d.ID) === localId);
+    const updated = exists ? current.map(d => String(d.ID) === localId ? updatedRow : d) : [updatedRow, ...current];
+    localStorage.setItem('sadok_psychology_daily_logs', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'psychology_special_support') {
+    const current = getPsychologySpecialSupportEntries();
+    const row = rawRow as unknown as PsychologySpecialSupportEntry;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(s => s.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(s => String(s.ID) === localId);
+    const updated = exists ? current.map(s => String(s.ID) === localId ? updatedRow : s) : [updatedRow, ...current];
+    localStorage.setItem('sadok_psychology_special_support', JSON.stringify(updated));
     saveRemoteMetadata(remote, localId);
     return;
   }
@@ -3931,6 +3979,366 @@ export function deletePsychologySummaryReport(id: number): PsychologySummaryRepo
   localStorage.setItem('sadok_psychology_summary_reports', JSON.stringify(updated));
   return updated;
 }
+
+// -----------------------------------------------------------------
+// PSYCHOLOGIST: ЖУРНАЛ ЩОДЕННОГО ОБЛІКУ РОБОТИ (МОН УКРАЇНИ)
+// -----------------------------------------------------------------
+
+const INITIAL_PSYCHOLOGY_DAILY_LOG: PsychologyDailyLogEntry[] = [
+  {
+    ID: 1,
+    DATE: '2026-09-15',
+    ACTIVITY_TYPE: 'Діагностична',
+    CATEGORY: 'Діти',
+    TARGET_NAME: 'Група «Сонечко» (Молодша)',
+    GROUP_NAME: 'Група «Сонечко»',
+    CONTENT_TOPIC: 'Первинна діагностика адаптації новоприбулих дітей до умов ЗДО (картки спостережень)',
+    HOURS_SPENT: 2.5,
+    RESULTS_NOTES: 'Обстежено 12 дітей. 9 дітей з легким рівнем, 3 із середнім. Надано поради вихователю.'
+  },
+  {
+    ID: 2,
+    DATE: '2026-09-15',
+    ACTIVITY_TYPE: 'Корекційно-розвиткова',
+    CATEGORY: 'Діти',
+    TARGET_NAME: 'Бондаренко Артем (ООП)',
+    CHILD_ID: 4,
+    GROUP_NAME: 'Група «Калинка»',
+    CONTENT_TOPIC: 'Індивідуальне корекційно-розвиткове заняття з розвитку емоційно-вольової сфери та сенсорної інтеграції',
+    HOURS_SPENT: 1.5,
+    RESULTS_NOTES: 'Позитивна динаміка взаємодії, дитина зосередилася на пісковій терапії та тактильних вправах.'
+  },
+  {
+    ID: 3,
+    DATE: '2026-09-16',
+    ACTIVITY_TYPE: 'Консультаційна',
+    CATEGORY: 'Батьки',
+    TARGET_NAME: 'Коваленко О.М. (мати)',
+    GROUP_NAME: 'Група «Барвінок»',
+    CONTENT_TOPIC: 'Індивідуальна консультація: зниження тривожності дитини під час ранкового прощання та адаптація до ясел',
+    HOURS_SPENT: 1.0,
+    RESULTS_NOTES: 'Узгоджено спільний домашній ритуал прощання та адаптаційний графік.'
+  },
+  {
+    ID: 4,
+    DATE: '2026-09-16',
+    ACTIVITY_TYPE: 'Просвітницька',
+    CATEGORY: 'Педагоги',
+    TARGET_NAME: 'Педагогічний колектив ЗДО №145',
+    GROUP_NAME: 'Всі групи',
+    CONTENT_TOPIC: 'Семінар-практикум: «Психологічна безпека та стабілізація дітей в укритті під час повітряної тривоги»',
+    HOURS_SPENT: 2.0,
+    RESULTS_NOTES: 'Опрацьовано техніку заземлення «5-4-3-2-1», дихальні вправи 4х4 та антистрес-ігри для укриття.'
+  },
+  {
+    ID: 5,
+    DATE: '2026-09-17',
+    ACTIVITY_TYPE: 'Організаційно-методична',
+    CATEGORY: 'Методична / Самоосвіта',
+    TARGET_NAME: 'Кабінет практичного психолога',
+    GROUP_NAME: 'Методичний блок',
+    CONTENT_TOPIC: 'Оформлення індивідуальних карток психолого-педагогічного супроводу дітей ООП та ВПО, підготовка діагностичних бланків',
+    HOURS_SPENT: 3.5,
+    RESULTS_NOTES: 'Оновлено банк методик та протоколи спостережень на 2026/2027 н.р., сформовано графік консультацій.'
+  },
+  {
+    ID: 6,
+    DATE: '2026-09-17',
+    ACTIVITY_TYPE: 'Корекційно-розвиткова',
+    CATEGORY: 'Діти',
+    TARGET_NAME: 'Сидоренко Владислав (ВПО)',
+    CHILD_ID: 5,
+    GROUP_NAME: 'Група «Сонечко»',
+    CONTENT_TOPIC: 'Арт-терапевтичне заняття з подолання страхів та зниження рівня психоемоційного напруження',
+    HOURS_SPENT: 1.5,
+    RESULTS_NOTES: 'Зниження напруження, вираження тривожних переживань через малюнок фарбами.'
+  }
+];
+
+export function getPsychologyDailyLogEntries(): PsychologyDailyLogEntry[] {
+  const saved = localStorage.getItem('sadok_psychology_daily_logs');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (_) {}
+  }
+  localStorage.setItem('sadok_psychology_daily_logs', JSON.stringify(INITIAL_PSYCHOLOGY_DAILY_LOG));
+  return INITIAL_PSYCHOLOGY_DAILY_LOG;
+}
+
+export function savePsychologyDailyLogEntry(rec: Partial<PsychologyDailyLogEntry> & {
+  CONTENT_TOPIC: string;
+  HOURS_SPENT: number;
+  ACTIVITY_TYPE: PsychologyDailyActivityType;
+}): PsychologyDailyLogEntry[] {
+  const current = getPsychologyDailyLogEntries();
+  let updated: PsychologyDailyLogEntry[];
+  let savedId: number;
+
+  if (rec.ID) {
+    savedId = rec.ID;
+    updated = current.map(item => item.ID === rec.ID ? { ...item, ...rec } as PsychologyDailyLogEntry : item);
+  } else {
+    savedId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newRecord: PsychologyDailyLogEntry = {
+      ID: savedId,
+      DATE: rec.DATE || new Date().toISOString().split('T')[0],
+      ACTIVITY_TYPE: rec.ACTIVITY_TYPE,
+      CATEGORY: rec.CATEGORY || 'Діти',
+      TARGET_NAME: rec.TARGET_NAME || 'Вихованці ЗДО',
+      CHILD_ID: rec.CHILD_ID,
+      GROUP_NAME: rec.GROUP_NAME,
+      CONTENT_TOPIC: rec.CONTENT_TOPIC,
+      HOURS_SPENT: Number(rec.HOURS_SPENT) || 1,
+      RESULTS_NOTES: rec.RESULTS_NOTES || '',
+      CREATED_AT: new Date().toISOString().split('T')[0]
+    };
+    updated = [newRecord, ...current];
+  }
+
+  localStorage.setItem('sadok_psychology_daily_logs', JSON.stringify(updated));
+  queueCurrentSyncEntity('psychology_daily_log', String(savedId), 'upsert', !rec.ID);
+  return updated;
+}
+
+export function deletePsychologyDailyLogEntry(id: number): PsychologyDailyLogEntry[] {
+  const current = getPsychologyDailyLogEntries();
+  const target = current.find(item => item.ID === id);
+  queueCurrentSyncEntity('psychology_daily_log', String(id), 'delete', false, target as unknown as Record<string, unknown>);
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_psychology_daily_logs', JSON.stringify(updated));
+  return updated;
+}
+
+// -----------------------------------------------------------------
+// PSYCHOLOGIST: ПСИХОЛОГІЧНИЙ СУПРОВІД (ВОЄННИЙ СТАН, ООП, ВПО)
+// -----------------------------------------------------------------
+
+const INITIAL_PSYCHOLOGY_SPECIAL_SUPPORT: PsychologySpecialSupportEntry[] = [
+  {
+    ID: 1,
+    CHILD_ID: 4,
+    CHILD_NAME: 'Бондаренко Артем Олександрович',
+    GROUP_NAME: 'Група «Калинка» (Старша)',
+    CATEGORY: 'ООП (ІПР / Інклюзія)',
+    DIAGNOSTIC_DATE: '2026-09-05',
+    ANXIETY_SCORE: 3,
+    STRESS_REACTION: 'Підвищена чутливість до гучних звуків, закриває вуха руками',
+    SHELTER_BEHAVIOR: 'Потребує індивідуального супроводу асистента або психолога, має тактильну іграшку та навушники, перебуває в куточку спокою',
+    INDIVIDUAL_PLAN: 'Індивідуальні корекційно-розвиткові заняття 2 рази на тиждень: сенсорне розвантаження, вправи на регуляцію уваги',
+    DYNAMIC_STATUS: 'Стабільний стан',
+    NOTES: 'ІПР погоджено з ІРЦ м. Кривого Рогу та затверджено командою психолого-педагогічного супроводу КЗДО №145.',
+    UPDATED_AT: '2026-09-15'
+  },
+  {
+    ID: 2,
+    CHILD_ID: 5,
+    CHILD_NAME: 'Сидоренко Владислав Юрійович',
+    GROUP_NAME: 'Група «Сонечко» (Молодша)',
+    CATEGORY: 'ВПО (Внутрішньо переміщені)',
+    DIAGNOSTIC_DATE: '2026-09-08',
+    ANXIETY_SCORE: 4,
+    STRESS_REACTION: 'Здригається від різких сигналів та сирен, періодичний страх втратити батьків з поля зору',
+    SHELTER_BEHAVIOR: 'В укритті перебуває поруч з вихователем, тримає за руку, заспокоюється казкотерапією та малюванням олівцями',
+    INDIVIDUAL_PLAN: 'Психологічна стабілізація, вправи на подолання тривожності та створення внутрішньої безпеки («мій безпечний простір»)',
+    DYNAMIC_STATUS: 'Позитивна динаміка',
+    NOTES: 'Родина переїхала до Кривого Рогу із зони активних бойових дій. Мати відвідує консультації психолога.',
+    UPDATED_AT: '2026-09-16'
+  },
+  {
+    ID: 3,
+    CHILD_ID: 6,
+    CHILD_NAME: 'Мельник Дарина Тарасівна',
+    GROUP_NAME: 'Група «Барвінок» (Ясельна)',
+    CATEGORY: 'Діти військовослужбовців / УБД',
+    DIAGNOSTIC_DATE: '2026-09-10',
+    ANXIETY_SCORE: 3,
+    STRESS_REACTION: 'Епізоди слізливого настрою при ранковому прийомі, часті згадки про тата',
+    SHELTER_BEHAVIOR: 'Поводить себе організовано, допомагає вихователю роздавати розмальовки іншим дітям',
+    INDIVIDUAL_PLAN: 'Емоційна підтримка, підтримка відчуття сімейної єдності, позитивне схвалення активності у групі',
+    DYNAMIC_STATUS: 'Позитивна динаміка',
+    NOTES: 'Батько служить у лавах Збройних Сил України. Здійснюється регулярний контакт із мамою.',
+    UPDATED_AT: '2026-09-17'
+  },
+  {
+    ID: 4,
+    CHILD_ID: 7,
+    CHILD_NAME: 'Ткаченко Максим Романович',
+    GROUP_NAME: 'Група «Калинка» (Старша)',
+    CATEGORY: 'Підвищена тривожність / Стрес',
+    DIAGNOSTIC_DATE: '2026-09-12',
+    ANXIETY_SCORE: 4,
+    STRESS_REACTION: 'Тривожність при зміні режиму, поганий денний сон, занепокоєння під час тривог',
+    SHELTER_BEHAVIOR: 'Схильний до моторного неспокою, бігає, заспокоюється при включенні аудіоказок або дихальних вправ',
+    INDIVIDUAL_PLAN: 'Вправи на саморегуляцію, м\'язове розслаблення за Джекобсоном (дитячий адаптований варіант)',
+    DYNAMIC_STATUS: 'Потребує посиленої уваги',
+    NOTES: 'Рекомендовано консультацію дитячого невролога та дотримання спокійного вечірнього режиму вдома.',
+    UPDATED_AT: '2026-09-16'
+  }
+];
+
+export function getPsychologySpecialSupportEntries(): PsychologySpecialSupportEntry[] {
+  const saved = localStorage.getItem('sadok_psychology_special_support');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (_) {}
+  }
+  localStorage.setItem('sadok_psychology_special_support', JSON.stringify(INITIAL_PSYCHOLOGY_SPECIAL_SUPPORT));
+  return INITIAL_PSYCHOLOGY_SPECIAL_SUPPORT;
+}
+
+export function savePsychologySpecialSupportEntry(rec: Partial<PsychologySpecialSupportEntry> & {
+  CHILD_ID: number;
+  CHILD_NAME: string;
+  CATEGORY: PsychologySpecialCategory;
+}): PsychologySpecialSupportEntry[] {
+  const current = getPsychologySpecialSupportEntries();
+  let updated: PsychologySpecialSupportEntry[];
+  let savedId: number;
+
+  if (rec.ID) {
+    savedId = rec.ID;
+    updated = current.map(item => item.ID === rec.ID ? {
+      ...item,
+      ...rec,
+      UPDATED_AT: new Date().toISOString().split('T')[0]
+    } as PsychologySpecialSupportEntry : item);
+  } else {
+    savedId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newRecord: PsychologySpecialSupportEntry = {
+      ID: savedId,
+      CHILD_ID: rec.CHILD_ID,
+      CHILD_NAME: rec.CHILD_NAME,
+      GROUP_NAME: rec.GROUP_NAME || 'Група «Сонечко»',
+      CATEGORY: rec.CATEGORY,
+      DIAGNOSTIC_DATE: rec.DIAGNOSTIC_DATE || new Date().toISOString().split('T')[0],
+      ANXIETY_SCORE: Number(rec.ANXIETY_SCORE) || 3,
+      STRESS_REACTION: rec.STRESS_REACTION || 'Нормотипова реакція',
+      SHELTER_BEHAVIOR: rec.SHELTER_BEHAVIOR || 'Спокійна, дотримується вказівок педагога',
+      INDIVIDUAL_PLAN: rec.INDIVIDUAL_PLAN || 'Загальний психолого-педагогічний супровід',
+      DYNAMIC_STATUS: rec.DYNAMIC_STATUS || 'Стабільний стан',
+      NOTES: rec.NOTES || '',
+      UPDATED_AT: new Date().toISOString().split('T')[0]
+    };
+    updated = [newRecord, ...current];
+  }
+
+  localStorage.setItem('sadok_psychology_special_support', JSON.stringify(updated));
+  queueCurrentSyncEntity('psychology_special_support', String(savedId), 'upsert', !rec.ID);
+  return updated;
+}
+
+export function deletePsychologySpecialSupportEntry(id: number): PsychologySpecialSupportEntry[] {
+  const current = getPsychologySpecialSupportEntries();
+  const target = current.find(item => item.ID === id);
+  queueCurrentSyncEntity('psychology_special_support', String(id), 'delete', false, target as unknown as Record<string, unknown>);
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_psychology_special_support', JSON.stringify(updated));
+  return updated;
+}
+
+// -----------------------------------------------------------------
+// PSYCHOLOGIST: БАНК ПАМ'ЯТОК ТА РЕКОМЕНДАЦІЙ ДЛЯ БАТЬКІВ І ПЕДАГОГІВ
+// -----------------------------------------------------------------
+
+export const PSYCHOLOGY_MEMOS: PsychologyMemo[] = [
+  {
+    id: 'memo_adaptation_nursery',
+    title: 'М\'яка адаптація малюка до дитячого садка: практичні поради для батьків',
+    targetAudience: 'Батькам',
+    category: 'Адаптація',
+    summary: 'Як допомогти дитині безболісно звикнути до ясельної або молодшої групи ЗДО, зберегти емоційну рівновагу та довіру до батьків.',
+    tips: [
+      'Поступове звикання: перші дні приводьте дитину лише на 1.5–2 години під час прогулянки або ранкових ігор.',
+      'Позитивне налаштування вдома: розповідайте про садок як про цікаве та безпечне місце, де є друзі та нові іграшки.',
+      'Ритуал швидкого прощання: домовтеся про коротке обіймання, поцілунок або «секретне потискання руки» і чітко скажіть, коли повернетеся (наприклад: «після денного сну»).',
+      'Домашній талісман: дозвольте дитині взяти з собою улюблену м\'яку іграшку, хустинку або річ із запахом дому.',
+      'Уникайте обману: ніколи не тікайте потайки, поки дитина відволіклася — це формує глибокий страх раптової втрати батьків.',
+      'Спокій батьків — спокій дитини: діти миттєво зчитують тривогу мами. Якщо ви впевнені та спокійні — малюк почуватиметься у безпеці.'
+    ]
+  },
+  {
+    id: 'memo_shelter_air_raid',
+    title: 'Психологічна допомога та стабілізація дітей в укритті під час повітряної тривоги',
+    targetAudience: 'Для укриття (ДСНС/Психолог)',
+    category: 'Безпека і тривожність',
+    summary: 'Алгоритм швидкого заспокоєння, зняття паніки та переключення уваги дошкільнят під час сигналу сирени в укритті ЗДО №145.',
+    tips: [
+      'Спокійний голос та впевнені рухи вихователя: діти реагують не на звук сирени, а на міміку та інтонацію дорослого поряд.',
+      'Дихальна гра «Здуй пушинку / задми свічку»: глибокий вдих через носик на 4 рахунки, затримка на 2, повільний плавний видих ротиком на 4.',
+      'Техніка заземлення «5-4-3-2-1»: знайти очима 5 предметів синього кольору, доторкнутися до 4 різних фактур, почути 3 звуки, відчути 2 запахи, випити ковток води.',
+      'Вправа тілесної релаксації «Черепашка»: плечі міцно підняти до вушок (черепашка сховалася від вітру), потримати 5 секунд і м\'яко скинути вниз («сонечко зігріло»).',
+      'Сенсорний валізку укриття: використовуйте кінетичний пісок, м\'які м\'ячики-антистрес, прості пазли, аудіоказки та розмальовки.',
+      'Легалізація почуттів: не кажіть «не бійся, це пусте». Скажіть: «Я бачу, що тобі страшно. Це нормально. Я поруч, ми в безпечному укритті, я тебе захищаю».'
+    ]
+  },
+  {
+    id: 'memo_adhd_support',
+    title: 'Як створити комфортне середовище для дитини з гіперактивністю (СДУГ) у групі',
+    targetAudience: 'Вихователям',
+    category: 'Особливості поведінки',
+    summary: 'Методичні прийоми організації простору, комунікації та зміни видів діяльності для дітей з надлишковою активністю та імпульсивністю.',
+    tips: [
+      'Чіткий візуальний розпорядок дня: картки-піктограми з послідовністю дій допомагають дитині передбачувати переходи між заняттями.',
+      'Короткі та однозначні інструкції: давайте не більше однієї дії за раз (наприклад: «Поклади олівець у склянку», а не довгий ланцюжок завдань).',
+      'Зміна діяльності кожні 10-12 хвилин: чергуйте сидіння за столиками з рухливими хвилинками («ми — дерева на вітрі», пальчикові гімнастики).',
+      'Легалізація рухової потреби: призначайте дитину помічником — роздати зошити, змочити губку, розставити стільці.',
+      'Зона сенсорного розвантаження: облаштуйте куточок з м\'яким килимком, пуфом та обтяженою подушкою або пледом.',
+      'Позитивне підкріплення успіху: фіксуйте кожен випадок, коли дитина впоралася із завданням чи дочекалася своєї черги.'
+    ]
+  },
+  {
+    id: 'memo_crisis_3_years',
+    title: 'Криза 3-х років («Я сам!»): як пережити впертість, бунти та істерики без травм',
+    targetAudience: 'Батькам',
+    category: 'Особливості поведінки',
+    summary: 'Психологічні особливості віку самоствердження: чому дитина бунтує та як дорослим зберегти терпіння і контакт.',
+    tips: [
+      'Усвідомте нормальність кризи: впертість та протести у 3 роки — це не погане виховання, а природний стрибок формування особистості дитини.',
+      'Ілюзія вибору: замість наказу «одягайся» запропонуйте: «Ти одягнеш синю кофтинку чи зелену?», «Підемо до ванної як ведмедики чи як кошенята?».',
+      'Заохочуйте безпечну самостійність: дозвольте дитині самій натягнути черевики (навіть якщо це займе 5 зайвих хвилин), насипати корм котику чи помити яблуко.',
+      'Дії під час істерики: забезпечте фізичну безпеку, не кричіть і не соромте перед чужими людьми. Сядьте поруч на рівні очей, будьте тихою гаванню.',
+      'Називайте почуття: «Ти дуже сердишся, що ми йдемо з майданчика. Я розумію твоє розчарування. Ми обов\'язково прийдемо сюди завтра».',
+      'Тверді непорушні межі: питання безпеки (дорога, гаряче, розетки) не обговорюються, але всі інші побутові моменти можуть бути гнучкими.'
+    ]
+  },
+  {
+    id: 'memo_childhood_fears',
+    title: 'Дитячі страхи (темряви, голосних звуків, самотності): методи психологічної допомоги',
+    targetAudience: 'Батькам',
+    category: 'Безпека і тривожність',
+    summary: 'Дієві арт-терапевтичні та ігрові методики подолання дитячих страхів у домашніх умовах.',
+    tips: [
+      'Арт-терапевтична техніка «Малюємо та перетворюємо страх»: намалювати фарбами те, що лякає, а потім домлювати йому смішний капелюх, бантик або чарівні крильця.',
+      'Гра в темряву «Чарівний ліхтарик»: грайтеся в безпечній кімнаті у світлові хованки з ліхтариком, досліджуючи веселі тіні на стіні.',
+      'Казкотерапія: вигадуйте казки про хороброго зайчика чи котика, який спочатку боявся грому/темряви, а потім знайшов свій чарівний захисний щит.',
+      'Нічний режим спокою: мінімізуйте екранний час за 1.5 години до сну; використовуйте теплий нічник та тактильне читання у ліжку.',
+      'Ніколи не висміюйте страх: фрази «ти ж великий хлопчик» або «там нікого нема, не вигадуй» лише поглиблюють відчуття самотності дитини у своїй біді.',
+      'Тілесний контакт: міцні теплі обійми на 20-30 секунд активізують вироблення окситоцину, знижуючи рівень кортизолу.'
+    ]
+  },
+  {
+    id: 'memo_school_readiness',
+    title: 'Психологічна готовність дитини до школи (НУШ): на що звернути увагу батькам',
+    targetAudience: 'Батькам',
+    category: 'Підготовка до школи',
+    summary: 'Чому вміння читати і писати — це лише малий відсоток успіху, та як розвинути емоційну зрілість і мотивацію майбутнього першокласника.',
+    tips: [
+      'Мотиваційна готовність: бажання дитини дізнаватися нове, інтерес до пізнання, а не лише «гарний новий рюкзак».',
+      'Емоційно-вольова регуляція: здатність утримувати увагу 15–20 хвилин, дослухати завдання до кінця та спокійно приймати дрібні невдачі.',
+      'Соціальна адаптація: навички взаємодії з ровесниками, вміння домовитися про правила гри, звернутися за допомогою до вчителя.',
+      'Дрібна моторика та зорово-моторна координація: ліплення з пластиліну, робота з ножицями, шнурування, орієнтація на аркуші в клітинку.',
+      'Побутова самостійність: швидке самостійне переодягання, складання своїх речей, дотримання особистої гігієни.',
+      'Підтримка впевненості: не лякайте дитину «от підеш до школи — там тобі покажуть!». Створюйте образ школи як цікавого простору дорослішання.'
+    ]
+  }
+];
+
+export function getPsychologyMemos(): PsychologyMemo[] {
+  return PSYCHOLOGY_MEMOS;
+}
+
 
 // ==========================================
 // 1 ВЕРЕСНЯ: МАСОВЕ ПЕРЕВЕДЕННЯ КОНТИНГЕНТУ

@@ -20,6 +20,8 @@ export type SyncEntityType =
   | 'psychology_readiness'
   | 'psychology_consultation'
   | 'psychology_report'
+  | 'psychology_daily_log'
+  | 'psychology_special_support'
   | 'medical_card'
   | 'medical_vaccination'
   | 'medical_anthropometry';
