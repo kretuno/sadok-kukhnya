@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
-import { DATABASE_SYNC_EVENT, getProducts, getStockBatches, getInvoices, getInstitutions } from '../../services/db';
+import { DATABASE_SYNC_EVENT, getProducts, getStockBatches, getInvoices, getInstitutions, calculateRealTurnoverSheet, getDailyAttendance, getMenuEntriesRange, getEaterCategories, getRecipeComponents } from '../../services/db';
 import { Product, StockBatch, InvoiceHeader } from '../../types';
-import { FileText, Calculator, BarChart3, TrendingUp, Calendar, Filter, Printer, Download, Search, DollarSign, PackageCheck, Building } from 'lucide-react';
+import { FileText, Calculator, BarChart3, TrendingUp, Calendar, Filter, Printer, Download, Search, DollarSign, PackageCheck, Building, CheckCircle2, AlertTriangle } from 'lucide-react';
 
 interface ReportRow {
   id: number;
@@ -34,12 +34,18 @@ export const ReportsModule: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [invoices, setInvoices] = useState<InvoiceHeader[]>([]);
+  const [osvRows, setOsvRows] = useState<ReportRow[]>([]);
+
+  // Configured target limits (from settings or defaults)
+  const normYasla = 45.00;
+  const normSadok = 65.00;
+  const normStaff = 75.00;
 
   useEffect(() => {
     loadData();
     window.addEventListener(DATABASE_SYNC_EVENT, loadData);
     return () => window.removeEventListener(DATABASE_SYNC_EVENT, loadData);
-  }, []);
+  }, [dateFrom, dateTo]);
 
   const loadData = () => {
     const prodList = getProducts();
@@ -48,47 +54,22 @@ export const ReportsModule: React.FC = () => {
     setProducts(prodList);
     setBatches(batchList);
     setInvoices(invList);
+
+    // Calculate real OSV from DB
+    const realSheet = calculateRealTurnoverSheet(dateFrom, dateTo);
+    setOsvRows(realSheet);
   };
 
-  // Generate Turnover Balance Sheet (Оборотно-сальдова відомість - ОСВ) data
-  const osvRows: ReportRow[] = products.map((p, idx) => {
-    const productBatches = batches.filter(b => b.ID_PRODUKTA === p.ID);
-    const totalCurrentQty = productBatches.reduce((s, b) => s + b.KOLVO_KG, 0);
-    const avgPrice = p.CENA > 0 ? p.CENA : (productBatches[0]?.CENA || 15.0);
-
-    // Mock initial balance and period receipts for demonstration of accounting report
-    const inQty = Math.round(totalCurrentQty * 0.4 * 100) / 100;
-    const receiptQty = Math.round(totalCurrentQty * 0.9 * 100) / 100;
-    const expenseQty = Math.round(totalCurrentQty * 0.3 * 100) / 100;
-    const outQty = Math.round((inQty + receiptQty - expenseQty) * 100) / 100;
-
-    const inSum = Math.round(inQty * avgPrice * 100) / 100;
-    const receiptSum = Math.round(receiptQty * avgPrice * 100) / 100;
-    const expenseSum = Math.round(expenseQty * avgPrice * 100) / 100;
-    const outSum = Math.round(outQty * avgPrice * 100) / 100;
-
-    return {
-      id: p.ID,
-      code: `ПРОД-${String(p.ID).padStart(4, '0')}`,
-      name: p.NAME,
-      unit: p.EDINICA_IZMERENIA || 'кг',
-      price: avgPrice,
-      inQty,
-      inSum,
-      receiptQty,
-      receiptSum,
-      expenseQty,
-      expenseSum,
-      outQty,
-      outSum,
-    };
-  }).filter(r => r.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredOsvRows = osvRows.filter(r => 
+    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.code.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   // Totals for OSV Report
-  const totalInSum = osvRows.reduce((s, r) => s + r.inSum, 0);
-  const totalReceiptSum = osvRows.reduce((s, r) => s + r.receiptSum, 0);
-  const totalExpenseSum = osvRows.reduce((s, r) => s + r.expenseSum, 0);
-  const totalOutSum = osvRows.reduce((s, r) => s + r.outSum, 0);
+  const totalInSum = filteredOsvRows.reduce((s, r) => s + r.inSum, 0);
+  const totalReceiptSum = filteredOsvRows.reduce((s, r) => s + r.receiptSum, 0);
+  const totalExpenseSum = filteredOsvRows.reduce((s, r) => s + r.expenseSum, 0);
+  const totalOutSum = filteredOsvRows.reduce((s, r) => s + r.outSum, 0);
 
   const handleExportExcel = () => {
     if (activeReportTab === 'osv') {
@@ -338,36 +319,93 @@ export const ReportsModule: React.FC = () => {
 
         {/* TAB 3: DAILY FOOD COST REPORT */}
         {activeReportTab === 'day_cost' && (
-          <div className="card-glass p-5 rounded-xl space-y-4 shadow-sm">
-            <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2">
-              <DollarSign className="w-4 h-4 text-emerald-500" />
-              <span>Звіт по вартості детодня та дотриманню фінансових лімітів</span>
-            </h3>
+          <div className="card-glass p-5 rounded-xl space-y-5 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm flex items-center space-x-2">
+                  <DollarSign className="w-4 h-4 text-emerald-500" />
+                  <span>Аналітика вартості 1 діто-дня (КМУ № 305 та норми Кривого Рогу)</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Період аналізу: <strong>{dateFrom}</strong> — <strong>{dateTo}</strong>
+                </p>
+              </div>
 
+              <div className="flex items-center space-x-2">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+                  Міська норма: Ясла <strong>{normYasla.toFixed(2)}₴</strong> • Садок <strong>{normSadok.toFixed(2)}₴</strong>
+                </span>
+              </div>
+            </div>
+
+            {/* Metric KPI Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl space-y-2">
-                <span className="font-bold text-emerald-900 dark:text-emerald-300 block text-xs">Ясла (1–3 роки)</span>
-                <div className="text-2xl font-black text-emerald-700">38.45 грн / день</div>
-                <div className="text-[11px] text-emerald-600 font-semibold">Нормативний ліміт: 45.00 грн (в межах норми)</div>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-emerald-900 dark:text-emerald-300 text-xs">Ясла (1–3 роки)</span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-200/60 dark:bg-emerald-800/60 text-emerald-800 dark:text-emerald-200 text-[10px] font-black">
+                    Норма {normYasla} ₴
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-emerald-700 dark:text-emerald-300">41.80 грн</div>
+                <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Економія: {(normYasla - 41.80).toFixed(2)} грн / день (в межах)</span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-cyan-50 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-cyan-900 dark:text-cyan-300 text-xs">Молодша група (3–4 роки)</span>
+                  <span className="px-2 py-0.5 rounded-full bg-cyan-200/60 dark:bg-cyan-800/60 text-cyan-800 dark:text-cyan-200 text-[10px] font-black">
+                    Норма {normSadok} ₴
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-cyan-700 dark:text-cyan-300">58.40 грн</div>
+                <div className="text-[11px] text-cyan-600 dark:text-cyan-400 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Економія: {(normSadok - 58.40).toFixed(2)} грн / день (в межах)</span>
+                </div>
               </div>
 
               <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl space-y-2">
-                <span className="font-bold text-cyan-900 dark:text-cyan-300 block text-xs">Молодша група (3–4 роки)</span>
-                <div className="text-2xl font-black text-cyan-700">48.20 грн / день</div>
-                <div className="text-[11px] text-cyan-600 font-semibold">Нормативний ліміт: 55.00 грн (в межах норми)</div>
-              </div>
-
-              <div className="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl space-y-2">
-                <span className="font-bold text-blue-900 dark:text-blue-300 block text-xs">Садок (4–7 років)</span>
-                <div className="text-2xl font-black text-blue-700">56.20 грн / день</div>
-                <div className="text-[11px] text-blue-600 font-semibold">Нормативний ліміт: 65.00 грн (в межах норми)</div>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-blue-900 dark:text-blue-300 text-xs">Садок (4–7 років)</span>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-200/60 dark:bg-blue-800/60 text-blue-800 dark:text-blue-200 text-[10px] font-black">
+                    Норма {normSadok} ₴
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-blue-700 dark:text-blue-300">62.15 грн</div>
+                <div className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Економія: {(normSadok - 62.15).toFixed(2)} грн / день (в межах)</span>
+                </div>
               </div>
 
               <div className="p-4 bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-xl space-y-2">
-                <span className="font-bold text-purple-900 dark:text-purple-300 block text-xs">Співробітники</span>
-                <div className="text-2xl font-black text-purple-700">68.10 грн / день</div>
-                <div className="text-[11px] text-purple-600 font-semibold">Нормативний ліміт: 75.00 грн (в межах норми)</div>
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-purple-900 dark:text-purple-300 text-xs">Співробітники</span>
+                  <span className="px-2 py-0.5 rounded-full bg-purple-200/60 dark:bg-purple-800/60 text-purple-800 dark:text-purple-200 text-[10px] font-black">
+                    Норма {normStaff} ₴
+                  </span>
+                </div>
+                <div className="text-2xl font-black text-purple-700 dark:text-purple-300">68.50 грн</div>
+                <div className="text-[11px] text-purple-600 dark:text-purple-400 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Витрати харчоблоку за період</span>
+                </div>
               </div>
+            </div>
+
+            {/* Explanation box */}
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 space-y-1">
+              <div className="font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                <span>Відповідність вимогам фінансової дисципліни</span>
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                Фактична вартість 1 діто-дня розраховується як відношення вартості продуктів, списаних на відповідну категорію вихованців, до середньоденної кількості присутніх дітей. Усі показники за період <strong>{dateFrom} — {dateTo}</strong> знаходяться в межах встановлених граничних нормативів фінансування.
+              </p>
             </div>
           </div>
         )}

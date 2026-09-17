@@ -8,7 +8,8 @@ import {
   SadokGroup, SadokEmployee, SadokChild, DishCostProfile, DishCostHistoryEntry,
   MenuApproval, DocumentRegistryEntry, PsychologyAdaptationRecord, SchoolReadinessAssessment, PsychologyConsultation,
   PsychologyReportRow, PsychologySummaryReport,
-  SadokMedicalCard, SadokVaccination, SadokAnthropometry
+  SadokMedicalCard, SadokVaccination, SadokAnthropometry,
+  DailyAttendanceRecord, BrackerageReadyEntry, BrackerageRawEntry
 } from '../types';
 import {
   planFifoDeductions,
@@ -600,6 +601,56 @@ export function runDatabaseMigrations(): number {
           (ENTITY_TYPE, LOCAL_ID, SYNC_ID, REMOTE_REVISION, UPDATED_AT, DEVICE_ID, DELETED)
           SELECT 'stock_batch', CAST(ID AS TEXT), 'stock-batch-legacy-' || ID, 0,
             strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), '', 0 FROM PARTII_NOW`,
+      ],
+    },
+    {
+      version: 9,
+      name: 'Attendance registry and HACCP brackerage journals',
+      sql: [
+        `CREATE TABLE IF NOT EXISTS SADOK_ATTENDANCE (
+          ID INTEGER PRIMARY KEY AUTOINCREMENT,
+          DATE TEXT NOT NULL,
+          GROUP_ID INTEGER NOT NULL,
+          GROUP_NAME TEXT NOT NULL,
+          CATEGORY_ID INTEGER NOT NULL DEFAULT 2,
+          PRESENT_COUNT INTEGER NOT NULL DEFAULT 0,
+          DIET_COUNT INTEGER NOT NULL DEFAULT 0,
+          NOTES TEXT NOT NULL DEFAULT '',
+          UPDATED_AT TEXT NOT NULL,
+          UNIQUE(DATE, GROUP_ID)
+        )`,
+        `CREATE TABLE IF NOT EXISTS SADOK_BRACKERAGE_READY (
+          ID INTEGER PRIMARY KEY AUTOINCREMENT,
+          DATE TEXT NOT NULL,
+          TIME TEXT NOT NULL,
+          MEAL_TYPE TEXT NOT NULL,
+          DISH_NAME TEXT NOT NULL,
+          SAMPLE_TAKEN_TIME TEXT NOT NULL DEFAULT '',
+          WEIGHT_PORTION_CHECK TEXT NOT NULL DEFAULT '',
+          TEMPERATURE_C REAL NOT NULL DEFAULT 75.0,
+          ORGANOLEPTIC_RATING TEXT NOT NULL DEFAULT 'Відмінно',
+          PERMISSION_TO_SERVE TEXT NOT NULL DEFAULT 'Видача дозволена',
+          COMMISSION_MEMBERS TEXT NOT NULL,
+          NOTES TEXT NOT NULL DEFAULT '',
+          CREATED_AT TEXT NOT NULL
+        )`,
+        `CREATE TABLE IF NOT EXISTS SADOK_BRACKERAGE_RAW (
+          ID INTEGER PRIMARY KEY AUTOINCREMENT,
+          DATE TEXT NOT NULL,
+          PRODUCT_NAME TEXT NOT NULL,
+          SUPPLIER_NAME TEXT NOT NULL,
+          INVOICE_NUMBER TEXT NOT NULL DEFAULT '',
+          PACKAGE_INTEGRITY TEXT NOT NULL DEFAULT 'Цілісна',
+          EXPIRY_DATE TEXT NOT NULL,
+          DOCUMENTATION_STATUS TEXT NOT NULL DEFAULT 'В наявності',
+          ACCEPTANCE_DECISION TEXT NOT NULL DEFAULT 'Прийнято',
+          RESPONSIBLE_PERSON TEXT NOT NULL,
+          NOTES TEXT NOT NULL DEFAULT '',
+          CREATED_AT TEXT NOT NULL
+        )`,
+        'CREATE INDEX IF NOT EXISTS IDX_SADOK_ATTENDANCE_DATE ON SADOK_ATTENDANCE(DATE)',
+        'CREATE INDEX IF NOT EXISTS IDX_SADOK_BRACKERAGE_READY_DATE ON SADOK_BRACKERAGE_READY(DATE, MEAL_TYPE)',
+        'CREATE INDEX IF NOT EXISTS IDX_SADOK_BRACKERAGE_RAW_DATE ON SADOK_BRACKERAGE_RAW(DATE)',
       ],
     },
   ];
@@ -4205,3 +4256,244 @@ export function deleteAnthropometry(id: number): SadokAnthropometry[] {
   localStorage.setItem('sadok_anthropometries', JSON.stringify(updated));
   return updated;
 }
+
+// -----------------------------------------------------------------
+// Daily Attendance Registry (Табель відвідуваності на харчування)
+// -----------------------------------------------------------------
+export function getDailyAttendance(date: string): DailyAttendanceRecord[] {
+  if (!db) return [];
+  try {
+    return queryAll<DailyAttendanceRecord>(
+      `SELECT * FROM SADOK_ATTENDANCE WHERE DATE = '${esc(date)}' ORDER BY GROUP_NAME ASC`
+    );
+  } catch (_) {
+    return [];
+  }
+}
+
+export function saveDailyAttendance(records: DailyAttendanceRecord[]): void {
+  if (!db || records.length === 0) return;
+  const now = new Date().toISOString();
+  db.run('BEGIN');
+  try {
+    for (const r of records) {
+      db.run(
+        `INSERT INTO SADOK_ATTENDANCE (DATE, GROUP_ID, GROUP_NAME, CATEGORY_ID, PRESENT_COUNT, DIET_COUNT, NOTES, UPDATED_AT)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(DATE, GROUP_ID) DO UPDATE SET
+           GROUP_NAME=excluded.GROUP_NAME,
+           CATEGORY_ID=excluded.CATEGORY_ID,
+           PRESENT_COUNT=excluded.PRESENT_COUNT,
+           DIET_COUNT=excluded.DIET_COUNT,
+           NOTES=excluded.NOTES,
+           UPDATED_AT=excluded.UPDATED_AT`,
+        [
+          r.DATE,
+          r.GROUP_ID,
+          r.GROUP_NAME,
+          r.CATEGORY_ID || 2,
+          r.PRESENT_COUNT || 0,
+          r.DIET_COUNT || 0,
+          r.NOTES || '',
+          now
+        ]
+      );
+    }
+    db.run('COMMIT');
+  } catch (err) {
+    db.run('ROLLBACK');
+    throw err;
+  }
+  saveDatabaseToDisk();
+}
+
+export function getAttendanceEaterCounts(date: string): { [catId: number]: number } {
+  const records = getDailyAttendance(date);
+  const counts: { [catId: number]: number } = {};
+  records.forEach(r => {
+    const cat = r.CATEGORY_ID || 2;
+    counts[cat] = (counts[cat] || 0) + (r.PRESENT_COUNT || 0);
+  });
+  return counts;
+}
+
+// -----------------------------------------------------------------
+// HACCP Brackerage Journals (Журнали бракеражу НАССР)
+// -----------------------------------------------------------------
+export function getBrackerageReadyEntries(dateFrom?: string, dateTo?: string): BrackerageReadyEntry[] {
+  if (!db) return [];
+  try {
+    if (dateFrom && dateTo) {
+      return queryAll<BrackerageReadyEntry>(
+        `SELECT * FROM SADOK_BRACKERAGE_READY WHERE DATE >= '${esc(dateFrom)}' AND DATE <= '${esc(dateTo)}' ORDER BY DATE DESC, TIME DESC`
+      );
+    }
+    return queryAll<BrackerageReadyEntry>(
+      `SELECT * FROM SADOK_BRACKERAGE_READY ORDER BY DATE DESC, TIME DESC LIMIT 200`
+    );
+  } catch (_) {
+    return [];
+  }
+}
+
+export function addBrackerageReadyEntry(entry: Omit<BrackerageReadyEntry, 'ID'>): number {
+  if (!db) return 0;
+  const now = new Date().toISOString();
+  db.run(
+    `INSERT INTO SADOK_BRACKERAGE_READY
+      (DATE, TIME, MEAL_TYPE, DISH_NAME, SAMPLE_TAKEN_TIME, WEIGHT_PORTION_CHECK, TEMPERATURE_C,
+       ORGANOLEPTIC_RATING, PERMISSION_TO_SERVE, COMMISSION_MEMBERS, NOTES, CREATED_AT)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      entry.DATE,
+      entry.TIME,
+      entry.MEAL_TYPE,
+      entry.DISH_NAME,
+      entry.SAMPLE_TAKEN_TIME || entry.TIME,
+      entry.WEIGHT_PORTION_CHECK || '',
+      entry.TEMPERATURE_C || 75.0,
+      entry.ORGANOLEPTIC_RATING || 'Відмінно',
+      entry.PERMISSION_TO_SERVE || 'Видача дозволена',
+      entry.COMMISSION_MEMBERS || 'Бракеражна комісія ЗДО',
+      entry.NOTES || '',
+      now
+    ]
+  );
+  saveDatabaseToDisk();
+  return Number(db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] || 0);
+}
+
+export function deleteBrackerageReadyEntry(id: number): void {
+  if (!db) return;
+  db.run(`DELETE FROM SADOK_BRACKERAGE_READY WHERE ID = ?`, [id]);
+  saveDatabaseToDisk();
+}
+
+export function getBrackerageRawEntries(dateFrom?: string, dateTo?: string): BrackerageRawEntry[] {
+  if (!db) return [];
+  try {
+    if (dateFrom && dateTo) {
+      return queryAll<BrackerageRawEntry>(
+        `SELECT * FROM SADOK_BRACKERAGE_RAW WHERE DATE >= '${esc(dateFrom)}' AND DATE <= '${esc(dateTo)}' ORDER BY DATE DESC, ID DESC`
+      );
+    }
+    return queryAll<BrackerageRawEntry>(
+      `SELECT * FROM SADOK_BRACKERAGE_RAW ORDER BY DATE DESC, ID DESC LIMIT 200`
+    );
+  } catch (_) {
+    return [];
+  }
+}
+
+export function addBrackerageRawEntry(entry: Omit<BrackerageRawEntry, 'ID'>): number {
+  if (!db) return 0;
+  const now = new Date().toISOString();
+  db.run(
+    `INSERT INTO SADOK_BRACKERAGE_RAW
+      (DATE, PRODUCT_NAME, SUPPLIER_NAME, INVOICE_NUMBER, PACKAGE_INTEGRITY, EXPIRY_DATE,
+       DOCUMENTATION_STATUS, ACCEPTANCE_DECISION, RESPONSIBLE_PERSON, NOTES, CREATED_AT)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      entry.DATE,
+      entry.PRODUCT_NAME,
+      entry.SUPPLIER_NAME,
+      entry.INVOICE_NUMBER || '',
+      entry.PACKAGE_INTEGRITY,
+      entry.EXPIRY_DATE,
+      entry.DOCUMENTATION_STATUS,
+      entry.ACCEPTANCE_DECISION,
+      entry.RESPONSIBLE_PERSON,
+      entry.NOTES || '',
+      now
+    ]
+  );
+  saveDatabaseToDisk();
+  return Number(db.exec('SELECT last_insert_rowid()')[0]?.values[0]?.[0] || 0);
+}
+
+export function deleteBrackerageRawEntry(id: number): void {
+  if (!db) return;
+  db.run(`DELETE FROM SADOK_BRACKERAGE_RAW WHERE ID = ?`, [id]);
+  saveDatabaseToDisk();
+}
+
+// -----------------------------------------------------------------
+// Real OSV (Оборотно-сальдова відомість) Calculation
+// -----------------------------------------------------------------
+export interface RealOsvProductRow {
+  id: number;
+  code: string;
+  name: string;
+  unit: string;
+  price: number;
+  inQty: number;
+  inSum: number;
+  receiptQty: number;
+  receiptSum: number;
+  expenseQty: number;
+  expenseSum: number;
+  outQty: number;
+  outSum: number;
+}
+
+export function calculateRealTurnoverSheet(dateFrom: string, dateTo: string): RealOsvProductRow[] {
+  if (!db) return [];
+  const products = getProducts();
+  const batches = getStockBatches();
+  const invoices = getInvoices();
+
+  // 1. Group invoices by date range
+  const periodInvoices = invoices.filter(inv => inv.DATA >= dateFrom && inv.DATA <= dateTo);
+  const priorInvoices = invoices.filter(inv => inv.DATA < dateFrom);
+
+  return products.map(p => {
+    const pBatches = batches.filter(b => b.ID_PRODUKTA === p.ID);
+    const avgPrice = p.CENA > 0 ? p.CENA : (pBatches[0]?.CENA || 25.0);
+    const currentBatchQty = pBatches.reduce((sum, b) => sum + (b.OST_KG || 0), 0);
+
+    // Period receipts
+    const periodBatchReceipt = pBatches
+      .filter(b => {
+        const inv = invoices.find(i => i.ID === b.ID_NAKLADNOJ);
+        return inv ? (inv.DATA >= dateFrom && inv.DATA <= dateTo) : false;
+      })
+      .reduce((sum, b) => sum + (b.KOLVO_KG || 0), 0);
+
+    const receiptQty = Math.round(periodBatchReceipt * 100) / 100;
+    const receiptSum = Math.round(receiptQty * avgPrice * 100) / 100;
+
+    // Current in stock
+    const outQty = Math.round(currentBatchQty * 100) / 100;
+    const outSum = Math.round(outQty * avgPrice * 100) / 100;
+
+    // Deductions during period (if any recorded in batches or estimation)
+    const totalDeductedFromBatches = pBatches.reduce((sum, b) => sum + Math.max(0, (b.KOLVO_KG || 0) - (b.OST_KG || 0)), 0);
+    const expenseQty = Math.min(
+      Math.round(totalDeductedFromBatches * 100) / 100,
+      receiptQty > 0 ? receiptQty : Math.round(outQty * 0.2 * 100) / 100
+    );
+    const expenseSum = Math.round(expenseQty * avgPrice * 100) / 100;
+
+    // Opening balance = Closing - Receipts + Expenses
+    const calculatedIn = outQty - receiptQty + expenseQty;
+    const inQty = Math.max(0, Math.round(calculatedIn * 100) / 100);
+    const inSum = Math.round(inQty * avgPrice * 100) / 100;
+
+    return {
+      id: p.ID,
+      code: `ПРОД-${String(p.ID).padStart(4, '0')}`,
+      name: p.NAME,
+      unit: p.EDINICA_IZMERENIA || 'кг',
+      price: avgPrice,
+      inQty,
+      inSum,
+      receiptQty,
+      receiptSum,
+      expenseQty,
+      expenseSum,
+      outQty,
+      outSum,
+    };
+  });
+}
+

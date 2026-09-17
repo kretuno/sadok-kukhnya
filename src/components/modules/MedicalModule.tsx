@@ -22,7 +22,8 @@ import {
   RefreshCw,
   Utensils,
   Eye,
-  Info
+  Info,
+  X
 } from 'lucide-react';
 import { SearchableSelect } from '../common/SearchableSelect';
 import { WorkflowGuideModal, WorkflowStep } from '../common/WorkflowGuideModal';
@@ -33,7 +34,9 @@ import {
   SadokGroup, 
   SadokMedicalCard, 
   SadokVaccination, 
-  SadokAnthropometry 
+  SadokAnthropometry,
+  BrackerageReadyEntry,
+  BrackerageRawEntry
 } from '../../types';
 import { 
   DATABASE_SYNC_EVENT,
@@ -47,7 +50,14 @@ import {
   deleteVaccination,
   getAnthropometries, 
   saveAnthropometry, 
-  deleteAnthropometry
+  deleteAnthropometry,
+  getBrackerageReadyEntries,
+  addBrackerageReadyEntry,
+  deleteBrackerageReadyEntry,
+  getBrackerageRawEntries,
+  addBrackerageRawEntry,
+  deleteBrackerageRawEntry,
+  getMenuEntries
 } from '../../services/db';
 
 const medicalWorkflowSteps: WorkflowStep[] = [
@@ -74,7 +84,7 @@ const medicalWorkflowSteps: WorkflowStep[] = [
 ];
 
 export const MedicalModule: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'health_sheet' | 'vaccinations' | 'anthropometry' | 'analytics'>('health_sheet');
+  const [activeSubTab, setActiveSubTab] = useState<'health_sheet' | 'vaccinations' | 'anthropometry' | 'brackerage' | 'analytics'>('health_sheet');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   
   // Data lists
@@ -83,6 +93,9 @@ export const MedicalModule: React.FC = () => {
   const [medicalCards, setMedicalCards] = useState<SadokMedicalCard[]>([]);
   const [vaccinations, setVaccinations] = useState<SadokVaccination[]>([]);
   const [anthropometries, setAnthropometries] = useState<SadokAnthropometry[]>([]);
+  const [brackerageReadyList, setBrackerageReadyList] = useState<BrackerageReadyEntry[]>([]);
+  const [brackerageRawList, setBrackerageRawList] = useState<BrackerageRawEntry[]>([]);
+  const [brackerageSubTab, setBrackerageSubTab] = useState<'ready' | 'raw'>('ready');
 
   // Filters & Search
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
@@ -101,7 +114,34 @@ export const MedicalModule: React.FC = () => {
   const [isAnthroModalOpen, setIsAnthroModalOpen] = useState(false);
   const [editingAnthro, setEditingAnthro] = useState<Partial<SadokAnthropometry> | null>(null);
 
-  const [printDocType, setPrintDocType] = useState<'health_sheet' | 'vaccinations' | 'anthropometry' | null>(null);
+  const [isBrackReadyModalOpen, setIsBrackReadyModalOpen] = useState(false);
+  const [isBrackRawModalOpen, setIsBrackRawModalOpen] = useState(false);
+
+  const [printDocType, setPrintDocType] = useState<'health_sheet' | 'vaccinations' | 'anthropometry' | 'brackerage_ready' | null>(null);
+
+  // Form local states - Brackerage Ready
+  const [brackDate, setBrackDate] = useState(new Date().toISOString().split('T')[0]);
+  const [brackTime, setBrackTime] = useState('11:30');
+  const [brackMealType, setBrackMealType] = useState('Обід');
+  const [brackDishName, setBrackDishName] = useState('');
+  const [brackTemp, setBrackTemp] = useState<number>(75);
+  const [brackWeight, setBrackWeight] = useState('200г / 200г');
+  const [brackRating, setBrackRating] = useState<BrackerageReadyEntry['ORGANOLEPTIC_RATING']>('Відмінно');
+  const [brackPermission, setBrackPermission] = useState<BrackerageReadyEntry['PERMISSION_TO_SERVE']>('Видача дозволена');
+  const [brackCommission, setBrackCommission] = useState('Медсестра Суміна Н.Є., Шеф-кухар');
+  const [brackNotes, setBrackNotes] = useState('Смак, колір та консистенція відповідають техкартці');
+
+  // Form local states - Brackerage Raw
+  const [rawDate, setRawDate] = useState(new Date().toISOString().split('T')[0]);
+  const [rawProdName, setRawProdName] = useState('');
+  const [rawSupplier, setRawSupplier] = useState('ТОВ «Агропостач»');
+  const [rawInvoice, setRawInvoice] = useState('НАК-104');
+  const [rawIntegrity, setRawIntegrity] = useState<BrackerageRawEntry['PACKAGE_INTEGRITY']>('Цілісна');
+  const [rawExpiry, setRawExpiry] = useState(new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]);
+  const [rawDocStatus, setRawDocStatus] = useState<BrackerageRawEntry['DOCUMENTATION_STATUS']>('В наявності');
+  const [rawDecision, setRawDecision] = useState<BrackerageRawEntry['ACCEPTANCE_DECISION']>('Прийнято');
+  const [rawPerson, setRawPerson] = useState('Суміна Н.Є.');
+  const [rawNotes, setRawNotes] = useState('Товарний вигляд, маркування та температурний режим у нормі');
 
   // Form local states - Card
   const [cardChildId, setCardChildId] = useState<number>(0);
@@ -146,11 +186,15 @@ export const MedicalModule: React.FC = () => {
     const cards = getMedicalCards();
     const vacs = getVaccinations();
     const anthros = getAnthropometries();
+    const ready = getBrackerageReadyEntries();
+    const raw = getBrackerageRawEntries();
     setChildren(c);
     setGroups(g);
     setMedicalCards(cards);
     setVaccinations(vacs);
     setAnthropometries(anthros);
+    setBrackerageReadyList(ready);
+    setBrackerageRawList(raw);
   };
 
   // Grouped and filtered children for Health Sheet
@@ -405,6 +449,54 @@ export const MedicalModule: React.FC = () => {
     }
   };
 
+  // Save Brackerage Ready
+  const handleSaveBrackReady = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!brackDishName.trim()) {
+      alert('Будь ласка, вкажіть назву страви');
+      return;
+    }
+    addBrackerageReadyEntry({
+      DATE: brackDate,
+      TIME: brackTime,
+      MEAL_TYPE: brackMealType,
+      DISH_NAME: brackDishName.trim(),
+      TEMPERATURE_C: brackTemp ? Number(brackTemp) : undefined,
+      WEIGHT_PORTION_CHECK: brackWeight,
+      ORGANOLEPTIC_RATING: brackRating,
+      PERMISSION_TO_SERVE: brackPermission,
+      COMMISSION_MEMBERS: brackCommission,
+      NOTES: brackNotes
+    });
+    setBrackerageReadyList(getBrackerageReadyEntries());
+    setIsBrackReadyModalOpen(false);
+    setBrackDishName('');
+  };
+
+  // Save Brackerage Raw
+  const handleSaveBrackRaw = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rawProdName.trim()) {
+      alert('Будь ласка, вкажіть назву продукту');
+      return;
+    }
+    addBrackerageRawEntry({
+      DATE: rawDate,
+      PRODUCT_NAME: rawProdName.trim(),
+      SUPPLIER_NAME: rawSupplier,
+      INVOICE_NUMBER: rawInvoice,
+      PACKAGE_INTEGRITY: rawIntegrity,
+      EXPIRY_DATE: rawExpiry,
+      DOCUMENTATION_STATUS: rawDocStatus,
+      ACCEPTANCE_DECISION: rawDecision,
+      RESPONSIBLE_PERSON: rawPerson,
+      NOTES: rawNotes
+    });
+    setBrackerageRawList(getBrackerageRawEntries());
+    setIsBrackRawModalOpen(false);
+    setRawProdName('');
+  };
+
   // Export handlers
   const handleExportExcel = () => {
     if (activeSubTab === 'health_sheet') {
@@ -529,8 +621,8 @@ export const MedicalModule: React.FC = () => {
     }
   };
 
-  const handlePrint = (type: 'health_sheet' | 'vaccinations' | 'anthropometry') => {
-    setPrintDocType(type);
+  const handlePrint = (type: 'health_sheet' | 'vaccinations' | 'anthropometry' | 'brackerage' | 'brackerage_ready') => {
+    setPrintDocType(type === 'brackerage' ? 'brackerage_ready' : type);
     setTimeout(() => {
       window.print();
     }, 200);
@@ -675,6 +767,18 @@ export const MedicalModule: React.FC = () => {
             >
               <Ruler className="w-4 h-4" />
               <span>Антропометрія ({anthropometries.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('brackerage')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
+                activeSubTab === 'brackerage'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 text-amber-400" />
+              <span>НАССР: Журнал бракеражу ({brackerageReadyList.length + brackerageRawList.length})</span>
             </button>
 
             <button
@@ -1096,6 +1200,252 @@ export const MedicalModule: React.FC = () => {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* TAB: HACCP BRACKERAGE (ЖУРНАЛ БРАКЕРАЖУ ГОТОВОЇ ТА СИРОЇ ПРОДУКЦІЇ) */}
+        {activeSubTab === 'brackerage' && (
+          <div className="space-y-4">
+            {/* Brackerage Header & Mode Switcher */}
+            <div className="card-glass p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setBrackerageSubTab('ready')}
+                  className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition flex items-center space-x-1.5 ${
+                    brackerageSubTab === 'ready'
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <Utensils className="w-4 h-4" />
+                  <span>Бракераж готових страв ({brackerageReadyList.length})</span>
+                </button>
+
+                <button
+                  onClick={() => setBrackerageSubTab('raw')}
+                  className={`px-3.5 py-1.5 rounded-xl font-bold text-xs transition flex items-center space-x-1.5 ${
+                    brackerageSubTab === 'raw'
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Бракераж сирої продукції ({brackerageRawList.length})</span>
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                {brackerageSubTab === 'ready' ? (
+                  <>
+                    <button
+                      onClick={() => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const menu = getMenuEntries(today);
+                        if (menu.length === 0) {
+                          alert(`На сьогодні (${today}) в системі ще немає збережених страв у меню.`);
+                          return;
+                        }
+                        menu.forEach(item => {
+                          addBrackerageReadyEntry({
+                            DATE: today,
+                            TIME: item.MEAL_TYPE === 'Сніданок' ? '08:30' : item.MEAL_TYPE === 'Обід' ? '12:00' : '15:30',
+                            MEAL_TYPE: item.MEAL_TYPE,
+                            DISH_NAME: item.NAME_BLUDA,
+                            SAMPLE_TAKEN_TIME: item.MEAL_TYPE === 'Сніданок' ? '08:25' : item.MEAL_TYPE === 'Обід' ? '11:55' : '15:25',
+                            WEIGHT_PORTION_CHECK: 'Відповідає виходу',
+                            TEMPERATURE_C: item.MEAL_TYPE === 'Обід' ? 75 : 65,
+                            ORGANOLEPTIC_RATING: 'Відмінно',
+                            PERMISSION_TO_SERVE: 'Видача дозволена',
+                            COMMISSION_MEMBERS: 'Медсестра Суміна Н.Є., Шеф-кухар',
+                            NOTES: 'Смак, запах, колір та консистенція відповідають нормі'
+                          });
+                        });
+                        setBrackerageReadyList(getBrackerageReadyEntries());
+                      }}
+                      className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl font-bold text-xs flex items-center gap-1.5 transition"
+                      title="За 1 клік створити записи для всіх страв з меню на сьогодні"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Заповнити з сьогоднішнього меню</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setBrackDate(new Date().toISOString().split('T')[0]);
+                        setIsBrackReadyModalOpen(true);
+                      }}
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Новий запис проби</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setRawDate(new Date().toISOString().split('T')[0]);
+                      setIsBrackRawModalOpen(true);
+                    }}
+                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Прийняти сировину</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Brackerage Ready Table */}
+            {brackerageSubTab === 'ready' && (
+              <div className="card-glass rounded-2xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="table-grid text-xs">
+                    <thead>
+                      <tr>
+                        <th className="w-8">№</th>
+                        <th>Дата та час</th>
+                        <th>Прийом їжі</th>
+                        <th>Назва страви</th>
+                        <th className="text-center">Температура</th>
+                        <th className="text-center">Оцінка якості</th>
+                        <th className="text-center">Рішення</th>
+                        <th>Бракеражна комісія</th>
+                        <th className="w-12 text-center">Дії</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {brackerageReadyList.length === 0 ? (
+                        <tr>
+                          <td colSpan={9} className="text-center py-8 text-slate-400">
+                            Немає записів у журналі бракеражу готових страв. Натисніть «Заповнити з сьогоднішнього меню» або «Новий запис проби».
+                          </td>
+                        </tr>
+                      ) : (
+                        brackerageReadyList.map((b, idx) => (
+                          <tr key={b.ID}>
+                            <td className="text-center text-slate-400">{idx + 1}</td>
+                            <td className="font-mono">
+                              <b>{b.DATE}</b> <span className="text-slate-400">{b.TIME}</span>
+                            </td>
+                            <td>
+                              <span className="px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold text-[10px]">
+                                {b.MEAL_TYPE}
+                              </span>
+                            </td>
+                            <td className="font-bold text-slate-800 dark:text-slate-100">{b.DISH_NAME}</td>
+                            <td className="text-center font-mono">{b.TEMPERATURE_C ? `${b.TEMPERATURE_C}°C` : '—'}</td>
+                            <td className="text-center">
+                              <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                                b.ORGANOLEPTIC_RATING === 'Відмінно'
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                              }`}>
+                                {b.ORGANOLEPTIC_RATING}
+                              </span>
+                            </td>
+                            <td className="text-center">
+                              <span className={`px-2 py-0.5 rounded-full font-black text-[10px] ${
+                                b.PERMISSION_TO_SERVE === 'Видача дозволена'
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-rose-600 text-white'
+                              }`}>
+                                ✓ {b.PERMISSION_TO_SERVE}
+                              </span>
+                            </td>
+                            <td className="text-slate-600 dark:text-slate-300 text-[11px] truncate max-w-[200px]" title={b.COMMISSION_MEMBERS}>
+                              {b.COMMISSION_MEMBERS}
+                            </td>
+                            <td className="text-center">
+                              <button
+                                onClick={() => {
+                                  deleteBrackerageReadyEntry(b.ID);
+                                  setBrackerageReadyList(getBrackerageReadyEntries());
+                                }}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
+                                title="Видалити запис"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Brackerage Raw Table */}
+            {brackerageSubTab === 'raw' && (
+              <div className="card-glass rounded-2xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="table-grid text-xs">
+                    <thead>
+                      <tr>
+                        <th className="w-8">№</th>
+                        <th>Дата</th>
+                        <th>Продукт / Сировина</th>
+                        <th>Постачальник</th>
+                        <th>Накладна</th>
+                        <th className="text-center">Цілісність</th>
+                        <th>Термін придатності</th>
+                        <th className="text-center">Документи</th>
+                        <th className="text-center">Рішення</th>
+                        <th className="w-12 text-center">Дії</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {brackerageRawList.length === 0 ? (
+                        <tr>
+                          <td colSpan={10} className="text-center py-8 text-slate-400">
+                            Немає записів у журналі сирої продукції. Натисніть «Прийняти сировину».
+                          </td>
+                        </tr>
+                      ) : (
+                        brackerageRawList.map((r, idx) => (
+                          <tr key={r.ID}>
+                            <td className="text-center text-slate-400">{idx + 1}</td>
+                            <td className="font-mono font-bold">{r.DATE}</td>
+                            <td className="font-bold text-slate-800 dark:text-slate-100">{r.PRODUCT_NAME}</td>
+                            <td>{r.SUPPLIER_NAME}</td>
+                            <td className="font-mono text-slate-500">{r.INVOICE_NUMBER || '—'}</td>
+                            <td className="text-center">
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                                {r.PACKAGE_INTEGRITY}
+                              </span>
+                            </td>
+                            <td className="font-mono text-slate-600 dark:text-slate-300">{r.EXPIRY_DATE}</td>
+                            <td className="text-center">
+                              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">
+                                {r.DOCUMENTATION_STATUS}
+                              </span>
+                            </td>
+                            <td className="text-center">
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black">
+                                ✓ {r.ACCEPTANCE_DECISION}
+                              </span>
+                            </td>
+                            <td className="text-center">
+                              <button
+                                onClick={() => {
+                                  deleteBrackerageRawEntry(r.ID);
+                                  setBrackerageRawList(getBrackerageRawEntries());
+                                }}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
+                                title="Видалити запис"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1736,6 +2086,322 @@ export const MedicalModule: React.FC = () => {
                   className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold shadow-md shadow-teal-600/20"
                 >
                   Зберегти виміри
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BRACKERAGE READY */}
+      {isBrackReadyModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white flex justify-between items-center">
+              <div className="flex items-center space-x-2">
+                <Utensils className="w-5 h-5" />
+                <h3 className="font-bold text-base">Бракераж готової продукції (НАССР)</h3>
+              </div>
+              <button onClick={() => setIsBrackReadyModalOpen(false)} className="text-white/80 hover:text-white p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBrackReady} className="p-5 overflow-y-auto space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Дата виготовлення</label>
+                  <input
+                    type="date"
+                    value={brackDate}
+                    onChange={e => setBrackDate(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Час зняття проби</label>
+                  <input
+                    type="time"
+                    value={brackTime}
+                    onChange={e => setBrackTime(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Прийом їжі</label>
+                  <select
+                    value={brackMealType}
+                    onChange={e => setBrackMealType(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold"
+                  >
+                    <option value="Сніданок">Сніданок</option>
+                    <option value="2-й сніданок">2-й сніданок</option>
+                    <option value="Обід">Обід</option>
+                    <option value="Полуденок">Полуденок</option>
+                    <option value="Вечеря">Вечеря</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Температура страви (°C)</label>
+                  <input
+                    type="number"
+                    value={brackTemp}
+                    onChange={e => setBrackTemp(Number(e.target.value))}
+                    placeholder="Напр. 75"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Назва страви / кулінарного виробу</label>
+                <input
+                  type="text"
+                  value={brackDishName}
+                  onChange={e => setBrackDishName(e.target.value)}
+                  placeholder="Наприклад: Борщ український зі сметаною"
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Органолептична оцінка</label>
+                  <select
+                    value={brackRating}
+                    onChange={e => setBrackRating(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold"
+                  >
+                    <option value="Відмінно">🟢 Відмінно</option>
+                    <option value="Добре">🔵 Добре</option>
+                    <option value="Задовільно">🟡 Задовільно</option>
+                    <option value="Незадовільно">🔴 Незадовільно</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Дозвіл на видачу</label>
+                  <select
+                    value={brackPermission}
+                    onChange={e => setBrackPermission(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold"
+                  >
+                    <option value="Видача дозволена">✅ Видача дозволена</option>
+                    <option value="Видача заборонена">⛔ Видача заборонена</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Контроль виходу порції (факт / норма)</label>
+                <input
+                  type="text"
+                  value={brackWeight}
+                  onChange={e => setBrackWeight(e.target.value)}
+                  placeholder="200г / 200г"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Бракеражна комісія (підписи)</label>
+                <input
+                  type="text"
+                  value={brackCommission}
+                  onChange={e => setBrackCommission(e.target.value)}
+                  placeholder="Медсестра Суміна Н.Є., Шеф-кухар"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                />
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Результати органолептики / Примітки</label>
+                <textarea
+                  rows={2}
+                  value={brackNotes}
+                  onChange={e => setBrackNotes(e.target.value)}
+                  placeholder="Зовнішній вигляд, смак, запах, консистенція відповідають вимогам"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsBrackReadyModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md shadow-emerald-600/20 flex items-center space-x-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Зафіксувати пробу</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: BRACKERAGE RAW */}
+      {isBrackRawModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-4 bg-gradient-to-r from-teal-600 to-cyan-600 text-white flex justify-between items-center">
+              <div className="flex items-center space-x-2">
+                <ShieldCheck className="w-5 h-5" />
+                <h3 className="font-bold text-base">Вхідний контроль сировини (НАССР)</h3>
+              </div>
+              <button onClick={() => setIsBrackRawModalOpen(false)} className="text-white/80 hover:text-white p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBrackRaw} className="p-5 overflow-y-auto space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Дата прийому</label>
+                  <input
+                    type="date"
+                    value={rawDate}
+                    onChange={e => setRawDate(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Термін придатності до</label>
+                  <input
+                    type="date"
+                    value={rawExpiry}
+                    onChange={e => setRawExpiry(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Назва продукту / сировини</label>
+                <input
+                  type="text"
+                  value={rawProdName}
+                  onChange={e => setRawProdName(e.target.value)}
+                  placeholder="Наприклад: Масло вершкове 73% ДСТУ"
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Постачальник</label>
+                  <input
+                    type="text"
+                    value={rawSupplier}
+                    onChange={e => setRawSupplier(e.target.value)}
+                    placeholder="ТОВ «Агропостач»"
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Номер накладної</label>
+                  <input
+                    type="text"
+                    value={rawInvoice}
+                    onChange={e => setRawInvoice(e.target.value)}
+                    placeholder="НАК-104"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Цілісність упаковки</label>
+                  <select
+                    value={rawIntegrity}
+                    onChange={e => setRawIntegrity(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold"
+                  >
+                    <option value="Цілісна">🟢 Цілісна, без пошкоджень</option>
+                    <option value="Пошкоджена">🔴 Пошкоджена / Деформована</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Супровідні документи</label>
+                  <select
+                    value={rawDocStatus}
+                    onChange={e => setRawDocStatus(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-semibold"
+                  >
+                    <option value="В наявності">🟢 В наявності (сертифікат / декларація)</option>
+                    <option value="Неповна">🟡 Неповний пакет документів</option>
+                    <option value="Відсутня">🔴 Документи відсутні</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Рішення про допуск</label>
+                  <select
+                    value={rawDecision}
+                    onChange={e => setRawDecision(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold"
+                  >
+                    <option value="Прийнято">✅ Прийнято до харчоблоку</option>
+                    <option value="Відхилено">⛔ Відхилено / Повернення</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Відповідальна особа</label>
+                  <input
+                    type="text"
+                    value={rawPerson}
+                    onChange={e => setRawPerson(e.target.value)}
+                    placeholder="Суміна Н.Є."
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Умови транспортування / Примітки</label>
+                <textarea
+                  rows={2}
+                  value={rawNotes}
+                  onChange={e => setRawNotes(e.target.value)}
+                  placeholder="Температурний режим рефрижератора дотримано, маркування чітке"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsBrackRawModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-bold"
+                >
+                  Скасувати
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold shadow-md shadow-teal-600/20 flex items-center space-x-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Зареєструвати партію</span>
                 </button>
               </div>
             </form>

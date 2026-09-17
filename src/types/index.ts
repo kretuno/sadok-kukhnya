@@ -426,6 +426,70 @@ export interface ChildGroupTransferItem {
   targetStatus?: 'Навчається' | 'Випускник' | 'Вибув';
 }
 
+// -----------------------------------------------------------------
+// Daily Attendance for Feeding (Табель відвідуваності на харчування)
+// -----------------------------------------------------------------
+export interface DailyAttendanceRecord {
+  ID?: number;
+  DATE: string; // YYYY-MM-DD
+  GROUP_ID: number;
+  GROUP_NAME: string;
+  CATEGORY_ID: number; // 1: Ясла, 2: Садок, 3: Персонал
+  PRESENT_COUNT: number;
+  DIET_COUNT?: number;
+  UPDATED_AT?: string;
+  NOTES?: string;
+}
 
+// -----------------------------------------------------------------
+// HACCP Food Brackerage (Журнали бракеражу НАССР)
+// -----------------------------------------------------------------
+export interface BrackerageReadyEntry {
+  ID: number;
+  DATE: string; // YYYY-MM-DD
+  TIME: string; // HH:mm
+  MEAL_TYPE: string; // 'Сніданок' | '2-й сніданок' | 'Обід' | 'Полуденок' | 'Вечеря'
+  DISH_NAME: string;
+  SAMPLE_TAKEN_TIME?: string;
+  WEIGHT_PORTION_CHECK?: string; // e.g. "200г / 200г"
+  TEMPERATURE_C?: number; // e.g. 75
+  ORGANOLEPTIC_RATING: 'Відмінно' | 'Добре' | 'Задовільно' | 'Незадовільно';
+  PERMISSION_TO_SERVE: 'Видача дозволена' | 'Видача заборонена';
+  COMMISSION_MEMBERS: string; // e.g. "Медсестра Суміна Н.Є., Шеф-кухар"
+  NOTES?: string;
+  CREATED_AT?: string;
+}
 
+export interface BrackerageRawEntry {
+  ID: number;
+  DATE: string; // YYYY-MM-DD
+  PRODUCT_NAME: string;
+  SUPPLIER_NAME: string;
+  INVOICE_NUMBER?: string;
+  PACKAGE_INTEGRITY: 'Цілісна' | 'Пошкоджена';
+  EXPIRY_DATE: string; // YYYY-MM-DD
+  DOCUMENTATION_STATUS: 'В наявності' | 'Відсутня' | 'Неповна';
+  ACCEPTANCE_DECISION: 'Прийнято' | 'Відхилено';
+  RESPONSIBLE_PERSON: string;
+  NOTES?: string;
+  CREATED_AT?: string;
+}
 
+// -----------------------------------------------------------------
+// Day-Cost Analytics (Аналітика вартості діто-дня)
+// -----------------------------------------------------------------
+export interface DayCostAnalyticsItem {
+  date: string;
+  totalCost: number;
+  totalChildren: number;
+  yaslaCount: number;
+  yaslaCost: number;
+  yaslaCostPerChild: number;
+  sadokCount: number;
+  sadokCost: number;
+  sadokCostPerChild: number;
+  staffCount: number;
+  staffCost: number;
+  standardNormYasla: number;
+  standardNormSadok: number;
+}

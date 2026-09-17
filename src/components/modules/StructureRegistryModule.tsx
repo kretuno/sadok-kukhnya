@@ -2,12 +2,13 @@ import { SearchableSelect } from "../common/SearchableSelect";
 import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
 import { MassGroupTransferModal } from "../common/MassGroupTransferModal";
 import React, { useState, useEffect, useMemo } from 'react';
-import { SadokGroup, SadokEmployee, SadokChild } from '../../types';
+import { SadokGroup, SadokEmployee, SadokChild, DailyAttendanceRecord } from '../../types';
 import { 
   DATABASE_SYNC_EVENT,
   getGroups, saveGroup, deleteGroup,
   getEmployees, saveEmployee, deleteEmployee,
-  getChildren, saveChild, deleteChild
+  getChildren, saveChild, deleteChild,
+  getDailyAttendance, saveDailyAttendance
 } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
@@ -23,6 +24,8 @@ import {
   Home, 
   ShieldCheck, 
   GraduationCap,
+  Save,
+  Utensils,
   ChevronRight,
   Printer,
   FileText,
@@ -43,9 +46,14 @@ import {
 } from 'lucide-react';
 
 export const StructureRegistryModule: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'groups' | 'employees' | 'children'>('groups');
+  const [activeSubTab, setActiveSubTab] = useState<'groups' | 'employees' | 'children' | 'attendance'>('groups');
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Daily Attendance State
+  const [attendanceDate, setAttendanceDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [attendanceMap, setAttendanceMap] = useState<Record<number, { present: number; diet: number; notes: string }>>({});
+  const [isAttendanceSaved, setIsAttendanceSaved] = useState(false);
 
   // Children Filtering & Sorting State
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'Навчається' | 'Вибув' | 'Тимчасово відсутній' | 'Випускник'>('all');
@@ -136,6 +144,75 @@ export const StructureRegistryModule: React.FC = () => {
     setGroups(g);
     setEmployees(e);
     setChildren(c);
+  };
+
+  const loadAttendance = (date: string, currentGroups = groups, currentChildren = children) => {
+    const existing = getDailyAttendance(date);
+    const existingMap = new Map<number, DailyAttendanceRecord>();
+    existing.forEach(r => existingMap.set(r.GROUP_ID, r));
+
+    const newMap: Record<number, { present: number; diet: number; notes: string }> = {};
+    currentGroups.forEach(g => {
+      const rec = existingMap.get(g.ID);
+      const enrolledInGroup = currentChildren.filter(c => c.GROUP_NAME === g.NAME && c.STATUS === 'Навчається');
+      const dietInGroup = enrolledInGroup.filter(c => c.DIET_NOTES && c.DIET_NOTES !== 'Немає' && c.DIET_NOTES !== '-').length;
+
+      if (rec) {
+        newMap[g.ID] = {
+          present: rec.PRESENT_COUNT,
+          diet: rec.DIET_COUNT,
+          notes: rec.NOTES || ''
+        };
+      } else {
+        newMap[g.ID] = {
+          present: enrolledInGroup.length,
+          diet: dietInGroup,
+          notes: ''
+        };
+      }
+    });
+    setAttendanceMap(newMap);
+  };
+
+  useEffect(() => {
+    if (activeSubTab === 'attendance' && groups.length > 0) {
+      loadAttendance(attendanceDate);
+    }
+  }, [activeSubTab, attendanceDate, groups, children]);
+
+  const handleSaveAttendance = () => {
+    const records: DailyAttendanceRecord[] = groups.map(g => {
+      const data = attendanceMap[g.ID] || { present: 0, diet: 0, notes: '' };
+      const isYasla = g.AGE_CATEGORY?.toLowerCase().includes('ясла') || 
+                      g.AGE_CATEGORY?.toLowerCase().includes('раннього') || 
+                      g.NAME.toLowerCase().includes('ясла');
+      return {
+        DATE: attendanceDate,
+        GROUP_ID: g.ID,
+        GROUP_NAME: g.NAME,
+        CATEGORY_ID: isYasla ? 1 : 2,
+        PRESENT_COUNT: Math.max(0, Number(data.present) || 0),
+        DIET_COUNT: Math.max(0, Number(data.diet) || 0),
+        NOTES: data.notes || ''
+      };
+    });
+    saveDailyAttendance(records);
+    setIsAttendanceSaved(true);
+    setTimeout(() => setIsAttendanceSaved(false), 3000);
+  };
+
+  const handleFillAllPresent = () => {
+    const newMap: Record<number, { present: number; diet: number; notes: string }> = {};
+    groups.forEach(g => {
+      const enrolled = children.filter(c => c.GROUP_NAME === g.NAME && c.STATUS === 'Навчається');
+      const diet = enrolled.filter(c => c.DIET_NOTES && c.DIET_NOTES !== 'Немає' && c.DIET_NOTES !== '-').length;
+      newMap[g.ID] = {
+        present: enrolled.length,
+        diet: diet,
+        notes: attendanceMap[g.ID]?.notes || ''
+      };
+    });
+    setAttendanceMap(newMap);
   };
 
   // Quick Child Status Switcher
@@ -367,6 +444,15 @@ export const StructureRegistryModule: React.FC = () => {
       const headers = ['ПІБ Співробітника', 'Посада', 'Телефон', 'МВО', 'Закріплена група/відділ'];
       const rows = filteredEmployees.map(e => [e.FULL_NAME, e.POSITION, e.PHONE || '', e.IS_MVO ? 'Так' : 'Ні', e.GROUP_NAME || '']);
       exportToExcel('SADOK_Кадровий_склад', 'Співробітники', headers, rows);
+    } else if (activeSubTab === 'attendance') {
+      const headers = ['№', 'Назва групи', 'Вікова категорія', 'Списковий склад', 'Присутні на харчуванні', 'Дієтичний стіл', 'Відсутні', 'Примітки'];
+      const rows = groups.map((g, idx) => {
+        const att = attendanceMap[g.ID] || { present: 0, diet: 0, notes: '' };
+        const enrolled = children.filter(c => c.GROUP_NAME === g.NAME && c.STATUS === 'Навчається').length;
+        const absent = Math.max(0, enrolled - att.present);
+        return [idx + 1, g.NAME, g.AGE_CATEGORY, enrolled, att.present, att.diet, absent, att.notes];
+      });
+      exportToExcel(`SADOK_Табель_харчування_${attendanceDate}`, 'Табель', headers, rows);
     } else {
       const headers = ['ПІБ Вихованця', 'Дата народження', 'Група', 'Пільгова категорія', 'Батьки', 'Телефон батьків', 'Статус', 'Особливості дієти'];
       const rows = filteredChildren.map(c => [c.FULL_NAME, c.BIRTH_DATE, c.GROUP_NAME, c.BENEFIT_CATEGORY || 'Загальна', c.PARENT_NAME || c.MOTHER_NAME || '', c.PARENT_PHONE || c.MOTHER_PHONE || '', c.STATUS, c.DIET_NOTES || '']);
@@ -375,16 +461,34 @@ export const StructureRegistryModule: React.FC = () => {
   };
 
   const handleExportPDF = () => {
-    const title = activeSubTab === 'groups' ? 'Реєстр груп та приміщень ЗДО' : (activeSubTab === 'employees' ? 'Кадровий склад та МВО' : 'Списковий склад вихованців ЗДО');
+    const title = activeSubTab === 'groups' 
+      ? 'Реєстр груп та приміщень ЗДО' 
+      : (activeSubTab === 'employees' 
+        ? 'Кадровий склад та МВО' 
+        : (activeSubTab === 'attendance'
+          ? `Щоденний табель харчування на ${attendanceDate}`
+          : 'Списковий склад вихованців ЗДО'));
+
     const headers = activeSubTab === 'groups' 
       ? ['№', 'Група', 'Категорія', 'Кімната', 'Вихователь', 'Дітей']
-      : (activeSubTab === 'employees' ? ['ПІБ Співробітника', 'Посада', 'Телефон', 'МВО', 'Локація'] : ['ПІБ Дитини', 'Група', 'Дата народж.', 'Батьки & Тел.', 'Статус']);
+      : (activeSubTab === 'employees' 
+        ? ['ПІБ Співробітника', 'Посада', 'Телефон', 'МВО', 'Локація'] 
+        : (activeSubTab === 'attendance'
+          ? ['№', 'Група', 'Категорія', 'Список', 'Присутні', 'Дієта', 'Відсутні']
+          : ['ПІБ Дитини', 'Група', 'Дата народж.', 'Батьки & Тел.', 'Статус']));
     
     const rows = activeSubTab === 'groups'
       ? filteredGroups.map(g => [g.NUMBER || g.GROUP_NUMBER ? `№${g.NUMBER || g.GROUP_NUMBER}` : '-', g.NAME, g.AGE_CATEGORY, g.ROOM_NUMBER || '-', g.TEACHER_NAME || '-', `${g.CHILDREN_COUNT} осіб`])
       : (activeSubTab === 'employees'
         ? filteredEmployees.map(e => [e.FULL_NAME, e.POSITION, e.PHONE || '-', e.IS_MVO ? 'Так' : 'Ні', e.GROUP_NAME || '-'])
-        : filteredChildren.map(c => [c.FULL_NAME, c.GROUP_NAME, c.BIRTH_DATE, `${c.PARENT_NAME || c.MOTHER_NAME || '-'} (${c.PARENT_PHONE || c.MOTHER_PHONE || ''})`, c.STATUS]));
+        : (activeSubTab === 'attendance'
+          ? groups.map((g, idx) => {
+              const att = attendanceMap[g.ID] || { present: 0, diet: 0, notes: '' };
+              const enrolled = children.filter(c => c.GROUP_NAME === g.NAME && c.STATUS === 'Навчається').length;
+              const absent = Math.max(0, enrolled - att.present);
+              return [String(idx + 1), g.NAME, g.AGE_CATEGORY, `${enrolled}`, `${att.present}`, `${att.diet}`, `${absent}`];
+            })
+          : filteredChildren.map(c => [c.FULL_NAME, c.GROUP_NAME, c.BIRTH_DATE, `${c.PARENT_NAME || c.MOTHER_NAME || '-'} (${c.PARENT_PHONE || c.MOTHER_PHONE || ''})`, c.STATUS])));
 
     exportToPDF(title, headers, rows);
   };
@@ -464,6 +568,7 @@ export const StructureRegistryModule: React.FC = () => {
           onAdd={() => {
             if (activeSubTab === 'groups') handleOpenGroupModal();
             else if (activeSubTab === 'employees') handleOpenEmpModal();
+            else if (activeSubTab === 'attendance') handleSaveAttendance();
             else handleOpenChildModal();
           }}
           onRefresh={loadAllData}
@@ -550,6 +655,18 @@ export const StructureRegistryModule: React.FC = () => {
                 <Baby className="w-4 h-4" />
                 <span>Контингент вихованців ({children.length})</span>
               </button>
+
+              <button
+                onClick={() => setActiveSubTab('attendance')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 ${
+                  activeSubTab === 'attendance'
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                    : 'bg-slate-200/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Табель відвідуваності</span>
+              </button>
             </div>
 
             <div className="text-xs font-bold text-slate-500">
@@ -560,6 +677,16 @@ export const StructureRegistryModule: React.FC = () => {
                   <span className="text-emerald-600 font-bold">Навчається: {children.filter(c => c.STATUS === 'Навчається').length}</span>
                   <span className="text-rose-600 font-bold">Вибули: {children.filter(c => c.STATUS === 'Вибув').length}</span>
                   <span className="text-amber-600 font-bold">Тимчасово відсутні: {children.filter(c => c.STATUS === 'Тимчасово відсутній').length}</span>
+                </div>
+              )}
+              {activeSubTab === 'attendance' && (
+                <div className="flex items-center space-x-2 text-xs">
+                  <span className="text-slate-500 font-bold">Дата:</span>
+                  <span className="font-mono font-bold text-emerald-600">{attendanceDate}</span>
+                  <span className="text-slate-400">|</span>
+                  <span className="font-bold text-emerald-600">
+                    Присутні: {Object.values(attendanceMap).reduce((s, a) => s + (Number(a.present) || 0), 0)} з {children.filter(c => c.STATUS === 'Навчається').length}
+                  </span>
                 </div>
               )}
             </div>
@@ -1072,6 +1199,262 @@ export const StructureRegistryModule: React.FC = () => {
               </div>
             </div>
           )}
+
+          {/* ATTENDANCE TAB */}
+          {activeSubTab === 'attendance' && (() => {
+            const activeEnrolled = children.filter(c => c.STATUS === 'Навчається');
+            const totalEnrolled = activeEnrolled.length;
+            const totalPresent = Object.values(attendanceMap).reduce((sum, item) => sum + (Number(item.present) || 0), 0);
+            const totalDiet = Object.values(attendanceMap).reduce((sum, item) => sum + (Number(item.diet) || 0), 0);
+            const totalAbsent = Math.max(0, totalEnrolled - totalPresent);
+            const attendanceRate = totalEnrolled > 0 ? Math.round((totalPresent / totalEnrolled) * 100) : 0;
+
+            let yaslaPresent = 0;
+            let sadokPresent = 0;
+            groups.forEach(g => {
+              const isYasla = g.AGE_CATEGORY?.toLowerCase().includes('ясла') || 
+                              g.AGE_CATEGORY?.toLowerCase().includes('раннього') || 
+                              g.NAME.toLowerCase().includes('ясла');
+              const pres = Number(attendanceMap[g.ID]?.present) || 0;
+              if (isYasla) yaslaPresent += pres;
+              else sadokPresent += pres;
+            });
+
+            return (
+              <div className="space-y-4">
+                {/* TOOLBAR & CONTROLS */}
+                <div className="card-glass p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 border-l-4 border-l-emerald-600 shadow-sm">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex items-center space-x-2">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Дата табеля:</label>
+                      <input
+                        type="date"
+                        value={attendanceDate}
+                        onChange={e => setAttendanceDate(e.target.value)}
+                        className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-mono font-bold"
+                      />
+                    </div>
+
+                    <button
+                      onClick={handleFillAllPresent}
+                      className="px-3 py-1.5 rounded-xl bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 text-slate-700 dark:text-slate-200 text-xs font-bold transition flex items-center space-x-1.5"
+                      title="Встановити кількість присутніх рівною 100% спискового складу кожної групи"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Заповнити 100% списку</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {isAttendanceSaved && (
+                      <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-xs font-bold rounded-lg border border-emerald-300 animate-fade-in flex items-center space-x-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Збережено в базі!</span>
+                      </span>
+                    )}
+
+                    <button
+                      onClick={handleSaveAttendance}
+                      className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center space-x-2 cursor-pointer transition"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Зберегти табель</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* KPI METRICS */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="card-glass p-3 rounded-2xl border-l-4 border-l-blue-500 flex flex-col justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Списковий склад</span>
+                    <div className="flex items-baseline space-x-2 mt-1">
+                      <span className="text-2xl font-black text-slate-800 dark:text-slate-100">{totalEnrolled}</span>
+                      <span className="text-xs text-slate-400">дітей</span>
+                    </div>
+                  </div>
+
+                  <div className="card-glass p-3 rounded-2xl border-l-4 border-l-emerald-500 flex flex-col justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Присутні на харчуванні</span>
+                    <div className="flex items-baseline space-x-2 mt-1">
+                      <span className="text-2xl font-black text-emerald-600">{totalPresent}</span>
+                      <span className="text-[11px] text-slate-500">
+                        (Ясла: <b>{yaslaPresent}</b> | Садок: <b>{sadokPresent}</b>)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="card-glass p-3 rounded-2xl border-l-4 border-l-amber-500 flex flex-col justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Дієтичний стіл</span>
+                    <div className="flex items-baseline space-x-2 mt-1">
+                      <span className="text-2xl font-black text-amber-600">{totalDiet}</span>
+                      <span className="text-xs text-slate-400">порцій</span>
+                    </div>
+                  </div>
+
+                  <div className="card-glass p-3 rounded-2xl border-l-4 border-l-purple-500 flex flex-col justify-between">
+                    <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Відвідуваність</span>
+                    <div className="flex items-baseline space-x-2 mt-1">
+                      <span className="text-2xl font-black text-purple-600">{attendanceRate}%</span>
+                      <span className="text-xs text-slate-400">явка</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ATTENDANCE TABLE */}
+                <div className="card-glass rounded-2xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="table-grid text-xs">
+                      <thead>
+                        <tr>
+                          <th className="w-10 text-center">№</th>
+                          <th>Група / Приміщення</th>
+                          <th>Вікова категорія</th>
+                          <th className="text-center w-28">Списковий склад</th>
+                          <th className="text-center w-32">Присутні (факт)</th>
+                          <th className="text-center w-28">Дієта</th>
+                          <th className="text-center w-24">Відсутні</th>
+                          <th>Примітки / Зауваження</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groups.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="text-center py-8 text-slate-400">
+                              Не знайдено жодної групи. Спочатку додайте вікові групи у вкладці «Групи та Приміщення».
+                            </td>
+                          </tr>
+                        ) : (
+                          groups.map((g, idx) => {
+                            const enrolledInGroup = activeEnrolled.filter(c => c.GROUP_NAME === g.NAME).length;
+                            const att = attendanceMap[g.ID] || { present: enrolledInGroup, diet: 0, notes: '' };
+                            const absentInGroup = Math.max(0, enrolledInGroup - (Number(att.present) || 0));
+                            const isYasla = g.AGE_CATEGORY?.toLowerCase().includes('ясла') || 
+                                            g.AGE_CATEGORY?.toLowerCase().includes('раннього') || 
+                                            g.NAME.toLowerCase().includes('ясла');
+
+                            return (
+                              <tr key={g.ID} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
+                                <td className="text-center text-slate-400 font-mono">{idx + 1}</td>
+                                <td>
+                                  <div className="font-bold text-slate-800 dark:text-slate-100 flex items-center space-x-1.5">
+                                    <Home className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                    <span>{g.NAME}</span>
+                                    {g.NUMBER && <span className="text-[10px] text-slate-400 font-mono">({g.NUMBER})</span>}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400">
+                                    Вихователь: {g.TEACHER_NAME || 'Не призначено'}
+                                  </div>
+                                </td>
+                                <td>
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    isYasla 
+                                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                                      : 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                                  }`}>
+                                    {isYasla ? 'Ясла (до 3 р.)' : 'Садок (3-7 р.)'}
+                                  </span>
+                                  <span className="text-[11px] text-slate-500 ml-1.5">{g.AGE_CATEGORY}</span>
+                                </td>
+                                <td className="text-center font-bold font-mono text-slate-700 dark:text-slate-300">
+                                  {enrolledInGroup}
+                                </td>
+                                <td className="text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="50"
+                                    value={att.present}
+                                    onChange={e => {
+                                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                                      setAttendanceMap(prev => ({
+                                        ...prev,
+                                        [g.ID]: { ...prev[g.ID], present: val }
+                                      }));
+                                    }}
+                                    className="w-20 px-2 py-1 text-center font-bold font-mono rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 text-emerald-700 dark:text-emerald-300 focus:ring-2 focus:ring-emerald-500"
+                                  />
+                                </td>
+                                <td className="text-center">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="50"
+                                    value={att.diet}
+                                    onChange={e => {
+                                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                                      setAttendanceMap(prev => ({
+                                        ...prev,
+                                        [g.ID]: { ...prev[g.ID], diet: val }
+                                      }));
+                                    }}
+                                    className="w-16 px-2 py-1 text-center font-bold font-mono rounded-lg border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-300 focus:ring-2 focus:ring-amber-500"
+                                  />
+                                </td>
+                                <td className="text-center font-mono font-bold text-slate-400">
+                                  {absentInGroup}
+                                </td>
+                                <td>
+                                  <input
+                                    type="text"
+                                    placeholder="Причина, довідки, примітки..."
+                                    value={att.notes || ''}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setAttendanceMap(prev => ({
+                                        ...prev,
+                                        [g.ID]: { ...prev[g.ID], notes: val }
+                                      }));
+                                    }}
+                                    className="w-full px-2.5 py-1 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+                                  />
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-100 dark:bg-slate-900 font-bold border-t-2 border-slate-300 dark:border-slate-700">
+                          <td colSpan={3} className="text-right pr-4 font-black">
+                            РАЗОМ ПО ЗДО №145:
+                          </td>
+                          <td className="text-center font-mono font-black text-slate-800 dark:text-slate-100">
+                            {totalEnrolled}
+                          </td>
+                          <td className="text-center font-mono font-black text-emerald-600">
+                            {totalPresent}
+                          </td>
+                          <td className="text-center font-mono font-black text-amber-600">
+                            {totalDiet}
+                          </td>
+                          <td className="text-center font-mono font-black text-slate-400">
+                            {totalAbsent}
+                          </td>
+                          <td className="text-xs text-slate-500 font-normal">
+                            Відвідуваність: <b>{attendanceRate}%</b>
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+
+                {/* HELPFUL INTEGRATION NOTE */}
+                <div className="card-glass p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-blue-500/10 border border-emerald-500/20 flex items-start space-x-3 text-xs">
+                  <Utensils className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="font-bold text-slate-800 dark:text-slate-100">
+                      Автоматична інтеграція з модулем «Планувальник меню (Меню-вимога)»:
+                    </div>
+                    <p className="text-slate-600 dark:text-slate-400">
+                      Збережені дані табеля за вибрану дату миттєво підтягуються у меню через кнопку <b>«З табеля»</b> у блоці контингенту меню-вимоги.
+                      Якщо табель у програмі не заповнюється регулярно, співробітники харчоблоку або медсестра можуть продовжувати вводити або коригувати кількість дітей прямо у меню вручну.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -1665,7 +2048,8 @@ export const StructureRegistryModule: React.FC = () => {
         <div className="text-center my-4">
           <h1 className="text-base font-bold uppercase tracking-wide">
             {activeSubTab === 'groups' ? 'СПИСОК ВІКОВИХ ГРУП ТА СТРУКТУРНИХ ПРИМІЩЕНЬ' :
-             (activeSubTab === 'employees' ? 'КАДРОВИЙ СТРУКТУРНИЙ РОЗПИС ТА СТАТУС МВО' : 'СПИСКОВИЙ СКЛАД ВИХОВАНЦІВ ЗДО')}
+             (activeSubTab === 'employees' ? 'КАДРОВИЙ СТРУКТУРНИЙ РОЗПИС ТА СТАТУС МВО' : 
+              (activeSubTab === 'attendance' ? `ЩОДЕННИЙ ТАБЕЛЬ ОБЛІКУ ВІДВІДУВАННЯ ДІТЕЙ (ХАРЧУВАННЯ) НА ${attendanceDate}` : 'СПИСКОВИЙ СКЛАД ВИХОВАНЦІВ ЗДО'))}
           </h1>
           <div className="text-xs mt-1">
             <b>Дата формування:</b> {new Date().toLocaleDateString('uk-UA')}
@@ -1705,6 +2089,17 @@ export const StructureRegistryModule: React.FC = () => {
                   <th className="border border-black p-1.5 w-20 text-center">К-сть дітей</th>
                 </React.Fragment>
               )}
+              {activeSubTab === 'attendance' && (
+                <React.Fragment>
+                  <th className="border border-black p-1.5 text-left">Група / Приміщення</th>
+                  <th className="border border-black p-1.5 text-left">Категорія</th>
+                  <th className="border border-black p-1.5 w-20 text-center">За списком</th>
+                  <th className="border border-black p-1.5 w-20 text-center">Присутні</th>
+                  <th className="border border-black p-1.5 w-20 text-center">Дієта</th>
+                  <th className="border border-black p-1.5 w-20 text-center">Відсутні</th>
+                  <th className="border border-black p-1.5 text-left">Примітки</th>
+                </React.Fragment>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -1739,6 +2134,23 @@ export const StructureRegistryModule: React.FC = () => {
                 <td className="border border-black p-1.5 text-center font-bold">{g.CHILDREN_COUNT}</td>
               </tr>
             ))}
+            {activeSubTab === 'attendance' && groups.map((g, idx) => {
+              const enrolled = children.filter(c => c.GROUP_NAME === g.NAME && c.STATUS === 'Навчається').length;
+              const att = attendanceMap[g.ID] || { present: enrolled, diet: 0, notes: '' };
+              const absent = Math.max(0, enrolled - (Number(att.present) || 0));
+              return (
+                <tr key={g.ID} className="border-b border-black">
+                  <td className="border border-black p-1.5 text-center font-mono">{idx + 1}</td>
+                  <td className="border border-black p-1.5 font-bold">{g.NAME}</td>
+                  <td className="border border-black p-1.5">{g.AGE_CATEGORY}</td>
+                  <td className="border border-black p-1.5 text-center font-mono font-bold">{enrolled}</td>
+                  <td className="border border-black p-1.5 text-center font-mono font-bold">{att.present}</td>
+                  <td className="border border-black p-1.5 text-center font-mono">{att.diet}</td>
+                  <td className="border border-black p-1.5 text-center font-mono">{absent}</td>
+                  <td className="border border-black p-1.5">{att.notes || '-'}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 

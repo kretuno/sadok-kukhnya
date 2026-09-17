@@ -2,7 +2,7 @@ import { SearchableSelect } from "../common/SearchableSelect";
 import { WorkflowGuideModal, WorkflowStep } from "../common/WorkflowGuideModal";
 import React, { useState, useEffect } from 'react';
 import { MenuHeader, Dish, EaterCategory, Product, RecipeComponent, Institution, MenuApproval } from '../../types';
-import { DATABASE_SYNC_EVENT, getMenuEntries, addMenuEntry, deleteMenuEntry, getDishes, getEaterCategories, getProducts, getRecipeComponents, getDishNutritionProfiles, getInstitutions, updateDish, deductStockFIFO, getMenuEntriesRange, copyMenuPeriod, replaceMenuDish, getStockBatches, approveMenu, getMenuApproval, getDishCostProfiles } from '../../services/db';
+import { DATABASE_SYNC_EVENT, getMenuEntries, addMenuEntry, deleteMenuEntry, getDishes, getEaterCategories, getProducts, getRecipeComponents, getDishNutritionProfiles, getInstitutions, updateDish, deductStockFIFO, getMenuEntriesRange, copyMenuPeriod, replaceMenuDish, getStockBatches, approveMenu, getMenuApproval, getDishCostProfiles, getAttendanceEaterCounts } from '../../services/db';
 import { QuickToolbar } from '../QuickToolbar';
 import { exportToExcel, exportToPDF } from '../../services/export';
 import { ProductHistoryModal } from '../modals/ProductHistoryModal';
@@ -74,14 +74,53 @@ export const MenuPlannerModule: React.FC = () => {
   const [dishCatYields, setDishCatYields] = useState<{ [dishId: number]: { [catId: number]: number } }>({});
   const [dishCatYieldInputs, setDishCatYieldInputs] = useState<{ [dishId: number]: { [catId: number]: string } }>({});
 
-  const [counts, setCounts] = useState<{ [catId: number]: number }>(DEFAULT_EATER_COUNTS);
+  const [counts, setCounts] = useState<{ [catId: number]: number }>(() => {
+    try {
+      const saved = localStorage.getItem(`menu_counts_${selectedDate}`);
+      return saved ? JSON.parse(saved) : DEFAULT_EATER_COUNTS;
+    } catch {
+      return DEFAULT_EATER_COUNTS;
+    }
+  });
 
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [newDishId, setNewDishId] = useState<number>(1);
   const [newMealType, setNewMealType] = useState<string>('Обід');
 
-  useEffect(() => { loadData(); }, [selectedDate, selectedInstitution]);
+  useEffect(() => { 
+    loadData();
+    // Load date-specific counts or fallback to default
+    try {
+      const saved = localStorage.getItem(`menu_counts_${selectedDate}`);
+      if (saved) {
+        setCounts(JSON.parse(saved));
+      } else {
+        // Check if attendance exists for this day
+        const att = getAttendanceEaterCounts(selectedDate);
+        if (Object.keys(att).length > 0 && Object.values(att).some(v => v > 0)) {
+          setCounts({ ...DEFAULT_EATER_COUNTS, ...att });
+        }
+      }
+    } catch (_) {}
+  }, [selectedDate, selectedInstitution]);
+
+  const handleUpdateCounts = (newCounts: { [catId: number]: number }) => {
+    setCounts(newCounts);
+    try {
+      localStorage.setItem(`menu_counts_${selectedDate}`, JSON.stringify(newCounts));
+    } catch (_) {}
+  };
+
+  const handleImportFromAttendance = () => {
+    const att = getAttendanceEaterCounts(selectedDate);
+    if (Object.keys(att).length === 0 || !Object.values(att).some(v => v > 0)) {
+      alert(`За дату ${selectedDate} табель відвідуваності ще не заповнювався. Ви можете ввести кількість дітей вручну.`);
+      return;
+    }
+    const updated = { ...counts, ...att };
+    handleUpdateCounts(updated);
+  };
   useEffect(() => {
     const refreshFromDatabase = () => loadData();
     window.addEventListener(DATABASE_SYNC_EVENT, refreshFromDatabase);
@@ -711,10 +750,21 @@ export const MenuPlannerModule: React.FC = () => {
         </div>
 
         <div className="flex flex-col space-y-2">
-          <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 flex items-center space-x-1">
-            <Users className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Кількість харчуючихся дітей / співробітників</span>
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 flex items-center space-x-1">
+              <Users className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Кількість харчуючихся</span>
+            </label>
+            <button
+              type="button"
+              onClick={handleImportFromAttendance}
+              className="text-[10px] px-2 py-0.5 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 rounded border border-emerald-300 dark:border-emerald-700 transition font-bold flex items-center gap-1 cursor-pointer"
+              title="Підтягнути фактичну присутність із ранкового табеля"
+            >
+              <Users className="w-3 h-3 text-emerald-600" />
+              <span>З табеля</span>
+            </button>
+          </div>
           <div className="flex space-x-2">
             {categories.map(cat => (
               <div key={cat.ID} className="flex-1 bg-slate-50 dark:bg-slate-950 p-1.5 rounded border border-slate-200 dark:border-slate-800 text-center">
@@ -725,7 +775,7 @@ export const MenuPlannerModule: React.FC = () => {
                   type="number"
                   min="0"
                   value={counts[cat.ID] || 0}
-                  onChange={(e) => setCounts({ ...counts, [cat.ID]: Number(e.target.value) })}
+                  onChange={(e) => handleUpdateCounts({ ...counts, [cat.ID]: Number(e.target.value) })}
                   className="w-full text-center bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded text-xs font-bold text-blue-600 dark:text-blue-400 mt-0.5"
                 />
               </div>
