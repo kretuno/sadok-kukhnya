@@ -10,7 +10,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['logo.svg', 'logo.png', 'sql-wasm.js', 'sql-wasm.wasm', 'medsestra.db', 'medsestra.bin'],
+      includeAssets: ['logo.svg', 'logo.png', 'sql-wasm.js', 'sql-wasm.wasm', 'medsestra.db', 'medsestra.bin', 'images/*.jpg'],
       manifest: {
         name: 'SADOK Екосистема',
         short_name: 'SADOK',
@@ -31,7 +31,7 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         navigateFallback: 'index.html',
-        globPatterns: ['**/*.{js,css,html,png,svg,wasm,db,bin}'],
+        globPatterns: ['**/*.{js,css,html,png,jpg,jpeg,svg,wasm,db,bin}'],
         maximumFileSizeToCacheInBytes: 12 * 1024 * 1024,
       },
     }),
