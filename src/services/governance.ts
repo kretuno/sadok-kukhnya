@@ -29,6 +29,12 @@ export interface AppUser {
   active: boolean;
 }
 
+export interface CloudIdentityCache {
+  user: AppUser;
+  scope: string;
+  verifiedAt: number;
+}
+
 export interface AuditEntry {
   id: string;
   occurredAt: string;
@@ -127,6 +133,9 @@ const PERIODS_KEY = 'sadok_closed_periods_v1';
 const SYNC_KEY = 'sadok_sync_state_v1';
 const DEVICE_KEY = 'sadok_device_id';
 const CLOUD_USER_KEY = 'sadok_cloud_current_user_v1';
+const AUDIT_SCOPE_KEY = 'sadok_audit_sync_scope_v1';
+const ENTITY_SCOPE_KEY = 'sadok_entity_sync_scope_v1';
+const CLOUD_IDENTITY_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const CHANGE_EVENT = 'sadok-governance-change';
 
 const DEFAULT_USERS: AppUser[] = [
@@ -204,12 +213,28 @@ export function getCurrentUser(): AppUser {
 }
 
 export function getCloudCurrentUser(): AppUser | null {
-  const user = readJson<AppUser | null>(CLOUD_USER_KEY, null);
-  return user?.active ? user : null;
+  return getCloudIdentityCache()?.user || null;
 }
 
-export function setCloudCurrentUser(user: AppUser, recordLogin = false): void {
-  writeJson(CLOUD_USER_KEY, user);
+export function getCloudIdentityCache(): CloudIdentityCache | null {
+  const cache = readJson<CloudIdentityCache | null>(CLOUD_USER_KEY, null);
+  const activeScope = localStorage.getItem(ENTITY_SCOPE_KEY);
+  if (
+    !cache?.user?.active
+    || !cache.scope
+    || cache.scope !== activeScope
+    || !Number.isFinite(cache.verifiedAt)
+    || Date.now() - cache.verifiedAt > CLOUD_IDENTITY_MAX_AGE_MS
+  ) return null;
+  return cache;
+}
+
+export function setCloudCurrentUser(user: AppUser, recordLogin = false, scope = ''): void {
+  writeJson(CLOUD_USER_KEY, {
+    user,
+    scope,
+    verifiedAt: Date.now(),
+  } satisfies CloudIdentityCache);
   if (recordLogin) {
     recordAudit({
       action: 'login',
@@ -277,6 +302,33 @@ export function recordAudit(input: Omit<AuditEntry,
 
 export function getAuditLog(): AuditEntry[] {
   return readJson<AuditEntry[]>(AUDIT_KEY, []);
+}
+
+export function ensureAuditSyncScope(
+  scope: string,
+  storage: Pick<Storage, 'getItem' | 'setItem'> = localStorage,
+): 'initialized' | 'unchanged' | 'changed' {
+  const currentScope = storage.getItem(AUDIT_SCOPE_KEY);
+  const rawAudit = storage.getItem(AUDIT_KEY);
+  let audit: Array<Partial<AuditEntry>> = [];
+  try {
+    audit = rawAudit ? JSON.parse(rawAudit) as Array<Partial<AuditEntry>> : [];
+  } catch {
+    audit = [];
+  }
+  if (!currentScope) {
+    storage.setItem(AUDIT_KEY, JSON.stringify(
+      audit.map(entry => ({ ...entry, syncStatus: 'synced' })),
+    ));
+    storage.setItem(AUDIT_SCOPE_KEY, scope);
+    return 'initialized';
+  }
+  if (currentScope === scope) return 'unchanged';
+  if (audit.some(entry => entry.syncStatus === 'pending')) {
+    throw new Error('На пристрої є невідправлені записи журналу іншої хмарної організації');
+  }
+  storage.setItem(AUDIT_SCOPE_KEY, scope);
+  return 'changed';
 }
 
 export function archiveRecord(input: Omit<ArchiveEntry,
@@ -440,6 +492,6 @@ export function subscribeGovernance(listener: () => void): () => void {
 export function getGovernanceStorageKeys(): string[] {
   return [
     USERS_KEY, CURRENT_USER_KEY, AUDIT_KEY, ARCHIVE_KEY,
-    PERIODS_KEY, SYNC_KEY, DEVICE_KEY, CLOUD_USER_KEY,
+    PERIODS_KEY, SYNC_KEY, DEVICE_KEY, CLOUD_USER_KEY, AUDIT_SCOPE_KEY,
   ];
 }

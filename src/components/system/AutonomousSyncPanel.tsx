@@ -121,7 +121,7 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
   };
 
   const readinessRows = [
-    { label: 'Локальний SQLite', ready: true, detail: 'IndexedDB' },
+    { label: 'Локальна автономна копія', ready: true, detail: 'SQLite в IndexedDB' },
     { label: 'Офлайн-пакет', ready: workerActive, detail: workerActive ? 'кеш активний' : 'активується після оновлення' },
     { label: 'Захищене сховище', ready: Boolean(storage?.persisted), detail: storage?.persisted ? 'браузер не очищатиме автоматично' : 'залежить від дозволу браузера' },
     { label: 'Встановлення на пристрій', ready: installed, detail: installed ? 'встановлено' : 'доступне як PWA' },
@@ -146,7 +146,7 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
               <HardDrive className="h-6 w-6 text-indigo-600" />
               <div>
                 <h4 className="font-black">Автономна готовність</h4>
-                <p className="text-[10px] text-slate-500">Основна робота не залежить від хмарного сервера</p>
+                <p className="text-[10px] text-slate-500">Локальна копія дозволяє продовжити роботу без інтернету</p>
               </div>
             </div>
             <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
@@ -217,7 +217,7 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
           <div className="flex items-center gap-3">
             <ShieldCheck className="h-6 w-6 text-blue-600" />
             <div>
-              <h4 className="font-black">Firebase — додатковий канал синхронізації</h4>
+              <h4 className="font-black">Firebase — спільна база закладу</h4>
               <p className="text-[10px] text-slate-500">
                 {capability.configured
                   ? `Проєкт: ${capability.projectId} · заклад: ${capability.organizationId}`
@@ -237,8 +237,8 @@ export const AutonomousSyncPanel: React.FC<AutonomousSyncPanelProps> = ({
           onChange={event => onSyncStateChange({ ...syncState, mode: event.target.value as SyncState['mode'] })}
           className="mb-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-950"
         >
-          <option value="local-only">Лише автономна робота</option>
-          <option value="firebase" disabled={!capability.configured}>Автономно + Firebase</option>
+          <option value="local-only">Лише локальна тестова база</option>
+          <option value="firebase" disabled={!capability.configured}>Спільна хмарна база + робота офлайн</option>
         </SearchableSelect>
 
         <div className="flex flex-wrap gap-2">

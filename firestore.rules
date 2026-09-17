@@ -6,23 +6,222 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function memberPath(orgId, userId) {
+      return /databases/$(database)/documents/organizations/$(orgId)/members/$(userId);
+    }
+
+    function isActiveMember(orgId) {
+      return signedIn()
+        && exists(memberPath(orgId, request.auth.uid))
+        && get(memberPath(orgId, request.auth.uid)).data.active == true;
+    }
+
+    function role(orgId) {
+      return get(memberPath(orgId, request.auth.uid)).data.role;
+    }
+
+    function isManager(orgId) {
+      return isActiveMember(orgId) && role(orgId) in ['admin', 'director'];
+    }
+
+    function isAdmin(orgId) {
+      return isActiveMember(orgId) && role(orgId) == 'admin';
+    }
+
+    function validMember(data) {
+      return data.active is bool
+        && data.displayName is string
+        && data.email is string
+        && data.role in ['director', 'nurse', 'warehouse', 'cook', 'custodian', 'admin'];
+    }
+
+    function canWriteEntity(orgId, entityType) {
+      return isManager(orgId)
+        || (role(orgId) == 'nurse' && entityType in [
+          'product', 'dish', 'recipe_component', 'dish_nutrition_profile',
+          'menu_entry', 'menu_approval', 'group', 'employee', 'child',
+          'medical_card', 'medical_vaccination', 'medical_anthropometry'
+        ])
+        || (role(orgId) == 'warehouse' && entityType in [
+          'product', 'supplier', 'invoice', 'stock_batch'
+        ])
+        || (role(orgId) == 'cook' && entityType in [
+          'dish', 'recipe_component', 'dish_nutrition_profile', 'menu_entry', 'menu_approval'
+        ])
+        || (role(orgId) == 'custodian' && entityType in [
+          'group', 'employee', 'child', 'property_item', 'property_writeoff'
+        ]);
+    }
+
+    function validEntityDocument(orgId, entityId, data) {
+      return data.keys().hasAll([
+          'entityType', 'syncId', 'payload', 'deleted', 'revision',
+          'updatedAt', 'updatedBy', 'deviceId'
+        ])
+        && data.keys().hasOnly([
+          'entityType', 'syncId', 'payload', 'deleted', 'revision',
+          'updatedAt', 'updatedBy', 'deviceId'
+        ])
+        && data.entityType is string
+        && data.syncId == entityId
+        && (data.payload == null || data.payload is map)
+        && data.deleted is bool
+        && data.revision is int
+        && data.updatedAt is string
+        && data.updatedBy == request.auth.uid
+        && data.deviceId is string
+        && canWriteEntity(orgId, data.entityType);
+    }
+
+    function isInitializationOwner(orgId, deviceId) {
+      let organization = get(/databases/$(database)/documents/organizations/$(orgId)).data;
+      return organization.syncStatus == 'initializing'
+        && organization.initializedBy == request.auth.uid
+        && organization.initializedByDevice == deviceId;
+    }
+
+    function isOrganizationReady(orgId) {
+      return get(/databases/$(database)/documents/organizations/$(orgId)).data.syncStatus == 'ready';
+    }
+
+    function validAuditEvent(orgId, eventId, data) {
+      let membership = get(memberPath(orgId, request.auth.uid)).data;
+      let entity = getAfter(/databases/$(database)/documents/organizations/$(orgId)/entities/$(data.entityId)).data;
+      return data.keys().hasAll([
+          'id', 'occurredAt', 'userId', 'userName', 'role', 'action',
+          'entityType', 'entityId', 'summary', 'after', 'deviceId',
+          'syncStatus', 'authUid', 'schemaVersion'
+        ])
+        && data.keys().hasOnly([
+          'id', 'occurredAt', 'userId', 'userName', 'role', 'action',
+          'entityType', 'entityId', 'summary', 'after', 'deviceId',
+          'syncStatus', 'authUid', 'schemaVersion'
+        ])
+        && eventId == data.entityId + '__' + data.occurredAt
+        && data.id == eventId
+        && data.authUid == request.auth.uid
+        && data.userId == 'firebase-' + request.auth.uid
+        && data.userName == membership.displayName
+        && data.role == membership.role
+        && data.occurredAt == entity.updatedAt
+        && data.entityType == entity.entityType
+        && data.entityId == entity.syncId
+        && data.after == entity.payload
+        && data.deviceId == entity.deviceId
+        && data.summary == data.action + ': ' + data.entityType + '/' + data.entityId
+        && (
+          (entity.deleted && data.action == 'archive')
+          || (!entity.deleted && entity.revision == 1 && data.action == 'create')
+          || (!entity.deleted && entity.revision > 1 && data.action == 'update')
+        )
+        && data.syncStatus == 'synced'
+        && data.schemaVersion == 1;
+    }
+
+    function hasMatchingAudit(orgId, entityId, data) {
+      let eventId = entityId + '__' + data.updatedAt;
+      let eventPath = /databases/$(database)/documents/organizations/$(orgId)/auditEvents/$(eventId);
+      return existsAfter(eventPath)
+        && validAuditEvent(orgId, eventId, getAfter(eventPath).data);
+    }
+
+    function validOrganization(data) {
+      return data.keys().hasAll([
+          'syncStatus', 'initializedBy', 'initializedByDevice',
+          'initializationStartedAt', 'initializationLeaseUntil', 'schemaVersion'
+        ])
+        && data.keys().hasOnly([
+          'syncStatus', 'initializedBy', 'initializedByDevice',
+          'initializationStartedAt', 'initializationLeaseUntil',
+          'initializedAt', 'schemaVersion'
+        ])
+        && data.syncStatus in ['initializing', 'ready']
+        && data.initializedBy == request.auth.uid
+        && data.initializedByDevice is string
+        && data.initializationStartedAt is string
+        && data.initializationLeaseUntil is number
+        && data.initializationLeaseUntil <= request.time.toMillis() + 1800000
+        && data.schemaVersion == 1;
+    }
+
     match /organizations/{orgId} {
-      allow read, write: if signedIn();
+      allow read: if isActiveMember(orgId);
+      allow create: if isManager(orgId)
+        && validOrganization(request.resource.data)
+        && request.resource.data.syncStatus == 'initializing';
+      allow update: if isManager(orgId)
+        && validOrganization(request.resource.data)
+        && resource.data.syncStatus == 'initializing'
+        && (
+          (resource.data.initializedBy == request.auth.uid && (
+            resource.data.initializedByDevice == request.resource.data.initializedByDevice
+            || resource.data.initializationLeaseUntil <= request.time.toMillis()
+          ))
+          || (isAdmin(orgId)
+            && resource.data.initializationLeaseUntil <= request.time.toMillis())
+        );
+      allow delete: if false;
 
       match /members/{userId} {
-        allow read, write: if signedIn();
+        allow read: if signedIn() && (request.auth.uid == userId || isManager(orgId));
+        allow create: if isManager(orgId)
+          && validMember(request.resource.data)
+          && (isAdmin(orgId) || request.resource.data.role != 'admin');
+        allow update: if isManager(orgId)
+          && validMember(request.resource.data)
+          && (isAdmin(orgId) || (
+            request.auth.uid != userId
+            && resource.data.role != 'admin'
+            && request.resource.data.role != 'admin'
+          ));
+        allow delete: if isAdmin(orgId) || (
+          isManager(orgId)
+          && request.auth.uid != userId
+          && resource.data.role != 'admin'
+        );
       }
 
       match /auditEvents/{eventId} {
-        allow read, write: if signedIn();
+        allow read: if isManager(orgId);
+        allow create: if isActiveMember(orgId)
+          && validAuditEvent(orgId, eventId, request.resource.data);
+        allow update, delete: if false;
       }
 
       match /entities/{entityId} {
-        allow read, write: if signedIn();
+        allow read: if isActiveMember(orgId);
+        allow create: if isActiveMember(orgId)
+          && validEntityDocument(orgId, entityId, request.resource.data)
+          && hasMatchingAudit(orgId, entityId, request.resource.data)
+          && request.resource.data.revision == 1
+          && (
+            isOrganizationReady(orgId)
+            || isInitializationOwner(orgId, request.resource.data.deviceId)
+          );
+        allow update: if isActiveMember(orgId)
+          && validEntityDocument(orgId, entityId, request.resource.data)
+          && hasMatchingAudit(orgId, entityId, request.resource.data)
+          && request.resource.data.entityType == resource.data.entityType
+          && request.resource.data.syncId == resource.data.syncId
+          && (
+            (isOrganizationReady(orgId)
+              && request.resource.data.revision == resource.data.revision + 1)
+            || (isInitializationOwner(orgId, request.resource.data.deviceId)
+              && request.resource.data.revision == 1)
+          );
+        allow delete: if false;
       }
 
       match /devices/{deviceId} {
-        allow read, write: if signedIn();
+        allow read: if isManager(orgId);
+        allow create: if isActiveMember(orgId)
+          && request.resource.data.deviceId == deviceId
+          && request.resource.data.authUid == request.auth.uid;
+        allow update: if isActiveMember(orgId)
+          && request.resource.data.deviceId == deviceId
+          && request.resource.data.authUid == request.auth.uid
+          && resource.data.authUid == request.auth.uid;
+        allow delete: if isAdmin(orgId);
       }
     }
 

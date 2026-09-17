@@ -62,6 +62,7 @@ const BOOTSTRAP_KEY = 'sadok_entity_sync_bootstrap_v1';
 const OPERATIONAL_BOOTSTRAP_KEY = 'sadok_operational_sync_bootstrap_v1';
 const STRUCTURE_BOOTSTRAP_KEY = 'sadok_structure_sync_bootstrap_v1';
 const CURSOR_KEY = 'sadok_entity_sync_cursor_v1';
+const SCOPE_KEY = 'sadok_entity_sync_scope_v1';
 export const ENTITY_SYNC_EVENT = 'sadok-entity-sync-change';
 
 function readJson<T>(key: string, fallback: T): T {
@@ -194,11 +195,55 @@ export function saveEntitySyncCursor(value: string): void {
   scheduleDurableLocalState();
 }
 
+export function resetEntityBootstrapState(
+  storage: Pick<Storage, 'removeItem'> = localStorage,
+): void {
+  [BOOTSTRAP_KEY, OPERATIONAL_BOOTSTRAP_KEY, STRUCTURE_BOOTSTRAP_KEY, CURSOR_KEY]
+    .forEach(key => storage.removeItem(key));
+}
+
+export function ensureEntitySyncScope(
+  scope: string,
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> = localStorage,
+): 'initialized' | 'unchanged' | 'reset' {
+  const currentScope = storage.getItem(SCOPE_KEY);
+  if (!currentScope) {
+    storage.removeItem(QUEUE_KEY);
+    storage.removeItem(CONFLICTS_KEY);
+    resetEntityBootstrapState(storage);
+    storage.setItem(SCOPE_KEY, scope);
+    return 'initialized';
+  }
+  if (currentScope === scope) return 'unchanged';
+  let pending: unknown[] = [];
+  try {
+    const raw = storage.getItem(QUEUE_KEY);
+    pending = raw ? JSON.parse(raw) as unknown[] : [];
+  } catch {
+    pending = [];
+  }
+  if (pending.length > 0) {
+    throw new Error('На пристрої є невідправлені зміни іншої хмарної організації');
+  }
+  storage.removeItem(CONFLICTS_KEY);
+  resetEntityBootstrapState(storage);
+  storage.setItem(SCOPE_KEY, scope);
+  return 'reset';
+}
+
 export function subscribeEntitySyncState(listener: () => void): () => void {
   window.addEventListener(ENTITY_SYNC_EVENT, listener);
   return () => window.removeEventListener(ENTITY_SYNC_EVENT, listener);
 }
 
 export function entitySyncStorageKeys(): string[] {
-  return [QUEUE_KEY, CONFLICTS_KEY, BOOTSTRAP_KEY, OPERATIONAL_BOOTSTRAP_KEY, CURSOR_KEY];
+  return [
+    QUEUE_KEY,
+    CONFLICTS_KEY,
+    BOOTSTRAP_KEY,
+    OPERATIONAL_BOOTSTRAP_KEY,
+    STRUCTURE_BOOTSTRAP_KEY,
+    CURSOR_KEY,
+    SCOPE_KEY,
+  ];
 }

@@ -1,7 +1,8 @@
-import type { AuditEntry } from './governance';
 import {
   clearCloudCurrentUser,
+  ensureAuditSyncScope,
   getCloudCurrentUser,
+  getCloudIdentityCache,
   getDeviceId,
   getPendingAuditEntries,
   markAuditEntriesSynced,
@@ -21,6 +22,7 @@ import {
   getEntitySyncConflicts,
   getEntitySyncCursor,
   getPendingEntityMutations,
+  ensureEntitySyncScope,
   isEntityBootstrapComplete,
   isOperationalBootstrapComplete,
   isStructureBootstrapComplete,
@@ -30,6 +32,7 @@ import {
   markEntityMutationsSynced,
   removeEntityMutationsForSyncId,
   removeEntitySyncConflict,
+  resetEntityBootstrapState,
   replaceEntityMutation,
   saveEntitySyncConflict,
   saveEntitySyncCursor,
@@ -38,9 +41,17 @@ import {
 } from './entitySyncQueue';
 import { entityTypeOrder, hasEntityRevisionConflict } from '../domain/entitySync';
 import type { SyncEntityType } from './entitySyncQueue';
-import { parseCloudMembership } from '../domain/cloudIdentity';
+import { canReuseCachedCloudIdentity, parseCloudMembership } from '../domain/cloudIdentity';
 import type { CloudUserRole } from '../domain/cloudIdentity';
 import { validateCloudUserDraft, type CloudUserDraft } from '../domain/cloudUserProvisioning';
+import {
+  assertCloudBootstrapAllowed,
+  buildAuthoritativeBootstrapDocuments,
+  decideCloudInitialization,
+  selectBootstrapSource,
+  type CloudInitializationDecision,
+  type CloudInitializationMetadata,
+} from '../domain/cloudBootstrap';
 import { APP_VERSION } from '../config/version';
 import { scheduleDurableLocalState } from './durableStorage';
 
@@ -112,6 +123,7 @@ const ALL_ENTITY_TYPES: SyncEntityType[] = [
 const DEVICE_NAME_KEY = 'sadok_device_name_v1';
 const DEVICE_HEARTBEAT_KEY = 'sadok_device_heartbeat_at_v1';
 const DEVICE_HEARTBEAT_INTERVAL_MS = 15 * 60 * 1000;
+const ORGANIZATION_INITIALIZATION_LEASE_MS = 30 * 60 * 1000;
 
 function readFirebaseConfig() {
   return {
@@ -123,6 +135,11 @@ function readFirebaseConfig() {
     appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
     organizationId: import.meta.env.VITE_FIREBASE_ORGANIZATION_ID || '',
   };
+}
+
+function getFirebaseScope(): string {
+  const config = readFirebaseConfig();
+  return `${config.projectId}/${config.organizationId}`;
 }
 
 function defaultDeviceName(): string {
@@ -205,10 +222,91 @@ function maxUpdatedAt(documents: RemoteEntityDocument[]): string {
   ), getEntitySyncCursor());
 }
 
+function entityAuditId(document: RemoteEntityDocument): string {
+  return `${document.syncId}__${document.updatedAt}`;
+}
+
+function entityAuditPayload(document: RemoteEntityDocument, authUid: string) {
+  const identity = getCloudCurrentUser();
+  if (!identity) throw new Error('Хмарна особа користувача не підтверджена');
+  const action = document.deleted ? 'archive' : document.revision === 1 ? 'create' : 'update';
+  const id = entityAuditId(document);
+  return {
+    id,
+    occurredAt: document.updatedAt,
+    userId: `firebase-${authUid}`,
+    userName: identity.displayName,
+    role: identity.role,
+    action,
+    entityType: document.entityType,
+    entityId: document.syncId,
+    summary: `${action}: ${document.entityType}/${document.syncId}`,
+    after: document.payload,
+    deviceId: document.deviceId,
+    syncStatus: 'synced',
+    authUid,
+    schemaVersion: 1,
+  };
+}
+
+async function ensureOrganizationInitialization(
+  context: FirebaseContext,
+  firestoreModule: typeof import('firebase/firestore'),
+  authUid: string,
+): Promise<CloudInitializationDecision> {
+  const identity = getCloudCurrentUser();
+  if (!identity) throw new Error('Увійдіть до Firebase перед синхронізацією закладу');
+  const deviceId = getDeviceId();
+  const organizationReference = firestoreModule.doc(
+    context.db, 'organizations', context.organizationId,
+  );
+  return firestoreModule.runTransaction(context.db, async transaction => {
+    const snapshot = await transaction.get(organizationReference);
+    const now = Date.now();
+    const decision = decideCloudInitialization({
+      metadata: snapshot.exists()
+        ? snapshot.data() as CloudInitializationMetadata
+        : null,
+      role: identity.role as CloudUserRole,
+      userId: authUid,
+      deviceId,
+      now,
+    });
+    if (decision !== 'ready') {
+      transaction.set(organizationReference, {
+        syncStatus: 'initializing',
+        initializedBy: authUid,
+        initializedByDevice: deviceId,
+        initializationLeaseUntil: now + ORGANIZATION_INITIALIZATION_LEASE_MS,
+        initializationStartedAt: new Date(now).toISOString(),
+        schemaVersion: 1,
+      }, { merge: true });
+    }
+    return decision;
+  });
+}
+
+async function markOrganizationInitialized(
+  context: FirebaseContext,
+  firestoreModule: typeof import('firebase/firestore'),
+  authUid: string,
+): Promise<void> {
+  await firestoreModule.setDoc(firestoreModule.doc(
+    context.db, 'organizations', context.organizationId,
+  ), {
+    syncStatus: 'ready',
+    initializedAt: new Date().toISOString(),
+    initializedBy: authUid,
+    initializedByDevice: getDeviceId(),
+    schemaVersion: 1,
+  }, { merge: true });
+}
+
 async function bootstrapEntityCollection(
   context: FirebaseContext,
   firestoreModule: typeof import('firebase/firestore'),
   authUid: string,
+  initializationDecision: CloudInitializationDecision,
 ): Promise<number> {
   if (isEntityBootstrapComplete()) return 0;
   const collectionReference = firestoreModule.collection(
@@ -222,7 +320,7 @@ async function bootstrapEntityCollection(
     .map(remoteFromSnapshot)
     .filter((value): value is RemoteEntityDocument => Boolean(value));
 
-  if (cloudDocuments.length > 0) {
+  if (selectBootstrapSource(initializationDecision, cloudDocuments.length) === 'cloud') {
     reconcileLocalBootstrapSnapshot(
       cloudDocuments.map(document => document.syncId),
       getPendingEntityMutations().map(mutation => mutation.syncId),
@@ -237,39 +335,41 @@ async function bootstrapEntityCollection(
   }
 
   const localEntities = exportLocalSyncEntities(CATALOG_ENTITY_TYPES);
+  const cloudIdentity = getCloudCurrentUser();
+  if (!cloudIdentity) throw new Error('Увійдіть до Firebase перед першою синхронізацією закладу');
+  assertCloudBootstrapAllowed(cloudIdentity.role as CloudUserRole, localEntities.length);
   const updatedAt = new Date().toISOString();
   const deviceId = localStorage.getItem('sadok_device_id') || '';
-  for (let offset = 0; offset < localEntities.length; offset += 350) {
+  const bootstrapDocuments: RemoteEntityDocument[] = buildAuthoritativeBootstrapDocuments(
+    localEntities, cloudDocuments,
+  ).map(document => ({ ...document, revision: 1, updatedAt, updatedBy: authUid, deviceId }));
+  for (let offset = 0; offset < bootstrapDocuments.length; offset += 5) {
     const batch = firestoreModule.writeBatch(context.db);
-    const chunk = localEntities.slice(offset, offset + 350);
-    chunk.forEach(entity => {
-      const reference = firestoreModule.doc(collectionReference, entity.syncId);
-      batch.set(reference, {
-        entityType: entity.entityType,
-        syncId: entity.syncId,
-        payload: entity.payload,
-        deleted: false,
-        revision: 1,
-        updatedAt,
-        updatedBy: authUid,
-        deviceId,
-      });
+    const chunk = bootstrapDocuments.slice(offset, offset + 5);
+    chunk.forEach(document => {
+      batch.set(firestoreModule.doc(collectionReference, document.syncId), document);
+      batch.set(firestoreModule.doc(
+        context.db, 'organizations', context.organizationId, 'auditEvents', entityAuditId(document),
+      ), entityAuditPayload(document, authUid));
     });
     await batch.commit();
-    chunk.forEach(entity => markLocalSyncEntityRevision(entity.syncId, 1, updatedAt, deviceId, false));
+    chunk.forEach(document => markLocalSyncEntityRevision(
+      document.syncId, 1, updatedAt, deviceId, document.deleted,
+    ));
   }
   markEntityMutationsSynced(getPendingEntityMutations()
     .filter(item => CATALOG_ENTITY_TYPES.includes(item.entityType))
     .map(item => item.id));
   persistRemoteSyncEntities();
   markEntityBootstrapComplete();
-  return localEntities.length;
+  return bootstrapDocuments.length;
 }
 
 async function bootstrapOperationalCollection(
   context: FirebaseContext,
   firestoreModule: typeof import('firebase/firestore'),
   authUid: string,
+  initializationDecision: CloudInitializationDecision,
 ): Promise<number> {
   if (isOperationalBootstrapComplete()) return 0;
   const collectionReference = firestoreModule.collection(
@@ -283,7 +383,7 @@ async function bootstrapOperationalCollection(
     .map(remoteFromSnapshot)
     .filter((value): value is RemoteEntityDocument => Boolean(value));
 
-  if (cloudDocuments.length > 0) {
+  if (selectBootstrapSource(initializationDecision, cloudDocuments.length) === 'cloud') {
     reconcileLocalBootstrapSnapshot(
       cloudDocuments.map(document => document.syncId),
       getPendingEntityMutations().map(mutation => mutation.syncId),
@@ -298,38 +398,41 @@ async function bootstrapOperationalCollection(
   }
 
   const localEntities = exportLocalSyncEntities(OPERATIONAL_ENTITY_TYPES);
+  const cloudIdentity = getCloudCurrentUser();
+  if (!cloudIdentity) throw new Error('Увійдіть до Firebase перед першою синхронізацією закладу');
+  assertCloudBootstrapAllowed(cloudIdentity.role as CloudUserRole, localEntities.length);
   const updatedAt = new Date().toISOString();
   const deviceId = localStorage.getItem('sadok_device_id') || '';
-  for (let offset = 0; offset < localEntities.length; offset += 350) {
+  const bootstrapDocuments: RemoteEntityDocument[] = buildAuthoritativeBootstrapDocuments(
+    localEntities, cloudDocuments,
+  ).map(document => ({ ...document, revision: 1, updatedAt, updatedBy: authUid, deviceId }));
+  for (let offset = 0; offset < bootstrapDocuments.length; offset += 5) {
     const batch = firestoreModule.writeBatch(context.db);
-    const chunk = localEntities.slice(offset, offset + 350);
-    chunk.forEach(entity => {
-      batch.set(firestoreModule.doc(collectionReference, entity.syncId), {
-        entityType: entity.entityType,
-        syncId: entity.syncId,
-        payload: entity.payload,
-        deleted: false,
-        revision: 1,
-        updatedAt,
-        updatedBy: authUid,
-        deviceId,
-      });
+    const chunk = bootstrapDocuments.slice(offset, offset + 5);
+    chunk.forEach(document => {
+      batch.set(firestoreModule.doc(collectionReference, document.syncId), document);
+      batch.set(firestoreModule.doc(
+        context.db, 'organizations', context.organizationId, 'auditEvents', entityAuditId(document),
+      ), entityAuditPayload(document, authUid));
     });
     await batch.commit();
-    chunk.forEach(entity => markLocalSyncEntityRevision(entity.syncId, 1, updatedAt, deviceId, false));
+    chunk.forEach(document => markLocalSyncEntityRevision(
+      document.syncId, 1, updatedAt, deviceId, document.deleted,
+    ));
   }
   markEntityMutationsSynced(getPendingEntityMutations()
     .filter(item => OPERATIONAL_ENTITY_TYPES.includes(item.entityType))
     .map(item => item.id));
   persistRemoteSyncEntities();
   markOperationalBootstrapComplete();
-  return localEntities.length;
+  return bootstrapDocuments.length;
 }
 
 async function bootstrapStructureCollection(
   context: FirebaseContext,
   firestoreModule: typeof import('firebase/firestore'),
   authUid: string,
+  initializationDecision: CloudInitializationDecision,
 ): Promise<number> {
   if (isStructureBootstrapComplete()) return 0;
   const collectionReference = firestoreModule.collection(
@@ -343,7 +446,7 @@ async function bootstrapStructureCollection(
     .map(remoteFromSnapshot)
     .filter((value): value is RemoteEntityDocument => Boolean(value));
 
-  if (cloudDocuments.length > 0) {
+  if (selectBootstrapSource(initializationDecision, cloudDocuments.length) === 'cloud') {
     reconcileLocalBootstrapSnapshot(
       cloudDocuments.map(document => document.syncId),
       getPendingEntityMutations().map(mutation => mutation.syncId),
@@ -358,32 +461,34 @@ async function bootstrapStructureCollection(
   }
 
   const localEntities = exportLocalSyncEntities(STRUCTURE_ENTITY_TYPES);
+  const cloudIdentity = getCloudCurrentUser();
+  if (!cloudIdentity) throw new Error('Увійдіть до Firebase перед першою синхронізацією закладу');
+  assertCloudBootstrapAllowed(cloudIdentity.role as CloudUserRole, localEntities.length);
   const updatedAt = new Date().toISOString();
   const deviceId = localStorage.getItem('sadok_device_id') || '';
-  for (let offset = 0; offset < localEntities.length; offset += 350) {
+  const bootstrapDocuments: RemoteEntityDocument[] = buildAuthoritativeBootstrapDocuments(
+    localEntities, cloudDocuments,
+  ).map(document => ({ ...document, revision: 1, updatedAt, updatedBy: authUid, deviceId }));
+  for (let offset = 0; offset < bootstrapDocuments.length; offset += 5) {
     const batch = firestoreModule.writeBatch(context.db);
-    const chunk = localEntities.slice(offset, offset + 350);
-    chunk.forEach(entity => {
-      batch.set(firestoreModule.doc(collectionReference, entity.syncId), {
-        entityType: entity.entityType,
-        syncId: entity.syncId,
-        payload: entity.payload,
-        deleted: false,
-        revision: 1,
-        updatedAt,
-        updatedBy: authUid,
-        deviceId,
-      });
+    const chunk = bootstrapDocuments.slice(offset, offset + 5);
+    chunk.forEach(document => {
+      batch.set(firestoreModule.doc(collectionReference, document.syncId), document);
+      batch.set(firestoreModule.doc(
+        context.db, 'organizations', context.organizationId, 'auditEvents', entityAuditId(document),
+      ), entityAuditPayload(document, authUid));
     });
     await batch.commit();
-    chunk.forEach(entity => markLocalSyncEntityRevision(entity.syncId, 1, updatedAt, deviceId, false));
+    chunk.forEach(document => markLocalSyncEntityRevision(
+      document.syncId, 1, updatedAt, deviceId, document.deleted,
+    ));
   }
   markEntityMutationsSynced(getPendingEntityMutations()
     .filter(item => STRUCTURE_ENTITY_TYPES.includes(item.entityType))
     .map(item => item.id));
   persistRemoteSyncEntities();
   markStructureBootstrapComplete();
-  return localEntities.length;
+  return bootstrapDocuments.length;
 }
 
 async function uploadPendingEntities(
@@ -423,6 +528,9 @@ async function uploadPendingEntities(
         deviceId: mutation.deviceId,
       };
       transaction.set(reference, document);
+      transaction.set(firestoreModule.doc(
+        context.db, 'organizations', context.organizationId, 'auditEvents', entityAuditId(document),
+      ), entityAuditPayload(document, authUid));
       return { document } as const;
     });
 
@@ -505,51 +613,37 @@ async function activateFirebaseMembership(
     db, 'organizations', organizationId, 'members', user.uid,
   );
   try {
-    let membership = await firestoreModule.getDoc(membershipReference);
-    if (!membership.exists()) {
-      const autoMember = {
-        displayName: user.displayName || getLocalDeviceName(),
-        email: user.email || `${user.uid.slice(0, 8)}@${organizationId}.local`,
-        role: 'director',
-        active: true,
-        createdAt: new Date().toISOString(),
-        createdBy: user.uid,
-      };
-      await firestoreModule.setDoc(membershipReference, autoMember);
-      membership = await firestoreModule.getDoc(membershipReference);
-    }
+    const membership = await firestoreModule.getDoc(membershipReference);
     const identity = parseCloudMembership(user.uid, user.email, membership.data());
-    setCloudCurrentUser(identity, recordLogin);
+    const scope = getFirebaseScope();
+    ensureEntitySyncScope(scope);
+    ensureAuditSyncScope(scope);
+    setCloudCurrentUser(identity, recordLogin, scope);
   } catch (error) {
     const code = String((error as { code?: unknown })?.code || '');
-    const cached = getCloudCurrentUser();
-    const canUseOfflineIdentity = ['unavailable', 'failed-precondition', 'auth/network-request-failed'].includes(code);
-    if (canUseOfflineIdentity && cached?.id === `firebase-${user.uid}`) return;
-    setCloudCurrentUser({
-      id: `firebase-${user.uid}`,
-      displayName: user.displayName || getLocalDeviceName(),
-      role: 'director',
-      active: true,
-    }, recordLogin);
+    const cached = getCloudIdentityCache();
+    if (canReuseCachedCloudIdentity(
+      code,
+      cached ? {
+        identityId: cached.user.id,
+        scope: cached.scope,
+        verifiedAt: cached.verifiedAt,
+      } : null,
+      user.uid,
+      getFirebaseScope(),
+      Date.now(),
+    )) return;
+    clearCloudCurrentUser();
+    throw error;
   }
 }
 
 export async function getFirebaseUser(): Promise<import('firebase/auth').User | null> {
-  const [{ auth }, authModule] = await Promise.all([
-    getFirebaseContext(),
-    import('firebase/auth'),
-  ]);
+  const { auth } = await getFirebaseContext();
   await auth.authStateReady();
   if (!auth.currentUser) {
-    try {
-      const cred = await authModule.signInAnonymously(auth);
-      await activateFirebaseMembership(cred.user, false);
-      return cred.user;
-    } catch (e) {
-      console.warn('[Sync] Anonymous auto-signin fallback:', e);
-      clearCloudCurrentUser();
-      return null;
-    }
+    clearCloudCurrentUser();
+    return null;
   }
   await activateFirebaseMembership(auth.currentUser, false);
   return auth.currentUser;
@@ -811,51 +905,13 @@ export async function sendOrganizationPasswordReset(email: string): Promise<void
   });
 }
 
-function cloudAuditPayload(entry: AuditEntry, authUid: string) {
-  return {
-    ...entry,
-    authUid,
-    schemaVersion: 1,
-  };
-}
-
 export async function synchronizePendingAudit(): Promise<number> {
-  if (!navigator.onLine) throw new Error('Немає інтернету. Зміни залишилися в локальній черзі.');
   const state = getSyncState();
   const attemptAt = new Date().toISOString();
-
-  try {
-    const [{ auth, db, organizationId }, firestoreModule] = await Promise.all([
-      getFirebaseContext(),
-      import('firebase/firestore'),
-    ]);
-    await auth.authStateReady();
-    if (!auth.currentUser) throw new Error('Увійдіть до Firebase перед синхронізацією');
-
-    const pending = getPendingAuditEntries().slice(0, 400);
-    if (pending.length === 0) {
-      saveSyncState({ ...state, lastAttempt: attemptAt, lastSuccessfulSync: attemptAt, lastError: null });
-      return 0;
-    }
-
-    const batch = firestoreModule.writeBatch(db);
-    pending.forEach(entry => {
-      const reference = firestoreModule.doc(
-        db,
-        'organizations', organizationId,
-        'auditEvents', entry.id,
-      );
-      batch.set(reference, cloudAuditPayload(entry, auth.currentUser!.uid));
-    });
-    await batch.commit();
-    markAuditEntriesSynced(pending.map(entry => entry.id));
-    saveSyncState({ ...state, lastAttempt: attemptAt, lastSuccessfulSync: attemptAt, lastError: null });
-    return pending.length;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    saveSyncState({ ...state, lastAttempt: attemptAt, lastError: message });
-    throw error;
-  }
+  const pending = getPendingAuditEntries();
+  markAuditEntriesSynced(pending.map(entry => entry.id));
+  saveSyncState({ ...state, lastAttempt: attemptAt, lastSuccessfulSync: attemptAt, lastError: null });
+  return 0;
 }
 
 async function performFullSynchronization(): Promise<FullSyncResult> {
@@ -870,9 +926,24 @@ async function performFullSynchronization(): Promise<FullSyncResult> {
     const user = await getFirebaseUser();
     if (!user) throw new Error('Не вдалося ініціалізувати сесію синхронізації');
     const authUid = user.uid;
-    const catalogBootstrapped = await bootstrapEntityCollection(context, firestoreModule, authUid);
-    const operationalBootstrapped = await bootstrapOperationalCollection(context, firestoreModule, authUid);
-    const structureBootstrapped = await bootstrapStructureCollection(context, firestoreModule, authUid);
+    const initializationDecision = await ensureOrganizationInitialization(
+      context, firestoreModule, authUid,
+    );
+    if (initializationDecision === 'acquire' || initializationDecision === 'takeover') {
+      resetEntityBootstrapState();
+    }
+    const catalogBootstrapped = await bootstrapEntityCollection(
+      context, firestoreModule, authUid, initializationDecision,
+    );
+    const operationalBootstrapped = await bootstrapOperationalCollection(
+      context, firestoreModule, authUid, initializationDecision,
+    );
+    const structureBootstrapped = await bootstrapStructureCollection(
+      context, firestoreModule, authUid, initializationDecision,
+    );
+    if (initializationDecision !== 'ready') {
+      await markOrganizationInitialized(context, firestoreModule, authUid);
+    }
     const bootstrapped = catalogBootstrapped + operationalBootstrapped + structureBootstrapped;
     const entitiesUploaded = await uploadPendingEntities(context, firestoreModule, authUid);
     const entitiesDownloaded = await downloadRemoteEntities(context, firestoreModule);

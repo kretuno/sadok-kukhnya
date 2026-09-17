@@ -11,6 +11,33 @@ export interface CloudAppIdentity {
   active: true;
 }
 
+const TEMPORARY_CLOUD_ERROR_CODES = new Set([
+  'unavailable',
+  'failed-precondition',
+  'auth/network-request-failed',
+]);
+
+const CLOUD_IDENTITY_MAX_OFFLINE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export interface CachedCloudIdentityMetadata {
+  identityId: string;
+  scope: string;
+  verifiedAt: number;
+}
+
+export function canReuseCachedCloudIdentity(
+  errorCode: string,
+  cache: CachedCloudIdentityMetadata | null,
+  firebaseUid: string,
+  expectedScope: string,
+  now: number,
+): boolean {
+  return TEMPORARY_CLOUD_ERROR_CODES.has(errorCode)
+    && cache?.identityId === `firebase-${firebaseUid}`
+    && cache.scope === expectedScope
+    && now - cache.verifiedAt <= CLOUD_IDENTITY_MAX_OFFLINE_AGE_MS;
+}
+
 export function parseCloudMembership(
   uid: string,
   email: string | null,
