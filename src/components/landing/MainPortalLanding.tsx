@@ -335,37 +335,71 @@ export const MainPortalLanding: React.FC<MainPortalLandingProps> = ({
 
           {/* CARD 3: УПРАВЛІННЯ ТА ПЕРСОНАЛ */}
           <div className="group relative flex flex-col justify-between rounded-3xl overflow-hidden bg-white dark:bg-slate-900 border border-emerald-300/80 dark:border-emerald-500/30 hover:border-emerald-500 dark:hover:border-emerald-400/80 shadow-xl shadow-emerald-500/5 hover:shadow-2xl hover:shadow-emerald-500/15 hover:-translate-y-1.5 transition-all duration-300">
-            {/* Top Visual Showcase with Real Photo & Badges */}
-            <div className="relative h-48 w-full overflow-hidden bg-emerald-900">
-              <img 
-                src="./images/school_real_photo.jpg" 
-                alt="Криворізький КЗДО КТ №145 КМР"
-                className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 brightness-[0.85]"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-white via-emerald-950/30 to-emerald-900/40 dark:from-slate-900 dark:via-emerald-950/40 dark:to-slate-950/60" />
+            {/* Top Visual Showcase: Modern Cohesive Team & Modules Showcase */}
+            <div className="relative h-48 w-full overflow-hidden bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-950 flex flex-col justify-between p-4">
+              {/* Subtle background mesh glow */}
+              <div className="absolute -top-10 -right-10 w-44 h-44 rounded-full bg-emerald-500/20 blur-2xl pointer-events-none" />
+              <div className="absolute -bottom-10 -left-10 w-44 h-44 rounded-full bg-teal-500/20 blur-2xl pointer-events-none" />
 
-              {/* Badges on image */}
-              <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-                <div className="w-10 h-10 rounded-xl bg-emerald-600/90 backdrop-blur-md text-white flex items-center justify-center shadow-md">
-                  <Building2 className="w-5 h-5" />
+              {/* Decorative geometric network pattern */}
+              <svg className="absolute inset-0 w-full h-full opacity-15 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id="staff-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+                    <circle cx="2" cy="2" r="1.5" fill="currentColor" className="text-emerald-300" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#staff-grid)" />
+              </svg>
+
+              {/* Top Row: Icon + Security Badge */}
+              <div className="relative z-10 flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-900/40 border border-emerald-400/30">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300">13 Модулів</span>
+                    <span className="text-[10px] text-emerald-100/70 font-medium">Комплекс ЗДО</span>
+                  </div>
                 </div>
-                <span className="px-3 py-1 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-emerald-300 dark:border-emerald-400/40 text-emerald-900 dark:text-emerald-300 text-xs font-black flex items-center gap-1.5 shadow-sm">
-                  <Lock className="w-3 h-3 text-emerald-600 dark:text-emerald-300" />
+
+                <span className="px-3 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-emerald-400/40 text-emerald-300 text-xs font-black flex items-center gap-1.5 shadow-sm">
+                  <Lock className="w-3 h-3 text-emerald-400" />
                   Захищено PIN
                 </span>
               </div>
 
-              {/* Module Icons preview over image bottom */}
-              <div className="absolute bottom-2 left-4 right-4 z-10 flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-sm text-[11px] font-bold text-white flex items-center gap-1.5 border border-white/20 shadow-sm">
-                  <Utensils className="w-3.5 h-3.5 text-amber-300" /> Кухня
+              {/* Middle Row: Specialists Badges */}
+              <div className="relative z-10 grid grid-cols-4 gap-2 my-auto">
+                <div className="p-2 rounded-xl bg-slate-900/70 backdrop-blur-md border border-emerald-500/30 flex flex-col items-center justify-center text-center group-hover:border-emerald-400/60 transition shadow-sm">
+                  <Utensils className="w-4 h-4 text-amber-300 mb-1" />
+                  <span className="text-[10px] font-extrabold text-white">Харчоблок</span>
+                  <span className="text-[8px] text-slate-300">Кухарі</span>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-900/70 backdrop-blur-md border border-sky-500/30 flex flex-col items-center justify-center text-center group-hover:border-sky-400/60 transition shadow-sm">
+                  <Package className="w-4 h-4 text-sky-300 mb-1" />
+                  <span className="text-[10px] font-extrabold text-white">Склад</span>
+                  <span className="text-[8px] text-slate-300">FIFO</span>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-900/70 backdrop-blur-md border border-rose-500/30 flex flex-col items-center justify-center text-center group-hover:border-rose-400/60 transition shadow-sm">
+                  <HeartPulse className="w-4 h-4 text-rose-300 mb-1" />
+                  <span className="text-[10px] font-extrabold text-white">Медицина</span>
+                  <span className="text-[8px] text-slate-300">Сестра</span>
+                </div>
+                <div className="p-2 rounded-xl bg-slate-900/70 backdrop-blur-md border border-purple-500/30 flex flex-col items-center justify-center text-center group-hover:border-purple-400/60 transition shadow-sm">
+                  <Building2 className="w-4 h-4 text-purple-300 mb-1" />
+                  <span className="text-[10px] font-extrabold text-white">Майно</span>
+                  <span className="text-[8px] text-slate-300">Завгосп</span>
+                </div>
+              </div>
+
+              {/* Bottom Row: Status indicator */}
+              <div className="relative z-10 flex items-center justify-between text-[11px] text-emerald-200/90 pt-1 border-t border-emerald-500/20">
+                <span className="flex items-center gap-1.5 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Робочі місця персоналу
                 </span>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-sm text-[11px] font-bold text-white flex items-center gap-1.5 border border-white/20 shadow-sm">
-                  <Package className="w-3.5 h-3.5 text-sky-300" /> Склад
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-sm text-[11px] font-bold text-white flex items-center gap-1.5 border border-white/20 shadow-sm">
-                  <HeartPulse className="w-3.5 h-3.5 text-rose-300" /> Медицина
-                </span>
+                <span className="text-emerald-300/80 font-mono text-[10px]">КЗДО №145</span>
               </div>
             </div>
 
