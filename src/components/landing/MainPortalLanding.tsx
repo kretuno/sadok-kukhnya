@@ -194,12 +194,13 @@ export const MainPortalLanding: React.FC<MainPortalLandingProps> = ({
               <div className="absolute inset-0 bg-gradient-to-t from-white via-white/20 to-transparent dark:from-slate-900 dark:via-slate-900/40 dark:to-transparent pointer-events-none" />
               
               {/* Badges on image */}
-              <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/90 backdrop-blur-md text-white flex items-center justify-center shadow-md">
-                  <Heart className="w-5 h-5 fill-white/30" />
-                </div>
-                <span className="px-3 py-1 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-amber-300 dark:border-amber-400/40 text-amber-800 dark:text-amber-300 text-xs font-black flex items-center gap-1.5 shadow-sm">
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10 pointer-events-none">
+                <span className="px-3 py-1.5 rounded-full bg-amber-500/90 backdrop-blur-md border border-amber-300/40 text-white text-[11px] font-black uppercase tracking-wide shadow-md flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 fill-white/40 text-white" />
+                  <span>Родинам</span>
+                </span>
+                <span className="px-3 py-1.5 rounded-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-amber-300 dark:border-amber-400/40 text-amber-900 dark:text-amber-300 text-xs font-black flex items-center gap-1.5 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                   Вільний доступ
                 </span>
               </div>
