@@ -15,11 +15,18 @@ import {
   Sparkles,
   Calendar,
   Layers,
-  FileText,
   DollarSign,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  MessageSquare,
+  Heart
 } from 'lucide-react';
+import { 
+  getParentAbsenceNotifications, 
+  getParentFeedbacks, 
+  ParentAbsenceNotification, 
+  ParentFeedbackMessage 
+} from '../../domain/parentPortal';
 import {
   DATABASE_SYNC_EVENT,
   getChildren,
@@ -48,6 +55,8 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = ({ on
   const [batches, setBatches] = useState<StockBatch[]>([]);
   const [propertyCount, setPropertyCount] = useState<number>(0);
   const [todayDate] = useState(new Date().toISOString().split('T')[0]);
+  const [absences, setAbsences] = useState<ParentAbsenceNotification[]>([]);
+  const [parentFeedbacks, setParentFeedbacks] = useState<ParentFeedbackMessage[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -71,6 +80,8 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = ({ on
       setVaccinations(v);
       setBatches(b);
       setPropertyCount(p.length);
+      setAbsences(getParentAbsenceNotifications());
+      setParentFeedbacks(getParentFeedbacks());
     } catch (_) {}
   };
 
@@ -568,6 +579,66 @@ export const DirectorDashboardView: React.FC<DirectorDashboardViewProps> = ({ on
                     </div>
                   </div>
                 ))}
+            </div>
+          </div>
+
+          {/* PARENT PORTAL NOTIFICATIONS & FEEDBACK */}
+          <div className="card-glass p-5 rounded-2xl shadow-md space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+              <h3 className="font-black text-sm text-slate-800 dark:text-white flex items-center space-x-2">
+                <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+                <span>Батьківський простір: звернення</span>
+              </h3>
+              <span className="text-[10px] font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">
+                {absences.length + parentFeedbacks.length} записів
+              </span>
+            </div>
+
+            {/* Quick stats */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-rose-50/60 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/40">
+                <span className="text-[10px] text-rose-700 dark:text-rose-300 font-bold block">Сповіщень про відсутність:</span>
+                <span className="text-base font-black text-rose-800 dark:text-rose-200">{absences.length}</span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40">
+                <span className="text-[10px] text-blue-700 dark:text-blue-300 font-bold block">Звернень батьків:</span>
+                <span className="text-base font-black text-blue-800 dark:text-blue-200">{parentFeedbacks.length}</span>
+              </div>
+            </div>
+
+            {/* Recent records */}
+            <div className="space-y-2 text-xs max-h-48 overflow-y-auto">
+              {absences.length === 0 && parentFeedbacks.length === 0 ? (
+                <div className="text-center py-4 text-slate-400 italic text-[11px]">
+                  Нових звернень від батьків немає
+                </div>
+              ) : (
+                <>
+                  {absences.slice(0, 3).map(a => (
+                    <div key={a.id} className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-[11px]">
+                      <div className="flex justify-between font-bold text-slate-800 dark:text-slate-200">
+                        <span>{a.childName} ({a.groupName})</span>
+                        <span className="text-rose-600 font-mono text-[10px]">{a.date}</span>
+                      </div>
+                      <div className="text-slate-500 text-[10px]">
+                        Причина: {a.reason === 'illness' ? 'Хвороба' : a.reason === 'family' ? 'Сімейні обставини' : 'Інше'} {a.comment ? `• ${a.comment}` : ''}
+                      </div>
+                    </div>
+                  ))}
+
+                  {parentFeedbacks.slice(0, 3).map(f => (
+                    <div key={f.id} className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-[11px]">
+                      <div className="flex justify-between font-bold text-slate-800 dark:text-slate-200">
+                        <span>{f.parentName}</span>
+                        <span className="text-blue-600 text-[10px]">{f.category}</span>
+                      </div>
+                      <div className="text-slate-600 dark:text-slate-300 text-[10px] truncate">
+                        "{f.message}"
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           </div>
         </div>
