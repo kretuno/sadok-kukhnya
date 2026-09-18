@@ -20,7 +20,8 @@ import {
   Users,
   BookOpenCheck,
   Brain,
-  HeartPulse
+  HeartPulse,
+  MessageSquare
 } from 'lucide-react';
 
 import { PortalRole } from '../services/portalSecurity';
@@ -50,6 +51,7 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
   const isCadresContext = activeTab === 'cadres';
   const isPsychologistContext = activeTab === 'psychologist';
   const isMedicalContext = activeTab === 'medical';
+  const isLogopedContext = activeTab === 'logoped';
   const isPortalContext = activeTab === 'portal';
 
   const kitchenNavItems = [
@@ -93,6 +95,13 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
     { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
   ];
 
+  const logopedNavItems = [
+    { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
+    { id: 'logoped', label: 'Логопед ДНЗ', icon: MessageSquare },
+    { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
+    { id: 'about', label: 'Про програму', icon: Info, hotkey: 'F1' },
+  ];
+
   const portalNavItems = [
     { id: 'portal', label: 'Головне меню', icon: LayoutGrid, hotkey: 'Esc' },
     { id: 'settings', label: 'Налаштування', icon: Settings, hotkey: 'F9' },
@@ -107,7 +116,9 @@ export const HeaderNavbar: React.FC<HeaderNavbarProps> = ({
         ? psychologistNavItems
         : (isMedicalContext
           ? medicalNavItems
-          : (isPortalContext ? portalNavItems : kitchenNavItems))));
+          : (isLogopedContext
+            ? logopedNavItems
+            : (isPortalContext ? portalNavItems : kitchenNavItems)))));
 
   return (
     <header className="bg-slate-800 text-white dark:bg-slate-900 border-b border-slate-700 shadow-md no-print sticky top-0 z-40 shrink-0">

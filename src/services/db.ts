@@ -11,7 +11,9 @@ import {
   PsychologyDailyLogEntry, PsychologyDailyActivityType, PsychologyDailyCategory,
   PsychologySpecialSupportEntry, PsychologySpecialCategory, PsychologyDynamicStatus, PsychologyMemo,
   SadokMedicalCard, SadokVaccination, SadokAnthropometry,
-  DailyAttendanceRecord, BrackerageReadyEntry, BrackerageRawEntry
+  DailyAttendanceRecord, BrackerageReadyEntry, BrackerageRawEntry,
+  SpeechCard, SpeechDailyLogEntry, ArticulationExercise,
+  SpeechDiagnosisType, SpeechDailyActivityType
 } from '../types';
 import {
   planFifoDeductions,
@@ -1167,6 +1169,12 @@ function getRawSyncRow(entityType: SyncEntityType, localId: string): Record<stri
   if (entityType === 'psychology_special_support') {
     return getPsychologySpecialSupportEntries().find(s => String(s.ID) === localId) as unknown as Record<string, unknown>;
   }
+  if (entityType === 'speech_card') {
+    return getSpeechCards().find(c => String(c.ID) === localId) as unknown as Record<string, unknown>;
+  }
+  if (entityType === 'speech_daily_log') {
+    return getSpeechDailyLogEntries().find(d => String(d.ID) === localId) as unknown as Record<string, unknown>;
+  }
   const tables: Record<string, string> = {
     menu_entry: 'MENU',
     menu_approval: 'MENU_APPROVALS',
@@ -1227,6 +1235,12 @@ function buildSyncPayload(
   }
   if (entityType === 'medical_anthropometry') {
     return { row: getAnthropometries().find(a => String(a.ID) === localId) || null };
+  }
+  if (entityType === 'speech_card') {
+    return { row: getSpeechCards().find(c => String(c.ID) === localId) || null };
+  }
+  if (entityType === 'speech_daily_log') {
+    return { row: getSpeechDailyLogEntries().find(d => String(d.ID) === localId) || null };
   }
   return { row };
 }
@@ -1299,6 +1313,8 @@ function ensureAllSyncMetadata(): void {
   getMedicalCards().forEach(m => ensureSyncMetadata('medical_card', String(m.ID)));
   getVaccinations().forEach(v => ensureSyncMetadata('medical_vaccination', String(v.ID)));
   getAnthropometries().forEach(a => ensureSyncMetadata('medical_anthropometry', String(a.ID)));
+  getSpeechCards().forEach(c => ensureSyncMetadata('speech_card', String(c.ID)));
+  getSpeechDailyLogEntries().forEach(d => ensureSyncMetadata('speech_daily_log', String(d.ID)));
 }
 
 export function exportLocalSyncEntities(entityTypes?: Iterable<SyncEntityType>): LocalSyncEntity[] {
@@ -1377,6 +1393,8 @@ export function reconcileLocalBootstrapSnapshot(
         medical_card: 17,
         medical_vaccination: 18,
         medical_anthropometry: 19,
+        speech_card: 20,
+        speech_daily_log: 21,
       };
       return order[left.ENTITY_TYPE] - order[right.ENTITY_TYPE];
     });
@@ -1432,6 +1450,12 @@ export function reconcileLocalBootstrapSnapshot(
       }
       if (row.ENTITY_TYPE === 'medical_anthropometry') {
         localStorage.setItem('sadok_anthropometries', JSON.stringify(getAnthropometries().filter(a => String(a.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'speech_card') {
+        localStorage.setItem('sadok_speech_cards', JSON.stringify(getSpeechCards().filter(c => String(c.ID) !== row.LOCAL_ID)));
+      }
+      if (row.ENTITY_TYPE === 'speech_daily_log') {
+        localStorage.setItem('sadok_speech_daily_logs', JSON.stringify(getSpeechDailyLogEntries().filter(d => String(d.ID) !== row.LOCAL_ID)));
       }
       db.run('DELETE FROM SADOK_ENTITY_SYNC_META WHERE SYNC_ID=?', [row.SYNC_ID]);
     });
@@ -1553,6 +1577,12 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
       }
       if (remote.entityType === 'medical_anthropometry') {
         localStorage.setItem('sadok_anthropometries', JSON.stringify(getAnthropometries().filter(a => String(a.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'speech_card') {
+        localStorage.setItem('sadok_speech_cards', JSON.stringify(getSpeechCards().filter(c => String(c.ID) !== existing.LOCAL_ID)));
+      }
+      if (remote.entityType === 'speech_daily_log') {
+        localStorage.setItem('sadok_speech_daily_logs', JSON.stringify(getSpeechDailyLogEntries().filter(d => String(d.ID) !== existing.LOCAL_ID)));
       }
       saveRemoteMetadata(remote, existing.LOCAL_ID);
     }
@@ -1782,6 +1812,30 @@ export function applyRemoteSyncEntity(remote: RemoteEntityDocument): void {
     const exists = current.some(a => String(a.ID) === localId);
     const updated = exists ? current.map(a => String(a.ID) === localId ? updatedRow : a) : [updatedRow, ...current];
     localStorage.setItem('sadok_anthropometries', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'speech_card') {
+    const current = getSpeechCards();
+    const row = rawRow as unknown as SpeechCard;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(c => c.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(c => String(c.ID) === localId);
+    const updated = exists ? current.map(c => String(c.ID) === localId ? updatedRow : c) : [updatedRow, ...current];
+    localStorage.setItem('sadok_speech_cards', JSON.stringify(updated));
+    saveRemoteMetadata(remote, localId);
+    return;
+  }
+
+  if (remote.entityType === 'speech_daily_log') {
+    const current = getSpeechDailyLogEntries();
+    const row = rawRow as unknown as SpeechDailyLogEntry;
+    const localId = existing?.LOCAL_ID || String(row.ID || (current.length > 0 ? Math.max(...current.map(d => d.ID)) + 1 : 1));
+    const updatedRow = { ...row, ID: Number(localId) };
+    const exists = current.some(d => String(d.ID) === localId);
+    const updated = exists ? current.map(d => String(d.ID) === localId ? updatedRow : d) : [updatedRow, ...current];
+    localStorage.setItem('sadok_speech_daily_logs', JSON.stringify(updated));
     saveRemoteMetadata(remote, localId);
     return;
   }
@@ -4903,5 +4957,560 @@ export function calculateRealTurnoverSheet(dateFrom: string, dateTo: string): Re
       outSum,
     };
   });
+}
+
+// -----------------------------------------------------------------
+// SPEECH THERAPY (SADOK ЛОГОПЕД / ДЕФЕКТОЛОГ)
+// Криворізький КЗДО КТ №145 КМР
+// -----------------------------------------------------------------
+
+const INITIAL_SPEECH_CARDS: SpeechCard[] = [
+  {
+    ID: 1,
+    CHILD_ID: 4,
+    CHILD_NAME: 'Бондаренко Артем Олександрович',
+    GROUP_NAME: 'Група «Калинка» (Старша логопедична)',
+    BIRTH_DATE: '2020-04-15',
+    ENROLLMENT_DATE: '2024-09-01',
+    DIAGNOSIS: 'ФФНМ',
+    ARTICULATION_APPARATUS: 'Прикус правильний, під\'язикова вуздечка помірно вкорочена, рухливість кінчика язика обмежена при підйомі вгору.',
+    PHONEMIC_HEARING: 'Труднощі диференціації опозиційних звуків [С]-[Ш], [Р]-[Л], заміна сонора [Р] на [Л] у спонтанному мовленні.',
+    SOUND_STATUSES: [
+      { sound: '[С]', group: 'свистячі', stage: 'Введено в мовлення (Норма)' },
+      { sound: '[З]', group: 'свистячі', stage: 'Введено в мовлення (Норма)' },
+      { sound: '[Ц]', group: 'свистячі', stage: 'Введено в мовлення (Норма)' },
+      { sound: '[Ш]', group: 'шиплячі', stage: 'Автоматизація в реченнях', notes: 'Міжзубний сигматизм подолано, закріплюється у фразах' },
+      { sound: '[Ж]', group: 'шиплячі', stage: 'Автоматизація в словах', notes: 'Чітка вимова у відкритих складах' },
+      { sound: '[Ч]', group: 'шиплячі', stage: 'Автоматизація в складах' },
+      { sound: '[Щ]', group: 'шиплячі', stage: 'Постановка звука' },
+      { sound: '[Л]', group: 'сонори', stage: 'Автоматизація в словах', notes: 'Звук чистий, закріплюється твердий [Л]' },
+      { sound: '[Р]', group: 'сонори', stage: 'Постановка звука', notes: 'Горловий ротацизм, викликається вібрація від звука [Д]' }
+    ],
+    VOCABULARY_LEVEL: 'Словниковий запас у межах вікової норми, впевнено володіє узагальнюючими поняттями («професії», «транспорт», «посуд»).',
+    GRAMMAR_STRUCTURE: 'Сформована задовільно. Поодинокі аграматизми при узгодженні числівників з іменниками (напр. «п\'ять олівців»).',
+    COHERENT_SPEECH: 'Складає розповідь за сюжетною картиною за навідними запитаннями, переказує знайомі казки близько до тексту.',
+    INDIVIDUAL_PLAN: '1) Артикуляційна гімнастика («Грибок», «Маляр», «Конячка»); 2) Автоматизація шиплячих [Ш], [Ж] у чистомовках та віршах; 3) Вібрація кінчика язика для звука [Р]; 4) Диференціація звуків [С]-[Ш]; 5) Розвиток фонематичного аналізу слів.',
+    DYNAMICS: 'Позитивна динаміка',
+    LOGOPED_CONCLUSION: 'Фонетико-фонематичний недорозвиток мовлення (ФФНМ). Міжзубний сигматизм шиплячих (етап фразової автоматизації), горловий ротацизм (етап постановки вібрації). Прогноз корекції сприятливий.',
+    UPDATED_AT: '2026-09-15'
+  },
+  {
+    ID: 2,
+    CHILD_ID: 2,
+    CHILD_NAME: 'Коваленко Софія Дмитрівна',
+    GROUP_NAME: 'Група «Казка» (Старша комбінована)',
+    BIRTH_DATE: '2022-08-19',
+    ENROLLMENT_DATE: '2024-09-01',
+    DIAGNOSIS: 'Дислалія',
+    ARTICULATION_APPARATUS: 'Анатомічна будова артикуляційного апарату без патологій, обсяг та точність рухів язика і губ повні.',
+    PHONEMIC_HEARING: 'Фонематичний слух повністю збережений, безпомилково розрізняє близькі за звучанням слова-квазіомоніми.',
+    SOUND_STATUSES: [
+      { sound: '[С]', group: 'свистячі', stage: 'Введено в мовлення (Норма)' },
+      { sound: '[З]', group: 'свистячі', stage: 'Введено в мовлення (Норма)' },
+      { sound: '[Ш]', group: 'шиплячі', stage: 'Введено в мовлення (Норма)' },
+      { sound: '[Ж]', group: 'шиплячі', stage: 'Введено в мовлення (Норма)' },
+      { sound: '[Л]', group: 'сонори', stage: 'Введено в мовлення (Норма)', notes: 'Пом\'якшення звука повністю усунуто' },
+      { sound: '[Р]', group: 'сонори', stage: 'Введено в мовлення (Норма)', notes: 'Звук поставлено та автоматизовано у вільному мовленні' }
+    ],
+    VOCABULARY_LEVEL: 'Багатий словниковий запас, активна пізнавальна та мовленнєва ініціатива, вживає образні вислови та синоніми.',
+    GRAMMAR_STRUCTURE: 'Граматичні категорії сформовані бездоганно відповідно до віку.',
+    COHERENT_SPEECH: 'Зв\'язне мовлення високо розвинене, самостійно будує складні речення, переказує оповідання логічно та емоційно.',
+    INDIVIDUAL_PLAN: '1) Закріплення сонорних звуків [Р], [Л] у скоромовках; 2) Самоконтроль мовлення; 3) Підготовка до випуску з логопункту.',
+    DYNAMICS: 'Звуки автоматизовано (Норма)',
+    LOGOPED_CONCLUSION: 'Мономорфна функціональна дислалія (ротацизм). Звуковимову сонорів [Р], [Л] повністю відновлено та автоматизовано у спонтанному мовленні. Рекомендовано випуск з логопедичного обліку.',
+    UPDATED_AT: '2026-09-17'
+  },
+  {
+    ID: 3,
+    CHILD_ID: 5,
+    CHILD_NAME: 'Сидоренко Владислав Юрійович',
+    GROUP_NAME: 'Група «Сонечко» (Молодша інклюзивна)',
+    BIRTH_DATE: '2021-06-10',
+    ENROLLMENT_DATE: '2025-09-01',
+    DIAGNOSIS: 'ЗНМ III рівень',
+    ARTICULATION_APPARATUS: 'Високе тверде піднебіння, гіпотонус кінчика язика, помірна салівація під час тривалого мовленнєвого навантаження.',
+    PHONEMIC_HEARING: 'Знижене фонематичне сприймання складних звукокомплексів, змішування дзвінких та глухих фонем.',
+    SOUND_STATUSES: [
+      { sound: '[С]', group: 'свистячі', stage: 'Автоматизація в словах', notes: 'Вимовляє у відкритих складах са-, со-' },
+      { sound: '[З]', group: 'свистячі', stage: 'Постановка звука', notes: 'Оглушення звука, перехід від [С] з голосом' },
+      { sound: '[Ш]', group: 'шиплячі', stage: 'Підготовчий (гімнастика)', notes: 'Відпрацювання підйому бічних країв язика («Чашечка»)' },
+      { sound: '[Ж]', group: 'шиплячі', stage: 'Підготовчий (гімнастика)' },
+      { sound: '[Л]', group: 'сонори', stage: 'Постановка звука', notes: 'Міжзубна вимова звука [Л]' },
+      { sound: '[Р]', group: 'сонори', stage: 'Підготовчий (гімнастика)' }
+    ],
+    VOCABULARY_LEVEL: 'Обмежений активний словник побутовими темами, труднощі у називанні ознак предметів та професій.',
+    GRAMMAR_STRUCTURE: 'Труднощі узгодження прикметників з іменниками у роді, пропуски простих прийменників («м\'яч стіл» замість «м\'яч на столі»).',
+    COHERENT_SPEECH: 'Фразове мовлення спрощене (речення з 2-3 слів), переказ тексту можливий лише за навідними запитаннями та ілюстраціями.',
+    INDIVIDUAL_PLAN: '1) Логопедичний масаж язика та артикуляційна гімнастика на тонізування м\'язів; 2) Постановка свистячих [С], [З]; 3) Збагачення словника лексичними темами («Осінь», «Овочі», «Сім\'я»); 4) Вправи на формування граматичних форм множини; 5) Розвиток дрібної моторики рук.',
+    DYNAMICS: 'Повільний поступ',
+    LOGOPED_CONCLUSION: 'Загальний недорозвиток мовлення (ЗНМ III рівня) у дитини з особливими освітніми потребами (ООП). Поліморфне порушення звуковимови свистячих, шиплячих та сонорних звуків, несформованість граматичного ладу. Потребує тривалого корекційного супроводу.',
+    UPDATED_AT: '2026-09-16'
+  },
+  {
+    ID: 4,
+    CHILD_ID: 3,
+    CHILD_NAME: 'Шевченко Максим Ігорович',
+    GROUP_NAME: 'Група «Ясочка» (Середня комбінована)',
+    BIRTH_DATE: '2021-02-05',
+    ENROLLMENT_DATE: '2024-09-01',
+    DIAGNOSIS: 'ФФНМ',
+    ARTICULATION_APPARATUS: 'Будова без відхилень, рухи язика точні, достатня амплітуда рухів нижньої щелепи.',
+    PHONEMIC_HEARING: 'Фонематичні уявлення недостатньо диференційовані відносно африкатів ([Ц]-[С], [Ч]-[Т\']).',
+    SOUND_STATUSES: [
+      { sound: '[С]', group: 'свистячі', stage: 'Введено в мовлення (Норма)' },
+      { sound: '[Ц]', group: 'свистячі', stage: 'Автоматизація в словах', notes: 'Закріплення у відкритих і закритих складах' },
+      { sound: '[Ч]', group: 'шиплячі', stage: 'Автоматизація в реченнях' },
+      { sound: '[Щ]', group: 'шиплячі', stage: 'Постановка звука' },
+      { sound: '[Л]', group: 'сонори', stage: 'Введено в мовлення (Норма)' },
+      { sound: '[Р]', group: 'сонори', stage: 'Автоматизація в словах', notes: 'Звук викликано механічним способом, автоматизується' }
+    ],
+    VOCABULARY_LEVEL: 'Словниковий запас повністю відповідає віковим нормативам, добре орієнтується у просторі та часі.',
+    GRAMMAR_STRUCTURE: 'Граматичний лад сформований задовільно, вживає прийменниково-відмінкові конструкції.',
+    COHERENT_SPEECH: 'Зв\'язне мовлення зрозуміле, будує послідовні висловлювання, охоче вступає в діалог з однолітками та дорослими.',
+    INDIVIDUAL_PLAN: '1) Автоматизація [Ц], [Ч], [Щ] у скоромовках; 2) Введення [Р] у самостійне мовлення; 3) Диференціаційні ігри на розрізнення свистячих та шиплячих.',
+    DYNAMICS: 'Позитивна динаміка',
+    LOGOPED_CONCLUSION: 'ФФНМ. Порушення вимови складних свистячих та сонорних звуків. Динаміка позитивна, планується повна автоматизація до кінця навчального півріччя.',
+    UPDATED_AT: '2026-09-18'
+  }
+];
+
+const INITIAL_SPEECH_DAILY_LOG: SpeechDailyLogEntry[] = [
+  {
+    ID: 1,
+    DATE: '2026-09-18',
+    ACTIVITY_TYPE: 'Індивідуальне заняття',
+    CATEGORY: 'Діти',
+    TARGET_NAME: 'Бондаренко Артем',
+    CHILD_ID: 4,
+    GROUP_NAME: 'Група «Калинка»',
+    SOUND_TARGET: '[Р], [Рь]',
+    TOPIC: 'Постановка звука [Р] механічним способом. Відпрацювання вібрації кінчика язика за допомогою зонда/шпателя від звука [Д].',
+    HOURS_SPENT: 0.5,
+    RESULTS_NOTES: 'Отримано короткочасну вібрацію кінчика язика під час швидкої вимови звуків д-д-д-д.',
+    CREATED_AT: '2026-09-18'
+  },
+  {
+    ID: 2,
+    DATE: '2026-09-18',
+    ACTIVITY_TYPE: 'Підгрупове заняття',
+    CATEGORY: 'Діти',
+    TARGET_NAME: 'Підгрупа «Звукарики» (4 дітей)',
+    GROUP_NAME: 'Група «Калинка»',
+    SOUND_TARGET: '[Ш], [Ж]',
+    TOPIC: 'Диференціація звуків [С] – [Ш] у словах і чистомовках. Гра «Впіймай звук чарівним дзвіночком».',
+    HOURS_SPENT: 0.67,
+    RESULTS_NOTES: 'Діти успішно розрізняють звуки за артикуляційним укладом (губи посмішкою / трубочкою).',
+    CREATED_AT: '2026-09-18'
+  },
+  {
+    ID: 3,
+    DATE: '2026-09-18',
+    ACTIVITY_TYPE: 'Консультація батьків',
+    CATEGORY: 'Батьки',
+    TARGET_NAME: 'Коваленко О. М. (мати Софії)',
+    CHILD_ID: 2,
+    GROUP_NAME: 'Група «Казка»',
+    SOUND_TARGET: '[Р]',
+    TOPIC: 'Рекомендації щодо закріплення звука [Р] у домашньому спілкуванні. Пам\'ятка чистомовок для сімейного читання.',
+    HOURS_SPENT: 0.5,
+    RESULTS_NOTES: 'Матері передано бланк домашніх логопедичних вправ, узгоджено самоконтроль вимови.',
+    CREATED_AT: '2026-09-18'
+  },
+  {
+    ID: 4,
+    DATE: '2026-09-17',
+    ACTIVITY_TYPE: 'Індивідуальне заняття',
+    CATEGORY: 'Діти',
+    TARGET_NAME: 'Сидоренко Владислав',
+    CHILD_ID: 5,
+    GROUP_NAME: 'Група «Сонечко»',
+    SOUND_TARGET: '[С]',
+    TOPIC: 'Артикуляційна гімнастика для свистячих («Посмішка», «Лопатка», «Вітерець»). Автоматизація [С] у прямих складах СА, СО, СУ.',
+    HOURS_SPENT: 0.33,
+    RESULTS_NOTES: 'Покращився видих по серединці язика. Звук вимовляється чітко за наслідуванням логопеда.',
+    CREATED_AT: '2026-09-17'
+  },
+  {
+    ID: 5,
+    DATE: '2026-09-17',
+    ACTIVITY_TYPE: 'Логопедичне обстеження (скринінг)',
+    CATEGORY: 'Діти',
+    TARGET_NAME: 'Вихованці середньої групи «Ясочка»',
+    GROUP_NAME: 'Група «Ясочка»',
+    SOUND_TARGET: 'Усі групи звуків',
+    TOPIC: 'Плановий осінній скринінг звуковимови дітей 4-5 років. Заповнення мовленнєвих карток.',
+    HOURS_SPENT: 1.5,
+    RESULTS_NOTES: 'Обстежено 6 дітей. Виявлено 2 дітей з порушенням вимови сонорів [Р], [Л], призначено консультації з батьками.',
+    CREATED_AT: '2026-09-17'
+  },
+  {
+    ID: 6,
+    DATE: '2026-09-16',
+    ACTIVITY_TYPE: 'Консультація вихователів',
+    CATEGORY: 'Педагоги',
+    TARGET_NAME: 'Вихователі групи «Калинка»',
+    GROUP_NAME: 'Група «Калинка»',
+    TOPIC: 'Включення артикуляційної гімнастики та дихальних пауз у щоденні ранкові зустрічі вихованців.',
+    HOURS_SPENT: 0.5,
+    RESULTS_NOTES: 'Передано комплекс наочних матеріалів для логопедичного куточка в груповому осередку.',
+    CREATED_AT: '2026-09-16'
+  },
+  {
+    ID: 7,
+    DATE: '2026-09-15',
+    ACTIVITY_TYPE: 'Індивідуальне заняття',
+    CATEGORY: 'Діти',
+    TARGET_NAME: 'Шевченко Максим',
+    CHILD_ID: 3,
+    GROUP_NAME: 'Група «Ясочка»',
+    SOUND_TARGET: '[Р]',
+    TOPIC: 'Автоматизація звука [Р] у реченнях та зв\'язному тексті. Описування іграшок з використанням звука.',
+    HOURS_SPENT: 0.5,
+    RESULTS_NOTES: 'Впевнено вимовляє звук у фразах: «У Роми червона ракета», «Риба пливе у річці».',
+    CREATED_AT: '2026-09-15'
+  }
+];
+
+const INITIAL_ARTICULATION_EXERCISES: ArticulationExercise[] = [
+  {
+    id: 'lips_smile',
+    title: '«Посмішка» / «Парканчик»',
+    category: 'lips',
+    purpose: 'Розвиток рухливості губ, формування навички утримувати куточки рота розтягнутими.',
+    targetSounds: ['С', 'З', 'Ц'],
+    description: 'Усміхнутися без напруження, щоб було видно верхні й нижні зуби (парканчик). Утримувати губи в такому положенні.',
+    instructions: [
+      'Посміхнись широко й весело!',
+      'Покажи рівні зубки, як білий парканчик.',
+      'Утримуй посмішку під лічбу до 5 (потім до 10).',
+      'Розслаб губки та повтори ще 3 рази.'
+    ],
+    repetition: '5-7 разів по 5-10 секунд',
+    icon: 'Smile'
+  },
+  {
+    id: 'lips_tube',
+    title: '«Трубочка» / «Хоботок»',
+    category: 'lips',
+    purpose: 'Вироблення кругового звуження губ, необхідного для правильної вимови шиплячих звуків.',
+    targetSounds: ['Ш', 'Ж', 'Ч', 'Щ'],
+    description: 'Витягнути зімкнуті губи вперед довгою трубочкою, як хобот слоненяти.',
+    instructions: [
+      'Зімкни зубки, але не стискай міцно.',
+      'Витягни губки вперед, ніби тягнешся поцілувати маму або п\'єш сік через соломинку.',
+      'Утримуй трубочку нерухомо під лічбу до 5-10.',
+      'Чергуй вправу «Посмішка» – «Трубочка».'
+    ],
+    repetition: '6-8 разів по 5 секунд',
+    icon: 'Volume2'
+  },
+  {
+    id: 'tongue_spatula',
+    title: '«Лопатка» (Млинець)',
+    category: 'tongue',
+    purpose: 'Розслаблення м\'язів язика, розпластування його передньої частини на нижній губі.',
+    targetSounds: ['С', 'З', 'Ш', 'Ж', 'Л'],
+    description: 'Рот відкритий, широкий розслаблений язик покласти на нижню губу. Утримувати спокійно.',
+    instructions: [
+      'Відкрий ротик, ніби говориш звук [А].',
+      'Поклади широкий спокійний язичок на нижню губу, як млинець на сковорідку.',
+      'Язичок не повинен тремтіти або тікати назад.',
+      'Утримуй під лічбу від 1 до 10.'
+    ],
+    repetition: '4-5 разів по 8-10 секунд',
+    icon: 'Layers'
+  },
+  {
+    id: 'tongue_cup',
+    title: '«Чашечка»',
+    category: 'tongue',
+    purpose: 'Підйом переднього та бокових країв язика у формі чаші для правильного видиху при шиплячих та сонорах.',
+    targetSounds: ['Ш', 'Ж', 'Ч', 'Щ', 'Р'],
+    description: 'Рот широко відкритий. Передній та бічні краї широкого язика підняті догори, середина прогнута вниз.',
+    instructions: [
+      'Широко відкрий рот.',
+      'Поклади язик широкою лопаткою, а потім загни його кінчик та боки вгору.',
+      'Утвори глибоку чашечку, щоб з неї не вилилася водичка.',
+      'Утримуй біля верхніх зубів, не торкаючись їх, рахуючи до 5-8.'
+    ],
+    repetition: '5-6 разів по 6-8 секунд',
+    icon: 'Coffee'
+  },
+  {
+    id: 'tongue_horse',
+    title: '«Конячка»',
+    category: 'tongue',
+    purpose: 'Зміцнення м\'язів підйому язика, розтягування під\'язикової зв\'язки (вуздечки).',
+    targetSounds: ['Р', 'Рь', 'Л', 'Ль'],
+    description: 'Клацати язиком об тверде піднебіння, наслідуючи цокіт копит конячки. Нижня щелепа не рухається.',
+    instructions: [
+      'Посміхнись і злегка відкрий ротик.',
+      'Присмокчи широкий язичок до піднебіння і дзвінко цокни.',
+      'Стеж, щоб рухався тільки язик, а підборіддя залишалося нерухомим!',
+      'Цокай спочатку повільно, потім швидше.'
+    ],
+    repetition: '15-20 разів підряд',
+    icon: 'Sparkles'
+  },
+  {
+    id: 'tongue_mushroom',
+    title: '«Грибок»',
+    category: 'tongue',
+    purpose: 'Вироблення підйому язика вгору та максимальне натягування під\'язикової вуздечки для вимови [Р].',
+    targetSounds: ['Р', 'Рь'],
+    description: 'Присмоктати весь язик до піднебіння і широко відкрити рот. Під\'язикова вуздечка стає натягнутою ніжкою грибка.',
+    instructions: [
+      'Широко посміхнись.',
+      'Присмокчи язик до піднебіння, як у вправі «Конячка», але не відривай його!',
+      'Повільно опускай нижню щелепу вниз, натягуючи «ніжку грибочка».',
+      'Утримуй грибок у натягнутому стані під лічбу до 5-10.'
+    ],
+    repetition: '4-6 разів по 5-10 секунд',
+    icon: 'Shield'
+  },
+  {
+    id: 'tongue_painter',
+    title: '«Маляр»',
+    category: 'tongue',
+    purpose: 'Розвиток координації та точного підйому кінчика язика по твердому піднебінню.',
+    targetSounds: ['Р', 'Ш', 'Ж'],
+    description: 'Відкрити рот, кінчиком язика плавно погладжувати піднебіння від верхніх зубів углиб рота та назад.',
+    instructions: [
+      'Відкрий ротик.',
+      'Кінчик язика — це пензлик маляра, а піднебіння — стеля.',
+      'Пофарбуй стелю: веди кінчиком язика вперед-назад, не поспішаючи.',
+      'Нижня щелепа не рухається, працює тільки кінчик язичка.'
+    ],
+    repetition: '8-10 рухів вперед-назад',
+    icon: 'Feather'
+  },
+  {
+    id: 'tongue_jam',
+    title: '«Смачне варення»',
+    category: 'tongue',
+    purpose: 'Розвиток руху передньої широкої частини язика вгору та формування кругового облизування губи.',
+    targetSounds: ['Ш', 'Ж', 'Р'],
+    description: 'Злегка відкрити рот і широким переднім краєм язика облизати верхню губу зверху вниз.',
+    instructions: [
+      'Уяви, що на верхню губку потрапило смачне полуничне варення.',
+      'Широким язичком акуратно злижи його зверху вниз.',
+      'Не ховай язичок одразу, роби рух плавним і широким.',
+      'Нижня щелепа залишається нерухомою.'
+    ],
+    repetition: '6-8 разів',
+    icon: 'Heart'
+  },
+  {
+    id: 'breathing_football',
+    title: '«Футбол» / «Забий гол»',
+    category: 'breathing',
+    purpose: 'Вироблення тривалого плавного та цілеспрямованого струменя видихуваного повітря.',
+    targetSounds: ['С', 'З', 'Ш', 'Ж', 'Р'],
+    description: 'Покласти ватну кульку на стіл між двома кубиками («воротами»). Подути на кульку, заганяючи її у ворота.',
+    instructions: [
+      'Посміхнись і поклади широкий язик на нижню губу («Лопатка»).',
+      'Плавно подуй по серединці язика на кульку з вати.',
+      'Щоки не надувай! Повітря повинно летіти вузькою цівкою.',
+      'Забий 5 переможних голів!'
+    ],
+    repetition: '5-6 разів (з перервами на відпочинок, щоб не запаморочилась голова)',
+    icon: 'Wind'
+  },
+  {
+    id: 'breathing_breeze',
+    title: '«Холодний вітерець»',
+    category: 'breathing',
+    purpose: 'Формування спрямованого холодного струменя повітря посередині язика для свистячих звуків.',
+    targetSounds: ['С', 'З', 'Ц'],
+    description: 'Широкий язик на нижній губі, вимовляти довгий звук [С-с-с], направляючи повітря на долоню біля підборіддя.',
+    instructions: [
+      'Піднеси долоньку до підборіддя.',
+      'Зроби губки посмішкою, язичок лежить спокійно.',
+      'Подуй легко: відчуй на руці холодний, свіжий вітерець!',
+      'Стеж, щоб вітерець був холодним, а не теплим.'
+    ],
+    repetition: '4-5 разів по 3-4 секунди',
+    icon: 'CloudRain'
+  },
+  {
+    id: 'rhymes_whistle',
+    title: 'Чистомовки на свистячі звуки [С], [З], [Ц]',
+    category: 'rhymes',
+    purpose: 'Автоматизація свистячих звуків у ритмічних римованих текстах.',
+    targetSounds: ['С', 'З', 'Ц'],
+    description: 'Повторення чистомовок з чіткою артикуляцією складових рядів та цілих речень.',
+    instructions: [
+      'Са-са-са — у саду летить оса.',
+      'Су-су-су — я водички принесу.',
+      'Сі-сі-сі — ми вмиваємося всі.',
+      'За-за-за — на лужку пасеться кізка.',
+      'Зу-зу-зу — не боюся я грозу.',
+      'Ца-ца-ца — смачна й тепла паляниця.'
+    ],
+    repetition: 'Повторити кожну строфу по 2-3 рази',
+    icon: 'MessageSquare'
+  },
+  {
+    id: 'rhymes_hiss',
+    title: 'Чистомовки на шиплячі звуки [Ш], [Ж], [Ч], [Щ]',
+    category: 'rhymes',
+    purpose: 'Автоматизація шиплячих звуків у складах, словах та фразах.',
+    targetSounds: ['Ш', 'Ж', 'Ч', 'Щ'],
+    description: 'Вимова з округленими губами трубочкою та піднятим чашечкою язиком.',
+    instructions: [
+      'Ша-ша-ша — наша каша хороша.',
+      'Шу-шу-шу — я листок ворушу.',
+      'Ши-ши-ши — ти листівку напиши.',
+      'Жа-жа-жа — ми побачили вужа.',
+      'Жу-жу-жу — я під дубом посиджу.',
+      'Чу-чу-чу — на ракеті полечу.',
+      'Ща-ща-ща — зловив тато ляща.'
+    ],
+    repetition: 'Повторити чітко й виразно',
+    icon: 'Volume2'
+  },
+  {
+    id: 'rhymes_sonor',
+    title: 'Чистомовки та скоромовки на сонорні звуки [Р], [Л]',
+    category: 'rhymes',
+    purpose: 'Закріплення чіткої вимови сонорів, подолання замін [Р] на [Л] та пом\'якшень.',
+    targetSounds: ['Р', 'Л'],
+    description: 'Відпрацювання вібрації звука [Р] та твердого упору для [Л].',
+    instructions: [
+      'Ла-ла-ла — у ліску калина зацвіла.',
+      'Ло-ло-ло — влітку тепло нам було.',
+      'Ли-ли-ли — дружно ми ялинку вберегли.',
+      'Ра-ра-ра — починається весела гра!',
+      'Ро-ро-ро — у відерці є срібло.',
+      'Ру-ру-ру — швидко ручки я потру.',
+      'Скоромовка: Бубоніла баба бобу в брудному барлозі.'
+    ],
+    repetition: 'Промовити повільно, потім у звичайному темпі',
+    icon: 'Music'
+  }
+];
+
+export function getSpeechCards(): SpeechCard[] {
+  const saved = localStorage.getItem('sadok_speech_cards');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (_) {}
+  }
+  localStorage.setItem('sadok_speech_cards', JSON.stringify(INITIAL_SPEECH_CARDS));
+  return INITIAL_SPEECH_CARDS;
+}
+
+export function saveSpeechCard(rec: Partial<SpeechCard> & {
+  CHILD_NAME: string;
+  DIAGNOSIS: SpeechDiagnosisType;
+}): SpeechCard[] {
+  const current = getSpeechCards();
+  let updated: SpeechCard[];
+  let savedId: number;
+
+  if (rec.ID) {
+    savedId = rec.ID;
+    updated = current.map(item => item.ID === rec.ID ? {
+      ...item,
+      ...rec,
+      UPDATED_AT: new Date().toISOString().split('T')[0]
+    } as SpeechCard : item);
+  } else {
+    savedId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newRecord: SpeechCard = {
+      ID: savedId,
+      CHILD_ID: rec.CHILD_ID || savedId,
+      CHILD_NAME: rec.CHILD_NAME,
+      GROUP_NAME: rec.GROUP_NAME || 'Група «Калинка»',
+      BIRTH_DATE: rec.BIRTH_DATE || '2021-01-01',
+      ENROLLMENT_DATE: rec.ENROLLMENT_DATE || new Date().toISOString().split('T')[0],
+      DIAGNOSIS: rec.DIAGNOSIS,
+      ARTICULATION_APPARATUS: rec.ARTICULATION_APPARATUS || 'Анатомічна будова без видимих патологій.',
+      PHONEMIC_HEARING: rec.PHONEMIC_HEARING || 'Фонематичне сприймання в межах норми.',
+      SOUND_STATUSES: rec.SOUND_STATUSES || [],
+      VOCABULARY_LEVEL: rec.VOCABULARY_LEVEL || 'Відповідає віковим нормам.',
+      GRAMMAR_STRUCTURE: rec.GRAMMAR_STRUCTURE || 'Граматичний лад сформований задовільно.',
+      COHERENT_SPEECH: rec.COHERENT_SPEECH || 'Складає прості описові розповіді.',
+      INDIVIDUAL_PLAN: rec.INDIVIDUAL_PLAN || '1) Артикуляційна гімнастика; 2) Постановка проблемних звуків; 3) Автоматизація у мовленні.',
+      DYNAMICS: rec.DYNAMICS || 'Стабільний стан',
+      LOGOPED_CONCLUSION: rec.LOGOPED_CONCLUSION || `${rec.DIAGNOSIS}. Рекомендовано регулярні логопедичні заняття.`,
+      UPDATED_AT: new Date().toISOString().split('T')[0]
+    };
+    updated = [newRecord, ...current];
+  }
+
+  localStorage.setItem('sadok_speech_cards', JSON.stringify(updated));
+  queueCurrentSyncEntity('speech_card', String(savedId), 'upsert', !rec.ID);
+  return updated;
+}
+
+export function deleteSpeechCard(id: number): SpeechCard[] {
+  const current = getSpeechCards();
+  const target = current.find(item => item.ID === id);
+  queueCurrentSyncEntity('speech_card', String(id), 'delete', false, target as unknown as Record<string, unknown>);
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_speech_cards', JSON.stringify(updated));
+  return updated;
+}
+
+export function getSpeechDailyLogEntries(): SpeechDailyLogEntry[] {
+  const saved = localStorage.getItem('sadok_speech_daily_logs');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (_) {}
+  }
+  localStorage.setItem('sadok_speech_daily_logs', JSON.stringify(INITIAL_SPEECH_DAILY_LOG));
+  return INITIAL_SPEECH_DAILY_LOG;
+}
+
+export function saveSpeechDailyLogEntry(rec: Partial<SpeechDailyLogEntry> & {
+  ACTIVITY_TYPE: SpeechDailyActivityType;
+  TOPIC: string;
+  HOURS_SPENT: number;
+}): SpeechDailyLogEntry[] {
+  const current = getSpeechDailyLogEntries();
+  let updated: SpeechDailyLogEntry[];
+  let savedId: number;
+
+  if (rec.ID) {
+    savedId = rec.ID;
+    updated = current.map(item => item.ID === rec.ID ? { ...item, ...rec } as SpeechDailyLogEntry : item);
+  } else {
+    savedId = current.length > 0 ? Math.max(...current.map(item => item.ID)) + 1 : 1;
+    const newRecord: SpeechDailyLogEntry = {
+      ID: savedId,
+      DATE: rec.DATE || new Date().toISOString().split('T')[0],
+      ACTIVITY_TYPE: rec.ACTIVITY_TYPE,
+      CATEGORY: rec.CATEGORY || 'Діти',
+      TARGET_NAME: rec.TARGET_NAME || 'Вихованці логопункту',
+      CHILD_ID: rec.CHILD_ID,
+      GROUP_NAME: rec.GROUP_NAME,
+      SOUND_TARGET: rec.SOUND_TARGET,
+      TOPIC: rec.TOPIC,
+      HOURS_SPENT: Number(rec.HOURS_SPENT) || 0.5,
+      RESULTS_NOTES: rec.RESULTS_NOTES || '',
+      CREATED_AT: new Date().toISOString().split('T')[0]
+    };
+    updated = [newRecord, ...current];
+  }
+
+  localStorage.setItem('sadok_speech_daily_logs', JSON.stringify(updated));
+  queueCurrentSyncEntity('speech_daily_log', String(savedId), 'upsert', !rec.ID);
+  return updated;
+}
+
+export function deleteSpeechDailyLogEntry(id: number): SpeechDailyLogEntry[] {
+  const current = getSpeechDailyLogEntries();
+  const target = current.find(item => item.ID === id);
+  queueCurrentSyncEntity('speech_daily_log', String(id), 'delete', false, target as unknown as Record<string, unknown>);
+  const updated = current.filter(item => item.ID !== id);
+  localStorage.setItem('sadok_speech_daily_logs', JSON.stringify(updated));
+  return updated;
+}
+
+export function getArticulationExercises(): ArticulationExercise[] {
+  return INITIAL_ARTICULATION_EXERCISES;
 }
 

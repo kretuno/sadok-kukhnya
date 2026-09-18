@@ -24,7 +24,9 @@ export type SyncEntityType =
   | 'psychology_special_support'
   | 'medical_card'
   | 'medical_vaccination'
-  | 'medical_anthropometry';
+  | 'medical_anthropometry'
+  | 'speech_card'
+  | 'speech_daily_log';
 
 export interface EntitySyncMutation {
   id: string;

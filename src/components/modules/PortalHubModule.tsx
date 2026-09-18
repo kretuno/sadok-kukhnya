@@ -164,6 +164,22 @@ export const PortalHubModule: React.FC<PortalHubModuleProps> = ({ onSelectModule
       ]
     },
     {
+      id: 'logoped',
+      name: 'SADOK',
+      subtitle: 'Логопед',
+      badgeLetter: 'S',
+      gradient: 'from-teal-600 via-teal-700 to-emerald-800 shadow-teal-500/30',
+      icon: MessageSquare,
+      status: 'active',
+      description: 'Корекційно-розвитковий супровід мовлення, мовленнєві картки за зразком МОН України, трекінг корекції звуків, щоденний журнал та банк артикуляційних вправ.',
+      features: [
+        'Офіційна «Мовленнєва картка дитини» А4 з реквізитами ЗДО',
+        'Етапи корекції звуків (постановка, автоматизація, диференціація)',
+        'Журнал щоденного обліку занять та експорт в Excel',
+        'Банк артикуляційної гімнастики та друк завдань для батьків'
+      ]
+    },
+    {
       id: 'reports',
       name: 'SADOK',
       subtitle: 'Звіти',

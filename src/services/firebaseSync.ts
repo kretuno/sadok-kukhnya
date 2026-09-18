@@ -115,6 +115,7 @@ const STRUCTURE_ENTITY_TYPES: SyncEntityType[] = [
   'psychology_adaptation', 'psychology_readiness', 'psychology_consultation', 'psychology_report',
   'psychology_daily_log', 'psychology_special_support',
   'medical_card', 'medical_vaccination', 'medical_anthropometry',
+  'speech_card', 'speech_daily_log',
 ];
 const ALL_ENTITY_TYPES: SyncEntityType[] = [
   ...CATALOG_ENTITY_TYPES,

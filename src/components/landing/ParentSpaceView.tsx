@@ -30,10 +30,11 @@ import {
   Eye,
   Award,
   BookOpen,
+  MessageSquare,
   X
 } from 'lucide-react';
-import { getMenuEntries, getDishes, getGroups, getPsychologyMemos } from '../../services/db';
-import { MenuHeader, Dish, SadokGroup, PsychologyMemo } from '../../types';
+import { getMenuEntries, getDishes, getGroups, getPsychologyMemos, getArticulationExercises } from '../../services/db';
+import { MenuHeader, Dish, SadokGroup, PsychologyMemo, ArticulationExercise } from '../../types';
 import { 
   calculateParentPayment, 
   getCurrentRoutineStage, 
@@ -102,6 +103,8 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
 
   // Advice & Memos State
   const [selectedMemo, setSelectedMemo] = useState<PsychologyMemo | null>(null);
+  const [speechExercises, setSpeechExercises] = useState<ArticulationExercise[]>([]);
+  const [selectedExercise, setSelectedExercise] = useState<ArticulationExercise | null>(null);
   const [memoCategoryFilter, setMemoCategoryFilter] = useState<string>('all');
 
   // Direct Contact & Feedback State
@@ -118,6 +121,7 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
       setDishes(getDishes());
       setGroups(getGroups());
       setMemos(getPsychologyMemos());
+      setSpeechExercises(getArticulationExercises());
       setAbsenceList(getParentAbsenceNotifications());
       setFeedbackList(getParentFeedbacks());
     } catch (_) {}
@@ -1365,48 +1369,112 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
                 >
                   Тривожність
                 </button>
+                <button
+                  onClick={() => setMemoCategoryFilter('Логопед')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition cursor-pointer flex items-center space-x-1 ${
+                    memoCategoryFilter === 'Логопед'
+                      ? 'bg-teal-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                  }`}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Логопед ({speechExercises.length})</span>
+                </button>
               </div>
             </div>
 
-            {/* Memos Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredMemos.map(memo => (
-                <div
-                  key={memo.id}
-                  className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-emerald-400/80 transition flex flex-col justify-between space-y-3"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[10px]">
-                        {memo.targetAudience}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {memo.category}
-                      </span>
+            {/* If Logoped filter selected: Speech Therapy exercises grid */}
+            {memoCategoryFilter === 'Логопед' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {speechExercises.map(ex => (
+                  <div
+                    key={ex.id}
+                    className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-teal-400/80 transition flex flex-col justify-between space-y-3"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 font-bold text-[10px]">
+                          {ex.category === 'lips' ? 'Вправа для губ'
+                            : ex.category === 'tongue' ? 'Вправа для язика'
+                            : ex.category === 'breathing' ? 'Дихальна гімнастика'
+                            : 'Чистомовка'}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          {ex.targetSounds.map(snd => (
+                            <span key={snd} className="px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 font-bold text-[10px]">
+                              [{snd}]
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <h4 className="font-black text-sm text-slate-900 dark:text-white leading-snug">
+                        {ex.title}
+                      </h4>
+
+                      <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-relaxed">
+                        {ex.description}
+                      </p>
+
+                      <div className="text-[11px] text-teal-700 dark:text-teal-400 font-semibold bg-teal-50 dark:bg-teal-950/40 p-2 rounded-xl border border-teal-100 dark:border-teal-800/40">
+                        Режим: {ex.repetition}
+                      </div>
                     </div>
 
-                    <h4 className="font-black text-sm text-slate-900 dark:text-white leading-snug">
-                      {memo.title}
-                    </h4>
-
-                    <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-3 leading-relaxed">
-                      {memo.summary}
-                    </p>
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-400">Логопедична служба</span>
+                      <button
+                        onClick={() => setSelectedExercise(ex)}
+                        className="px-3 py-1.5 rounded-xl bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900 text-teal-700 dark:text-teal-300 text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Інструкція та друк</span>
+                      </button>
+                    </div>
                   </div>
+                ))}
+              </div>
+            ) : (
+              /* Memos Cards Grid */
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredMemos.map(memo => (
+                  <div
+                    key={memo.id}
+                    className="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md hover:border-emerald-400/80 transition flex flex-col justify-between space-y-3"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-bold text-[10px]">
+                          {memo.targetAudience}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {memo.category}
+                        </span>
+                      </div>
 
-                  <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <span className="text-[11px] text-slate-400">Психологічна служба</span>
-                    <button
-                      onClick={() => setSelectedMemo(memo)}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      <span>Читати повністю</span>
-                    </button>
+                      <h4 className="font-black text-sm text-slate-900 dark:text-white leading-snug">
+                        {memo.title}
+                      </h4>
+
+                      <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-3 leading-relaxed">
+                        {memo.summary}
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-400">Психологічна служба</span>
+                      <button
+                        onClick={() => setSelectedMemo(memo)}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900 text-emerald-700 dark:text-emerald-300 text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Читати повністю</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* Health & Medical Nurse Guidelines */}
             <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
@@ -1711,6 +1779,91 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
               </button>
               <button
                 onClick={() => setSelectedMemo(null)}
+                className="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer"
+              >
+                Закрити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SPEECH EXERCISE FOR PARENTS */}
+      {selectedExercise && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[90vh] flex flex-col justify-between space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center space-x-2">
+                <MessageSquare className="w-5 h-5 text-teal-600" />
+                <h3 className="font-black text-sm text-slate-900 dark:text-white">
+                  Домашнє логопедичне завдання • КЗДО №145
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedExercise(null)}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4 text-xs sm:text-sm">
+              <div className="border-b border-slate-200 dark:border-slate-700 pb-3">
+                <div className="flex items-center space-x-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-300 font-bold text-[10px]">
+                    {selectedExercise.category === 'lips' ? 'Вправа для губ'
+                      : selectedExercise.category === 'tongue' ? 'Вправа для язика'
+                      : selectedExercise.category === 'breathing' ? 'Дихальна гімнастика'
+                      : 'Чистомовка'}
+                  </span>
+                  <span className="text-[10px] text-teal-700 dark:text-teal-300 font-bold">
+                    Звуки: {selectedExercise.targetSounds.map(s => `[${s}]`).join(', ')}
+                  </span>
+                </div>
+                <h2 className="text-lg font-black text-slate-900 dark:text-white mt-1.5">
+                  {selectedExercise.title}
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">{selectedExercise.purpose}</p>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 leading-relaxed text-slate-700 dark:text-slate-200 font-medium">
+                {selectedExercise.description}
+              </div>
+
+              <div className="p-4 rounded-2xl bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/50 space-y-2">
+                <h4 className="font-bold text-teal-800 dark:text-teal-300">
+                  📋 Як правильно виконувати з дитиною вдома:
+                </h4>
+                <ol className="space-y-1.5 text-slate-700 dark:text-slate-300 list-decimal list-inside">
+                  {selectedExercise.instructions.map((step, idx) => (
+                    <li key={idx} className="leading-snug">{step}</li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 rounded-xl text-xs text-amber-900 dark:text-amber-200">
+                <b>Рекомендований режим: </b>
+                {selectedExercise.repetition}. Займайтеся перед дзеркалом щодня по 5-7 хвилин у формі веселої гри!
+              </div>
+
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 flex items-center justify-between">
+                <span>Криворізький КЗДО КТ №145 КМР</span>
+                <span>Логопедичний кабінет • вул. Перлинна 23А</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                onClick={() => window.print()}
+                className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold transition shadow-sm flex items-center space-x-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>Роздрукувати завдання А4</span>
+              </button>
+              <button
+                onClick={() => setSelectedExercise(null)}
                 className="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer"
               >
                 Закрити

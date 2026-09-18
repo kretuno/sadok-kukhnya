@@ -558,3 +558,98 @@ export interface DayCostAnalyticsItem {
   standardNormYasla: number;
   standardNormSadok: number;
 }
+
+// -----------------------------------------------------------------
+// SPEECH THERAPY (SADOK ЛОГОПЕД / ДЕФЕКТОЛОГ)
+// -----------------------------------------------------------------
+export type SpeechDiagnosisType =
+  | 'ФФНМ'
+  | 'ЗНМ I рівень'
+  | 'ЗНМ II рівень'
+  | 'ЗНМ III рівень'
+  | 'Дислалія'
+  | 'Дизартрія'
+  | 'Заїкання'
+  | 'Ринолалія'
+  | 'Норма'
+  | 'Потребує обстеження';
+
+export type SoundCorrectionStage =
+  | 'Обстеження'
+  | 'Підготовчий (гімнастика)'
+  | 'Постановка звука'
+  | 'Автоматизація в складах'
+  | 'Автоматизація в словах'
+  | 'Автоматизація в реченнях'
+  | 'Диференціація'
+  | 'Введено в мовлення (Норма)';
+
+export interface SpeechSoundStatus {
+  sound: string; // e.g. '[С]', '[Ш]', '[Р]', '[Л]'
+  group: 'свистячі' | 'шиплячі' | 'сонори' | 'задньоязикові' | 'інші';
+  stage: SoundCorrectionStage;
+  notes?: string;
+}
+
+export interface SpeechCard {
+  ID: number;
+  CHILD_ID: number;
+  CHILD_NAME: string;
+  GROUP_NAME: string;
+  BIRTH_DATE: string;
+  ENROLLMENT_DATE: string;
+  DIAGNOSIS: SpeechDiagnosisType;
+  ARTICULATION_APPARATUS: string;
+  PHONEMIC_HEARING: string;
+  SOUND_STATUSES: SpeechSoundStatus[];
+  VOCABULARY_LEVEL: string;
+  GRAMMAR_STRUCTURE: string;
+  COHERENT_SPEECH: string;
+  INDIVIDUAL_PLAN: string;
+  DYNAMICS: 'Позитивна динаміка' | 'Повільний поступ' | 'Стабільний стан' | 'Звуки автоматизовано (Норма)';
+  LOGOPED_CONCLUSION: string;
+  UPDATED_AT: string;
+}
+
+export type SpeechDailyActivityType =
+  | 'Індивідуальне заняття'
+  | 'Підгрупове заняття'
+  | 'Логопедичне обстеження (скринінг)'
+  | 'Консультація батьків'
+  | 'Консультація вихователів'
+  | 'Організаційно-методична робота';
+
+export type SpeechDailyCategory =
+  | 'Діти'
+  | 'Батьки'
+  | 'Педагоги'
+  | 'Методична';
+
+export interface SpeechDailyLogEntry {
+  ID: number;
+  DATE: string; // YYYY-MM-DD
+  ACTIVITY_TYPE: SpeechDailyActivityType;
+  CATEGORY: SpeechDailyCategory;
+  TARGET_NAME: string; // ПІБ дитини / назва групи / батьки
+  CHILD_ID?: number;
+  GROUP_NAME?: string;
+  SOUND_TARGET?: string; // e.g. "[Р], [Рь]"
+  TOPIC: string; // Зміст проведеної роботи
+  HOURS_SPENT: number; // e.g. 0.33, 0.5, 1.0
+  RESULTS_NOTES?: string;
+  CREATED_AT?: string;
+}
+
+export type ArticulationExerciseCategory = 'lips' | 'tongue' | 'breathing' | 'rhymes';
+
+export interface ArticulationExercise {
+  id: string;
+  title: string;
+  category: ArticulationExerciseCategory;
+  purpose: string;
+  targetSounds: string[];
+  description: string;
+  instructions: string[];
+  repetition: string;
+  icon: string;
+}
