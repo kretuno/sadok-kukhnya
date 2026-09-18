@@ -167,73 +167,80 @@ export const ChildDossierModal: React.FC<ChildDossierModalProps> = ({
         </div>
 
         {/* TABS NAVIGATION */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 overflow-x-auto no-print">
-          <button 
-            onClick={() => setActiveTab('overview')}
-            className={`py-3 px-3.5 font-bold text-xs border-b-2 flex items-center space-x-2 shrink-0 transition ${
-              activeTab === 'overview'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
-          >
-            <UserCheck className="w-4 h-4" />
-            <span>1. Загальні відомості</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('nutrition')}
-            className={`py-3 px-3.5 font-bold text-xs border-b-2 flex items-center space-x-2 shrink-0 transition ${
-              activeTab === 'nutrition'
-                ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
-          >
-            <Utensils className="w-4 h-4" />
-            <span>2. Харчування & Стіл</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('medical')}
-            className={`py-3 px-3.5 font-bold text-xs border-b-2 flex items-center space-x-2 shrink-0 transition ${
-              activeTab === 'medical'
-                ? 'border-emerald-600 text-emerald-600 dark:text-emerald-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
-          >
-            <HeartPulse className="w-4 h-4" />
-            <span>3. Медична ф. 063/о</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('psychology')}
-            className={`py-3 px-3.5 font-bold text-xs border-b-2 flex items-center space-x-2 shrink-0 transition ${
-              activeTab === 'psychology'
-                ? 'border-purple-600 text-purple-600 dark:text-purple-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
-          >
-            <Brain className="w-4 h-4" />
-            <span>4. Психолог & Укриття</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('speech')}
-            className={`py-3 px-3.5 font-bold text-xs border-b-2 flex items-center space-x-2 shrink-0 transition ${
-              activeTab === 'speech'
-                ? 'border-rose-600 text-rose-600 dark:text-rose-400'
-                : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-300'
-            }`}
-          >
-            <Volume2 className="w-4 h-4" />
-            <span>5. Логопед (Звуки)</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('card')}
-            className={`py-3 px-3.5 font-bold text-xs border-b-2 flex items-center space-x-2 shrink-0 transition ${
-              activeTab === 'card'
-                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/30'
-                : 'border-transparent text-indigo-600 hover:text-indigo-800 dark:text-indigo-400'
-            }`}
-          >
-            <QrCode className="w-4 h-4" />
-            <span>6. Картка доступу (QR-код)</span>
-          </button>
+        <div className="shrink-0 bg-slate-100/90 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700/80 px-4 sm:px-6 py-2.5 no-print">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <button 
+              onClick={() => setActiveTab('overview')}
+              className={`py-2 px-3 sm:px-3.5 rounded-xl font-bold text-xs flex items-center space-x-2 shrink-0 transition-all cursor-pointer select-none ${
+                activeTab === 'overview'
+                  ? 'bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 shadow-xs border border-blue-200 dark:border-blue-900/60 font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-700/60 border border-transparent'
+              }`}
+            >
+              <UserCheck className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+              <span>1. Анкета вихованця</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('nutrition')}
+              className={`py-2 px-3 sm:px-3.5 rounded-xl font-bold text-xs flex items-center space-x-2 shrink-0 transition-all cursor-pointer select-none ${
+                activeTab === 'nutrition'
+                  ? 'bg-white dark:bg-slate-900 text-amber-700 dark:text-amber-300 shadow-xs border border-amber-200 dark:border-amber-900/60 font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-700/60 border border-transparent'
+              }`}
+            >
+              <Utensils className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>2. Харчування & Стіл</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('medical')}
+              className={`py-2 px-3 sm:px-3.5 rounded-xl font-bold text-xs flex items-center space-x-2 shrink-0 transition-all cursor-pointer select-none ${
+                activeTab === 'medical'
+                  ? 'bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 shadow-xs border border-emerald-200 dark:border-emerald-900/60 font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-700/60 border border-transparent'
+              }`}
+            >
+              <HeartPulse className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>3. Медична ф. 063/о</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('psychology')}
+              className={`py-2 px-3 sm:px-3.5 rounded-xl font-bold text-xs flex items-center space-x-2 shrink-0 transition-all cursor-pointer select-none ${
+                activeTab === 'psychology'
+                  ? 'bg-white dark:bg-slate-900 text-purple-700 dark:text-purple-300 shadow-xs border border-purple-200 dark:border-purple-900/60 font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-700/60 border border-transparent'
+              }`}
+            >
+              <Brain className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+              <span>4. Психолог & Укриття</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('speech')}
+              className={`py-2 px-3 sm:px-3.5 rounded-xl font-bold text-xs flex items-center space-x-2 shrink-0 transition-all cursor-pointer select-none ${
+                activeTab === 'speech'
+                  ? 'bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-300 shadow-xs border border-rose-200 dark:border-rose-900/60 font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-700/60 border border-transparent'
+              }`}
+            >
+              <Volume2 className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span>5. Логопед (Звуки)</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab('card')}
+              className={`py-2 px-3 sm:px-3.5 rounded-xl font-bold text-xs flex items-center space-x-2 shrink-0 transition-all cursor-pointer select-none ${
+                activeTab === 'card'
+                  ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-md font-black border border-indigo-500'
+                  : 'bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100/80 border border-indigo-200/60 dark:border-indigo-800/60 font-bold'
+              }`}
+            >
+              <QrCode className="w-4 h-4 text-amber-300 shrink-0" />
+              <span>6. Картка доступу (QR-код)</span>
+            </button>
+          </div>
         </div>
 
         {/* MODAL BODY (SCROLLABLE) */}

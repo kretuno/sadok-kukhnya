@@ -483,11 +483,11 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
       </div>
 
       {/* NAVIGATION TABS (8 TABS) */}
-      <div className="max-w-5xl w-full mx-auto px-4 -mt-6 z-20">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-1.5 shadow-xl border border-slate-200 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1">
+      <div className="max-w-6xl w-full mx-auto px-4 -mt-6 z-20">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-1.5 shadow-xl border border-slate-200 dark:border-slate-800 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden xl:grid xl:grid-cols-8">
           <button
             onClick={() => setActiveTab('my_child')}
-            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+            className={`py-2.5 px-3.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 xl:shrink whitespace-nowrap xl:whitespace-normal ${
               activeTab === 'my_child'
                 ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 text-white shadow-md'
                 : (authenticatedChild 
@@ -501,7 +501,7 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
 
           <button
             onClick={() => setActiveTab('menu')}
-            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+            className={`py-2.5 px-3.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 xl:shrink whitespace-nowrap xl:whitespace-normal ${
               activeTab === 'menu'
                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -513,7 +513,7 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
 
           <button
             onClick={() => setActiveTab('schedule')}
-            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+            className={`py-2.5 px-3.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 xl:shrink whitespace-nowrap xl:whitespace-normal ${
               activeTab === 'schedule'
                 ? 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -525,7 +525,7 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
 
           <button
             onClick={() => setActiveTab('safety')}
-            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+            className={`py-2.5 px-3.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 xl:shrink whitespace-nowrap xl:whitespace-normal ${
               activeTab === 'safety'
                 ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -537,7 +537,7 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
 
           <button
             onClick={() => setActiveTab('services')}
-            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+            className={`py-2.5 px-3.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 xl:shrink whitespace-nowrap xl:whitespace-normal ${
               activeTab === 'services'
                 ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -549,7 +549,7 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
 
           <button
             onClick={() => setActiveTab('advice')}
-            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+            className={`py-2.5 px-3.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 xl:shrink whitespace-nowrap xl:whitespace-normal ${
               activeTab === 'advice'
                 ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -561,7 +561,7 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
 
           <button
             onClick={() => setActiveTab('team')}
-            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+            className={`py-2.5 px-3.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 xl:shrink whitespace-nowrap xl:whitespace-normal ${
               activeTab === 'team'
                 ? 'bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -573,7 +573,7 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
 
           <button
             onClick={() => setActiveTab('contacts')}
-            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+            className={`py-2.5 px-3.5 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 xl:shrink whitespace-nowrap xl:whitespace-normal ${
               activeTab === 'contacts'
                 ? 'bg-gradient-to-r from-slate-800 to-slate-950 text-white shadow-md'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
