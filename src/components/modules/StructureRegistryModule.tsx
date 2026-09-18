@@ -42,8 +42,10 @@ import {
   SlidersHorizontal,
   Sparkles,
   UserPlus,
-  RotateCcw
+  RotateCcw,
+  QrCode
 } from 'lucide-react';
+import { ChildDossierModal } from '../dossier/ChildDossierModal';
 
 export const StructureRegistryModule: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<'groups' | 'employees' | 'children' | 'attendance'>('groups');
@@ -1136,12 +1138,20 @@ export const StructureRegistryModule: React.FC = () => {
                         filteredChildren.map(c => (
                           <tr key={c.ID} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition">
                             <td className="font-bold text-slate-800 dark:text-slate-100">
-                              <button 
-                                onClick={() => setViewingChild(c)}
-                                className="hover:text-blue-600 font-bold text-left transition underline decoration-dotted flex items-center space-x-1.5"
-                              >
-                                <span>{c.GENDER === 'Жіноча' ? '👧' : '👦'} {c.FULL_NAME}</span>
-                              </button>
+                              <div className="flex flex-col items-start">
+                                <button 
+                                  onClick={() => setViewingChild(c)}
+                                  className="hover:text-blue-600 font-bold text-left transition underline decoration-dotted flex items-center space-x-1.5"
+                                >
+                                  <span>{c.GENDER === 'Жіноча' ? '👧' : '👦'} {c.FULL_NAME}</span>
+                                </button>
+                                {c.ACCESS_PIN && (
+                                  <span className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 px-1.5 py-0.5 rounded mt-0.5 font-bold flex items-center space-x-1">
+                                    <QrCode className="w-2.5 h-2.5" />
+                                    <span>PIN: {c.ACCESS_PIN}</span>
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="text-center font-mono text-slate-600 dark:text-slate-400">{c.BIRTH_DATE}</td>
                             <td className="font-bold text-blue-600 dark:text-blue-400">{c.GROUP_NAME}</td>
@@ -1185,8 +1195,9 @@ export const StructureRegistryModule: React.FC = () => {
                             </td>
                             <td className="text-center">
                               <div className="flex items-center justify-center space-x-1">
-                                <button onClick={() => setViewingChild(c)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition" title="Переглянути Особову картку"><FileText className="w-4 h-4" /></button>
-                                <button onClick={() => handleOpenChildModal(c)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition" title="Редагувати картку"><Edit3 className="w-4 h-4" /></button>
+                                <button onClick={() => setViewingChild(c)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 rounded-lg transition" title="Єдине цифрове досьє вихованця"><FileText className="w-4 h-4" /></button>
+                                <button onClick={() => setViewingChild(c)} className="p-1.5 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/50 rounded-lg transition" title="Картка доступу з QR-кодом"><QrCode className="w-4 h-4" /></button>
+                                <button onClick={() => handleOpenChildModal(c)} className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/50 rounded-lg transition" title="Редагувати анкету"><Edit3 className="w-4 h-4" /></button>
                                 <button onClick={() => handleDeleteChild(c.ID)} className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-lg transition" title="Вилучити"><Trash2 className="w-4 h-4" /></button>
                               </div>
                             </td>
@@ -1458,192 +1469,16 @@ export const StructureRegistryModule: React.FC = () => {
         </div>
       </div>
 
-      {/* VIEW MODAL: CHILD PERSONAL CARD (ОСОБОВА КАРТКА ВИХОВАНЦЯ) */}
+      {/* VIEW MODAL: CHILD UNIFIED DOSSIER & QR CARD */}
       {viewingChild && (
-        <div className="print-preview-shell fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-sm p-2 sm:p-4">
-          <div className="min-h-full flex items-center justify-center py-2 sm:py-6">
-            <div className="print-preview-panel bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-3xl overflow-hidden max-h-[calc(100vh-2rem)] flex flex-col">
-              <div className="px-5 py-3.5 bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-900 text-white flex items-center justify-between font-bold shrink-0 no-print">
-              <div className="flex items-center space-x-2">
-                <Baby className="w-5 h-5" />
-                <span>Особова картка вихованця ЗДО №145</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={() => handleOpenChildModal(viewingChild)}
-                  className="px-3 py-1.5 bg-amber-400 text-slate-900 rounded-xl font-extrabold hover:bg-amber-300 transition text-xs flex items-center space-x-1"
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Редагувати картку</span>
-                </button>
-                <button onClick={() => setViewingChild(null)}><X className="w-5 h-5 text-white/80 hover:text-white" /></button>
-              </div>
-            </div>
-
-            <div className="print-only print-preview print-portrait p-6 space-y-4 text-xs overflow-y-auto flex-1 bg-white text-black">
-              <div className="print-heading-only print-header">
-                <div className="text-xs font-bold uppercase">Криворізький КЗДО (ясла-садок) КТ №145 КМР</div>
-                <h1 className="text-base font-bold uppercase mt-1">Особова картка вихованця</h1>
-                <div className="text-xs mt-1">Дата формування: {new Date().toLocaleDateString('uk-UA')}</div>
-              </div>
-              <div className="flex justify-between items-start border-b pb-3">
-                <div>
-                  <h2 className="text-2xl font-black text-slate-800 dark:text-slate-100">{viewingChild.FULL_NAME}</h2>
-                  <div className="text-slate-500 font-medium mt-1 flex items-center space-x-3">
-                    <span>Група: <b className="text-blue-600 dark:text-blue-400">{viewingChild.GROUP_NAME}</b></span>
-                    <span>Пільгова категорія: <b className="text-amber-600 dark:text-amber-400">{viewingChild.BENEFIT_CATEGORY || 'Загальна'}</b></span>
-                  </div>
-                </div>
-                <div>{getStatusBadge(viewingChild.STATUS)}</div>
-              </div>
-
-              {/* SECTION 1: PERSONAL DETAILS */}
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl space-y-3 border border-slate-200 dark:border-slate-700">
-                <div className="font-bold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider flex items-center space-x-1.5">
-                  <UserCheck className="w-4 h-4 text-blue-500" />
-                  <span>Персональна інформація вихованця</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div>
-                    <span className="text-slate-400 font-bold block text-[10px]">ДАТА НАРОДЖЕННЯ</span>
-                    <span className="font-mono font-bold text-sm text-slate-800 dark:text-slate-200">{viewingChild.BIRTH_DATE}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-bold block text-[10px]">СТАТЬ</span>
-                    <span className="font-bold text-sm text-slate-800 dark:text-slate-200">{viewingChild.GENDER || 'Чоловіча'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-bold block text-[10px]">СВІДОЦТВО ПРО НАРОДЖЕННЯ</span>
-                    <span className="font-mono font-bold text-xs text-slate-800 dark:text-slate-200">{viewingChild.BIRTH_CERTIFICATE || 'Не вказано'}</span>
-                  </div>
-                  <div className="sm:col-span-3">
-                    <span className="text-slate-400 font-bold block text-[10px]">ДОМАШНЯ АДРЕСА ПРОЖИВАННЯ</span>
-                    <span className="font-semibold text-slate-800 dark:text-slate-200">{viewingChild.ADDRESS || 'м. Кривий Ріг'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 2: PARENTS & CONTACTS */}
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl space-y-3 border border-slate-200 dark:border-slate-700">
-                <div className="font-bold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider flex items-center space-x-1.5">
-                  <Phone className="w-4 h-4 text-emerald-500" />
-                  <span>Відомості про батьків та опікунів</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-400 font-bold block text-[10px]">МАТИ</span>
-                    <div className="font-bold text-slate-800 dark:text-slate-200">{viewingChild.MOTHER_NAME || viewingChild.PARENT_NAME || 'Не вказано'}</div>
-                    <div className="font-mono text-blue-600 font-bold mt-0.5">{viewingChild.MOTHER_PHONE || viewingChild.PARENT_PHONE || 'Не вказано'}</div>
-                  </div>
-                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
-                    <span className="text-slate-400 font-bold block text-[10px]">БАТЬКО</span>
-                    <div className="font-bold text-slate-800 dark:text-slate-200">{viewingChild.FATHER_NAME || 'Не вказано'}</div>
-                    <div className="font-mono text-blue-600 font-bold mt-0.5">{viewingChild.FATHER_PHONE || 'Не вказано'}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* SECTION 3: ADMISSION & DEPARTURE */}
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl space-y-3 border border-slate-200 dark:border-slate-700">
-                <div className="font-bold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider flex items-center space-x-1.5">
-                  <Calendar className="w-4 h-4 text-purple-500" />
-                  <span>Рух контингенту (Зарахування & Вибуття)</span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div>
-                    <span className="text-slate-400 font-bold block text-[10px]">ДАТА ЗАРАХУВАННЯ</span>
-                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{viewingChild.ENROLLMENT_DATE || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 font-bold block text-[10px]">НАКАЗ ПРО ЗАРАХУВАННЯ</span>
-                    <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{viewingChild.ENROLLMENT_ORDER || '-'}</span>
-                  </div>
-                  {viewingChild.STATUS === 'Вибув' && (
-                    <>
-                      <div>
-                        <span className="text-slate-400 font-bold block text-[10px] text-rose-500">ДАТА ВИБУТТЯ</span>
-                        <span className="font-mono font-bold text-rose-600">{viewingChild.DEPARTURE_DATE || '-'}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 font-bold block text-[10px] text-rose-500">ПРИЧИНА ВИБУТТЯ</span>
-                        <span className="font-semibold text-rose-600">{viewingChild.DEPARTURE_REASON || '-'}</span>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* SECTION 4: DIET, HEALTH & PSYCHOLOGY */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-300">
-                  <div className="font-bold text-amber-900 dark:text-amber-200 flex items-center space-x-1 mb-1">
-                    <span>🍎 Дієта & Алергії (Кухня)</span>
-                  </div>
-                  <div className="text-slate-700 dark:text-slate-300 font-medium">
-                    {viewingChild.DIET_NOTES || 'Спеціальних дієтичних обмежень не заявлено.'}
-                  </div>
-                </div>
-
-                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl border border-emerald-300">
-                  <div className="font-bold text-emerald-900 dark:text-emerald-200 flex items-center space-x-1 mb-1">
-                    <HeartPulse className="w-3.5 h-3.5" />
-                    <span>Медичні примітки</span>
-                  </div>
-                  <div className="text-slate-700 dark:text-slate-300 font-medium">
-                    {viewingChild.HEALTH_NOTES || 'Група здоров’я 1-А. Щеплення за віком.'}
-                  </div>
-                </div>
-
-                <div className="p-3 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-300">
-                  <div className="font-bold text-purple-900 dark:text-purple-200 flex items-center space-x-1 mb-1">
-                    <Brain className="w-3.5 h-3.5" />
-                    <span>Спостереження психолога</span>
-                  </div>
-                  <div className="text-slate-700 dark:text-slate-300 font-medium">
-                    {viewingChild.PSYCHOLOGY_NOTES || 'Адаптація проходить успішно.'}
-                  </div>
-                </div>
-              </div>
-
-              {/* QUICK STATUS SWITCHER INSIDE MODAL */}
-              <div className="p-3 bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between gap-3">
-                <span className="font-bold text-slate-800 dark:text-slate-200">Поточний статус у закладі:</span>
-                <select
-                  value={viewingChild.STATUS}
-                  onChange={(e) => handleQuickStatusChange(viewingChild, e.target.value as any)}
-                  className={`px-3 py-1.5 rounded-xl font-bold text-xs border shadow-xs cursor-pointer outline-none transition ${
-                    viewingChild.STATUS === 'Навчається'
-                      ? 'bg-emerald-50 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
-                      : (viewingChild.STATUS === 'Вибув'
-                        ? 'bg-rose-50 dark:bg-rose-950/70 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-700 font-black'
-                        : (viewingChild.STATUS === 'Тимчасово відсутній'
-                          ? 'bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700'
-                          : 'bg-purple-50 dark:bg-purple-950/70 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700'))
-                  }`}
-                >
-                  <option value="Навчається">🟢 Навчається</option>
-                  <option value="Вибув">🔴 Вибув</option>
-                  <option value="Тимчасово відсутній">🟡 Тимчасово відсутній</option>
-                  <option value="Випускник">🎓 Випускник</option>
-                </select>
-              </div>
-
-              <div className="pt-2 flex justify-between items-center shrink-0">
-                <button 
-                  onClick={() => window.print()} 
-                  className="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 transition flex items-center space-x-1.5"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Друкувати особову картку (А4)</span>
-                </button>
-                <button onClick={() => setViewingChild(null)} className="px-4 py-2 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl">
-                  Закрити
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        <ChildDossierModal
+          child={viewingChild}
+          onClose={() => setViewingChild(null)}
+          onEditChild={(c) => {
+            setViewingChild(null);
+            handleOpenChildModal(c);
+          }}
+        />
       )}
 
       {/* VIEW MODAL: EMPLOYEE PERSONAL FILE (ОСОБОВА СПРАВА СПІВРОБІТНИКА) */}

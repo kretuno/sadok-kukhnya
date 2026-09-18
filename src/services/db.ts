@@ -3362,7 +3362,8 @@ const INITIAL_CHILDREN: SadokChild[] = [
     ENROLLMENT_DATE: '2025-09-01',
     ENROLLMENT_ORDER: 'Наказ № 42-У',
     HEALTH_NOTES: 'Група здоров’я: 1-А. Щеплення за віком.',
-    DIET_NOTES: 'Без алергічних обмежень.'
+    DIET_NOTES: 'Без алергічних обмежень.',
+    ACCESS_PIN: '145-1011'
   },
   { 
     ID: 2, 
@@ -3380,7 +3381,8 @@ const INITIAL_CHILDREN: SadokChild[] = [
     PARENT_PHONE: '(067) 222-33-44', 
     ENROLLMENT_DATE: '2024-09-01',
     ENROLLMENT_ORDER: 'Наказ № 18-У',
-    DIET_NOTES: 'Обмеження: безмолочна дієта (лактозна непереносимість).'
+    DIET_NOTES: 'Обмеження: безмолочна дієта (лактозна непереносимість).',
+    ACCESS_PIN: '145-2022'
   },
   { 
     ID: 3, 
@@ -3394,7 +3396,8 @@ const INITIAL_CHILDREN: SadokChild[] = [
     MOTHER_NAME: 'Шевченко Тетяна Петрівна',
     MOTHER_PHONE: '(050) 333-44-55',
     PARENT_NAME: 'Шевченко Т. П.', 
-    PARENT_PHONE: '(050) 333-44-55'
+    PARENT_PHONE: '(050) 333-44-55',
+    ACCESS_PIN: '145-3033'
   },
   { 
     ID: 4, 
@@ -3410,7 +3413,8 @@ const INITIAL_CHILDREN: SadokChild[] = [
     PARENT_NAME: 'Мельник Н. В.', 
     PARENT_PHONE: '(063) 444-55-66',
     DEPARTURE_DATE: '2026-01-15',
-    DEPARTURE_REASON: 'Зміна місця проживання родини'
+    DEPARTURE_REASON: 'Зміна місця проживання родини',
+    ACCESS_PIN: '145-4044'
   }
 ];
 
@@ -3521,10 +3525,45 @@ export function deleteEmployee(id: number): SadokEmployee[] {
 }
 
 export function getChildren(): SadokChild[] {
+  if (typeof localStorage === 'undefined') {
+    return INITIAL_CHILDREN;
+  }
   const saved = localStorage.getItem('sadok_children');
-  if (saved) { try { return JSON.parse(saved); } catch (_) {} }
-  localStorage.setItem('sadok_children', JSON.stringify(INITIAL_CHILDREN));
-  return INITIAL_CHILDREN;
+  let list: SadokChild[] = INITIAL_CHILDREN;
+  if (saved) {
+    try {
+      list = JSON.parse(saved);
+    } catch (_) {
+      list = INITIAL_CHILDREN;
+    }
+  }
+  // Ensure every child has a valid ACCESS_PIN
+  let changed = false;
+  const hydrated = list.map(c => {
+    if (!c.ACCESS_PIN) {
+      changed = true;
+      return { ...c, ACCESS_PIN: `145-${(1000 + (c.ID || 1) * 101).toString()}` };
+    }
+    return c;
+  });
+  if (changed || !saved) {
+    localStorage.setItem('sadok_children', JSON.stringify(hydrated));
+  }
+  return hydrated;
+}
+
+export function getChildById(id: number): SadokChild | null {
+  return getChildren().find(c => c.ID === id) || null;
+}
+
+export function getChildByPin(pin: string): SadokChild | null {
+  if (!pin) return null;
+  const cleanPin = pin.trim().toUpperCase().replace(/\s+/g, '');
+  const children = getChildren();
+  return children.find(c => {
+    const childPin = (c.ACCESS_PIN || `145-${(1000 + c.ID * 101).toString()}`).toUpperCase().replace(/\s+/g, '');
+    return childPin === cleanPin;
+  }) || null;
 }
 
 export function saveChild(child: Partial<SadokChild> & { FULL_NAME: string }): SadokChild[] {
@@ -3533,10 +3572,24 @@ export function saveChild(child: Partial<SadokChild> & { FULL_NAME: string }): S
   const before = child.ID ? current.find(item => item.ID === child.ID) : undefined;
   let updated: SadokChild[];
   if (child.ID) {
-    updated = current.map(c => c.ID === child.ID ? { ...c, ...child } as SadokChild : c);
+    const existing = current.find(c => c.ID === child.ID);
+    const pin = child.ACCESS_PIN || existing?.ACCESS_PIN || `145-${(1000 + child.ID * 101).toString()}`;
+    updated = current.map(c => c.ID === child.ID ? { ...c, ...child, ACCESS_PIN: pin } as SadokChild : c);
   } else {
     const newId = current.length > 0 ? Math.max(...current.map(c => c.ID)) + 1 : 1;
-    updated = [{ ID: newId, FULL_NAME: child.FULL_NAME, BIRTH_DATE: child.BIRTH_DATE || '2022-01-01', GROUP_NAME: child.GROUP_NAME || 'Група «Сонечко»', PARENT_NAME: child.PARENT_NAME || '', PARENT_PHONE: child.PARENT_PHONE || '', STATUS: child.STATUS || 'Навчається', HEALTH_NOTES: child.HEALTH_NOTES || '', PSYCHOLOGY_NOTES: child.PSYCHOLOGY_NOTES || '' }, ...current];
+    const pin = child.ACCESS_PIN || `145-${(1000 + newId * 101).toString()}`;
+    updated = [{ 
+      ID: newId, 
+      FULL_NAME: child.FULL_NAME, 
+      BIRTH_DATE: child.BIRTH_DATE || '2022-01-01', 
+      GROUP_NAME: child.GROUP_NAME || 'Група «Сонечко»', 
+      PARENT_NAME: child.PARENT_NAME || '', 
+      PARENT_PHONE: child.PARENT_PHONE || '', 
+      STATUS: child.STATUS || 'Навчається', 
+      HEALTH_NOTES: child.HEALTH_NOTES || '', 
+      PSYCHOLOGY_NOTES: child.PSYCHOLOGY_NOTES || '',
+      ACCESS_PIN: pin
+    }, ...current];
   }
   localStorage.setItem('sadok_children', JSON.stringify(updated));
   const saved = child.ID ? updated.find(item => item.ID === child.ID) : updated[0];

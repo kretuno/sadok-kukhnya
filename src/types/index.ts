@@ -298,6 +298,42 @@ export interface SadokChild {
   DIET_NOTES?: string;
   HEALTH_NOTES?: string;
   PSYCHOLOGY_NOTES?: string;
+
+  // Access & Security (Батьківський кабінет)
+  ACCESS_PIN?: string;
+}
+
+export interface UnifiedChildDossier {
+  child: SadokChild;
+  medicalCard: SadokMedicalCard | null;
+  vaccinations: SadokVaccination[];
+  anthropometry: SadokAnthropometry[];
+  psychologyAdaptations: PsychologyAdaptationRecord[];
+  schoolReadiness: SchoolReadinessAssessment | null;
+  psychologySpecialSupport: PsychologySpecialSupportEntry | null;
+  speechCard: SpeechCard | null;
+  dietInfo: {
+    dietNotes: string;
+    hasDietRestrictions: boolean;
+    categoryName: 'Ясла' | 'Садок';
+    standardDailyRate: number;
+    benefitCategory: string;
+    parentPaymentSharePercent: number;
+  };
+  attendanceStats: {
+    totalRecordedDays: number;
+    presentDays: number;
+    dietDays: number;
+    attendanceRatePercent: number;
+  };
+  accessCredentials: {
+    pin: string;
+    qrPayloadUrl: string;
+    issuedAt: string;
+    directorName: string;
+    institutionName: string;
+    edrpou: string;
+  };
 }
 
 export interface PsychologyAdaptationRecord {

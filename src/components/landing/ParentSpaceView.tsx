@@ -31,10 +31,32 @@ import {
   Award,
   BookOpen,
   MessageSquare,
-  X
+  X,
+  QrCode,
+  Lock,
+  LogOut,
+  Volume2,
+  HeartPulse,
+  Brain
 } from 'lucide-react';
-import { getMenuEntries, getDishes, getGroups, getPsychologyMemos, getArticulationExercises } from '../../services/db';
-import { MenuHeader, Dish, SadokGroup, PsychologyMemo, ArticulationExercise } from '../../types';
+import { 
+  getMenuEntries, 
+  getDishes, 
+  getGroups, 
+  getPsychologyMemos, 
+  getArticulationExercises,
+  getChildByPin,
+  getChildren
+} from '../../services/db';
+import { 
+  MenuHeader, 
+  Dish, 
+  SadokGroup, 
+  PsychologyMemo, 
+  ArticulationExercise,
+  SadokChild,
+  UnifiedChildDossier
+} from '../../types';
 import { 
   calculateParentPayment, 
   getCurrentRoutineStage, 
@@ -47,6 +69,7 @@ import {
   ParentAbsenceNotification,
   ParentFeedbackMessage
 } from '../../domain/parentPortal';
+import { buildUnifiedChildDossier, INSTITUTION_INFO } from '../../domain/childDossier';
 
 interface ParentSpaceViewProps {
   onBackToLanding: () => void;
@@ -59,12 +82,78 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
   darkMode = false,
   onToggleDarkMode
 }) => {
-  const [activeTab, setActiveTab] = useState<'menu' | 'schedule' | 'safety' | 'services' | 'advice' | 'contacts'>('menu');
+  const [activeTab, setActiveTab] = useState<'my_child' | 'menu' | 'schedule' | 'safety' | 'services' | 'advice' | 'contacts'>('menu');
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [menuEntries, setMenuEntries] = useState<MenuHeader[]>([]);
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [groups, setGroups] = useState<SadokGroup[]>([]);
   const [memos, setMemos] = useState<PsychologyMemo[]>([]);
+
+  // Child Personal Portal (PIN / QR Authentication)
+  const [pinInput, setPinInput] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authenticatedChild, setAuthenticatedChild] = useState<SadokChild | null>(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlPin = urlParams.get('childPin') || urlParams.get('pin');
+      if (urlPin) {
+        const child = getChildByPin(urlPin);
+        if (child) return child;
+      }
+      const savedPin = sessionStorage.getItem('sadok_parent_pin');
+      if (savedPin) {
+        return getChildByPin(savedPin);
+      }
+    }
+    return null;
+  });
+
+  // If URL has childPin or saved in session, auto-select 'my_child' tab
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlPin = urlParams.get('childPin') || urlParams.get('pin');
+      if (urlPin) {
+        const child = getChildByPin(urlPin);
+        if (child) {
+          setAuthenticatedChild(child);
+          setActiveTab('my_child');
+          sessionStorage.setItem('sadok_parent_pin', urlPin);
+        }
+      }
+    }
+  }, []);
+
+  const handleLoginWithPin = (e?: React.FormEvent, directPin?: string) => {
+    if (e) e.preventDefault();
+    const pinToTest = directPin || pinInput;
+    setAuthError(null);
+    const matched = getChildByPin(pinToTest);
+    if (matched) {
+      setAuthenticatedChild(matched);
+      setActiveTab('my_child');
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('sadok_parent_pin', matched.ACCESS_PIN || pinToTest);
+      }
+    } else {
+      setAuthError('Не знайдено вихованця з таким кодом. Перевірте PIN або відскануйте QR-код з картки дитини.');
+    }
+  };
+
+  const handleLogoutChild = () => {
+    setAuthenticatedChild(null);
+    setPinInput('');
+    setAuthError(null);
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('sadok_parent_pin');
+    }
+  };
+
+  // Unified dossier for authenticated child
+  const childDossier: UnifiedChildDossier | null = useMemo(() => {
+    if (!authenticatedChild) return null;
+    return buildUnifiedChildDossier(authenticatedChild.ID);
+  }, [authenticatedChild]);
 
   // Menu Rating State
   const [menuRating, setMenuRating] = useState<number>(0);
@@ -369,7 +458,21 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
 
       {/* NAVIGATION TABS (6 TABS) */}
       <div className="max-w-5xl w-full mx-auto px-4 -mt-6 z-20">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-1.5 shadow-xl border border-slate-200 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-1.5 shadow-xl border border-slate-200 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1">
+          <button
+            onClick={() => setActiveTab('my_child')}
+            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+              activeTab === 'my_child'
+                ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-indigo-700 text-white shadow-md'
+                : (authenticatedChild 
+                  ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 font-black'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800')
+            }`}
+          >
+            <QrCode className="w-4 h-4 shrink-0 text-amber-400" />
+            <span className="truncate">{authenticatedChild ? `Кабінет: ${authenticatedChild.FULL_NAME.split(' ')[0]}` : 'Моя дитина (PIN)'}</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('menu')}
             className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
@@ -446,6 +549,428 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
 
       {/* MAIN CONTENT CONTAINER */}
       <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+        {/* ========================================================================= */}
+        {/* TAB 0: MY CHILD PERSONAL CABINET (ЗАКРИТИЙ КАБІНЕТ ДИТИНИ ЗА PIN / QR) */}
+        {/* ========================================================================= */}
+        {activeTab === 'my_child' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {!authenticatedChild ? (
+              /* LOGIN CARD WHEN NOT AUTHENTICATED */
+              <div className="max-w-2xl mx-auto bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-10 border border-indigo-100 dark:border-slate-800 shadow-xl space-y-6 text-center">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                  <Lock className="w-8 h-8" />
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-bold text-xs">
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Захищений доступ родин вихованців</span>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+                    Особистий кабінет моєї дитини
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                    Введіть цифровий PIN-код з персональної картки вихованця (виданої вихователем або завідувачем) або відскануйте QR-код камерою телефону.
+                  </p>
+                </div>
+
+                {/* PIN Input Form */}
+                <form onSubmit={(e) => handleLoginWithPin(e)} className="max-w-md mx-auto space-y-3">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={pinInput}
+                      onChange={(e) => {
+                        setPinInput(e.target.value);
+                        if (authError) setAuthError(null);
+                      }}
+                      placeholder="Наприклад: 145-1011"
+                      className="w-full text-center font-mono text-xl sm:text-2xl font-black tracking-widest px-4 py-3.5 rounded-2xl border-2 border-indigo-200 dark:border-indigo-900 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-900 transition uppercase shadow-inner"
+                      autoFocus
+                    />
+                  </div>
+
+                  {authError && (
+                    <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900 text-rose-700 dark:text-rose-300 text-xs font-semibold flex items-center space-x-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />
+                      <span>{authError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-extrabold text-sm shadow-lg shadow-indigo-600/25 transition cursor-pointer flex items-center justify-center space-x-2"
+                  >
+                    <span>Увійти в кабінет</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </form>
+
+                {/* Quick Demo Selector for fast inspection */}
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Демонстраційні зразки карток (для швидкої перевірки):
+                  </span>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleLoginWithPin(undefined, '145-1011')}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-xs font-bold transition border border-slate-200 dark:border-slate-700"
+                    >
+                      👦 Артем Іваненко (145-1011)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleLoginWithPin(undefined, '145-2022')}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/50 text-slate-700 dark:text-slate-300 hover:text-amber-600 dark:hover:text-amber-400 text-xs font-bold transition border border-slate-200 dark:border-slate-700"
+                    >
+                      👧 Софія Коваленко (145-2022, Безмолочна дієта)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleLoginWithPin(undefined, '145-3033')}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 text-xs font-bold transition border border-slate-200 dark:border-slate-700"
+                    >
+                      👦 Максим Шевченко (145-3033, Ясла / ВПО)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Privacy Guarantee Box */}
+                <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 text-left text-xs text-slate-600 dark:text-slate-300 space-y-1.5">
+                  <div className="font-bold text-indigo-950 dark:text-indigo-200 flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                    <span>Принцип суворої ізоляції та приватності КЗДО №145</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Особистий кабінет відкриває доступ <b>виключно до даних вашої дитини</b>. Списки інших дітей закладу, їхні медичні записи чи телефони батьків надійно захищені та ніколи не відображаються у вашому сеансі.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* AUTHENTICATED CHILD DASHBOARD */
+              <div className="space-y-6">
+                {/* Child Header Card */}
+                <div className="p-6 rounded-3xl bg-gradient-to-r from-blue-700 via-indigo-700 to-slate-900 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 relative overflow-hidden">
+                  <div className="absolute right-0 bottom-0 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
+                  <div className="flex items-center space-x-4 relative z-10">
+                    <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl shadow-inner border border-white/30">
+                      {authenticatedChild.GENDER === 'Жіноча' ? '👧' : '👦'}
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-200 bg-white/15 px-2.5 py-0.5 rounded-full">
+                          Особистий кабінет вихованця
+                        </span>
+                        <span className="font-mono text-xs bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full font-black">
+                          PIN {authenticatedChild.ACCESS_PIN || '145-....'}
+                        </span>
+                      </div>
+                      <h2 className="text-xl sm:text-3xl font-black">{authenticatedChild.FULL_NAME}</h2>
+                      <div className="text-xs text-blue-100 flex flex-wrap items-center gap-3 font-medium">
+                        <span>Група: <b className="text-white font-bold">{authenticatedChild.GROUP_NAME}</b></span>
+                        <span>•</span>
+                        <span>Народження: <b className="text-white font-mono">{authenticatedChild.BIRTH_DATE}</b></span>
+                        <span>•</span>
+                        <span>Пільга: <b className="text-amber-300 font-bold">{authenticatedChild.BENEFIT_CATEGORY || 'Загальна'}</b></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative z-10 flex items-center space-x-2 w-full sm:w-auto justify-end">
+                    <button
+                      onClick={handleLogoutChild}
+                      className="px-3.5 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer backdrop-blur-xs"
+                      title="Вийти з кабінету дитини"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Вийти</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* MAIN DASHBOARD TILES */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                  {/* TILE 1: TODAY IN KINDERGARTEN & DIET MENU */}
+                  <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                      <h3 className="font-black text-sm uppercase tracking-wider text-slate-900 dark:text-white flex items-center space-x-2">
+                        <Utensils className="w-4 h-4 text-amber-500" />
+                        <span>Сьогоднішній раціон & Безпека</span>
+                      </h3>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {new Date().toLocaleDateString('uk-UA', { day: 'numeric', month: 'short' })}
+                      </span>
+                    </div>
+
+                    {/* Diet Notice Banner */}
+                    <div className={`p-3.5 rounded-2xl border text-xs ${
+                      childDossier?.dietInfo.hasDietRestrictions
+                        ? 'bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800/80 text-amber-900 dark:text-amber-200'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800/80 text-emerald-900 dark:text-emerald-200'
+                    }`}>
+                      <div className="flex items-center space-x-2 font-bold mb-1">
+                        {childDossier?.dietInfo.hasDietRestrictions ? (
+                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        )}
+                        <span>{childDossier?.dietInfo.hasDietRestrictions ? 'Персональне дієтичне меню НАССР' : 'Стандартний збалансований раціон'}</span>
+                      </div>
+                      <p className="text-[11px] font-medium leading-relaxed">
+                        {childDossier?.dietInfo.hasDietRestrictions
+                          ? `Особливості харчування дитини: ${childDossier.dietInfo.dietNotes}. Кухня забезпечує належну кулінарну обробку та вилучення заборонених інгредієнтів.`
+                          : 'Спеціальних алергічних протипоказань немає. Меню складено за сезонними нормами споживання (КМУ №305).'}
+                      </p>
+                    </div>
+
+                    {/* Sample of Today's Meals */}
+                    <div className="space-y-2 text-xs">
+                      <div className="font-bold text-slate-700 dark:text-slate-300 uppercase text-[10px]">
+                        Основні прийоми їжі дитини сьогодні:
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+                          <span className="font-semibold">🥣 Сніданок: Каша вівсяна з маслом / сезонні фрукти</span>
+                          <span className="text-[10px] text-slate-500 font-mono">08:45</span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+                          <span className="font-semibold">🍲 Обід: Борщ український, тюфтельки курячі, пюре</span>
+                          <span className="text-[10px] text-slate-500 font-mono">12:00</span>
+                        </div>
+                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 flex items-center justify-between">
+                          <span className="font-semibold">🥛 Полуденок: Запіканка сирна з ягідним соусом, чай</span>
+                          <span className="text-[10px] text-slate-500 font-mono">15:40</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setActiveTab('menu')}
+                      className="w-full py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1"
+                    >
+                      <span>Переглянути повне розгорнуте меню на день</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* TILE 2: MEDICAL CARD & FORM 063/O */}
+                  <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                      <h3 className="font-black text-sm uppercase tracking-wider text-slate-900 dark:text-white flex items-center space-x-2">
+                        <HeartPulse className="w-4 h-4 text-emerald-500" />
+                        <span>Медичний паспорт & Щеплення (ф. 063/о)</span>
+                      </h3>
+                      <span className="text-[11px] font-bold text-emerald-600">
+                        ✓ Медсестра: Суміна Н.Є.
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <span className="text-[9px] uppercase font-bold text-slate-400 block">Група здоров'я</span>
+                        <span className="font-extrabold text-xs text-emerald-600 dark:text-emerald-400 mt-0.5 block">
+                          {childDossier?.medicalCard?.HEALTH_GROUP || 'I (Здорові)'}
+                        </span>
+                      </div>
+                      <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <span className="text-[9px] uppercase font-bold text-slate-400 block">Фізкультура</span>
+                        <span className="font-extrabold text-xs text-blue-600 dark:text-blue-400 mt-0.5 block">
+                          {childDossier?.medicalCard?.PHYSICAL_GROUP || 'Основна'}
+                        </span>
+                      </div>
+                      <div className="p-2.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700">
+                        <span className="text-[9px] uppercase font-bold text-slate-400 block">Меблі ДБН</span>
+                        <span className="font-extrabold text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 block">
+                          № {childDossier?.medicalCard?.DESK_FURNITURE_SIZE || '1 (85-100)'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Vaccinations summary */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">Календар обов'язкових щеплень:</span>
+                        <span className="text-[10px] text-emerald-600 font-bold">
+                          {childDossier?.vaccinations.length || 0} зафіксовано
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1 text-xs">
+                        {(childDossier?.vaccinations && childDossier.vaccinations.length > 0) ? (
+                          childDossier.vaccinations.map(v => (
+                            <div key={v.ID} className="p-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl flex items-center justify-between text-[11px]">
+                              <span className="font-bold text-slate-800 dark:text-slate-200">{v.VACCINE_TYPE} ({v.DOSE_STAGE})</span>
+                              <span className="font-mono text-slate-500">{v.ADMINISTERED_DATE}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl text-center text-slate-400 text-xs">
+                            Карту щеплень ф. 063/о актуалізовано за віком вихованця
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* TILE 3: LOGOPED HOME WORKOUTS */}
+                  <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                      <h3 className="font-black text-sm uppercase tracking-wider text-slate-900 dark:text-white flex items-center space-x-2">
+                        <Volume2 className="w-4 h-4 text-rose-500" />
+                        <span>Логопедичні вправи для дому</span>
+                      </h3>
+                      <span className="text-[10px] px-2 py-0.5 bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 rounded-full font-bold">
+                        {childDossier?.speechCard?.DIAGNOSIS || 'Мовлення в нормі'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      {childDossier?.speechCard ? (
+                        <>
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1.5">
+                              Звуки, над якими дитина працює з логопедом:
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {childDossier.speechCard.SOUND_STATUSES.map(s => (
+                                <span key={s.sound} className="px-2.5 py-1 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-200 font-bold flex items-center space-x-1 text-xs">
+                                  <span className="font-mono font-black">{s.sound}</span>
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">• {s.stage}</span>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="p-3 bg-rose-50/50 dark:bg-rose-950/20 rounded-xl border border-rose-200 dark:border-rose-900 text-[11px] space-y-1">
+                            <span className="font-bold text-rose-900 dark:text-rose-200 block">Порада логопеда батькам:</span>
+                            <p className="text-slate-700 dark:text-slate-300">
+                              {childDossier.speechCard.LOGOPED_CONCLUSION || 'Виконуйте артикуляційну гімнастику щодня по 5–7 хвилин перед дзеркалом.'}
+                            </p>
+                          </div>
+                        </>
+                      ) : (
+                        <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-xs">
+                          У дитини вікова норма звуковимови. Для підтримки чіткої дикції рекомендуємо веселі чистомовки та дихальні вправи.
+                        </p>
+                      )}
+
+                      <button
+                        onClick={() => setActiveTab('advice')}
+                        className="w-full py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-1"
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-rose-500" />
+                        <span>Відкрити ігровий тренажер артикуляції</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* TILE 4: PSYCHOLOGY & SHELTER COMFORT */}
+                  <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                      <h3 className="font-black text-sm uppercase tracking-wider text-slate-900 dark:text-white flex items-center space-x-2">
+                        <Brain className="w-4 h-4 text-purple-500" />
+                        <span>Психолог & Безпека в укритті</span>
+                      </h3>
+                      <span className="text-[10px] text-purple-600 font-bold">вул. Перлинна 23А</span>
+                    </div>
+
+                    <div className="space-y-3 text-xs">
+                      <div className="p-3 rounded-2xl bg-purple-50/50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 text-[11px] space-y-1">
+                        <span className="font-bold text-purple-900 dark:text-purple-200 block">Адаптація та емоційний стан:</span>
+                        <p className="text-slate-700 dark:text-slate-300">
+                          {authenticatedChild.PSYCHOLOGY_NOTES || 'Адаптація в групі проходить позитивно. Дитина легко залучається до спільних ігор та занять.'}
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-2xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 text-[11px] space-y-1">
+                        <span className="font-bold text-blue-900 dark:text-blue-200 block">Перебування в укритті під час сирен:</span>
+                        <p className="text-slate-700 dark:text-slate-300">
+                          {childDossier?.psychologySpecialSupport?.SHELTER_BEHAVIOR || 'Дитина спокійно спускається в обладнане укриття закладу разом із вихователем, бавиться з іграшками або слухає казки.'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* TILE 5: PAYMENT CALCULATION & BENEFIT */}
+                  <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                      <h3 className="font-black text-sm uppercase tracking-wider text-slate-900 dark:text-white flex items-center space-x-2">
+                        <Calculator className="w-4 h-4 text-blue-500" />
+                        <span>Батьківська плата за харчування</span>
+                      </h3>
+                      <span className="text-[10px] font-bold text-blue-600 uppercase">
+                        {childDossier?.dietInfo.categoryName}
+                      </span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-xs space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-600 dark:text-slate-400">Базова вартість дня харчування:</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-white">{childDossier?.dietInfo.standardDailyRate.toFixed(2)} грн</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-600 dark:text-slate-400">Пільгова категорія:</span>
+                        <span className="font-bold text-amber-600 dark:text-amber-400">{childDossier?.dietInfo.benefitCategory}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-600 dark:text-slate-400">Відсоток оплати батьками:</span>
+                        <span className="font-bold text-indigo-600 dark:text-indigo-400">{childDossier?.dietInfo.parentPaymentSharePercent}%</span>
+                      </div>
+                      <div className="pt-2 border-t border-blue-200 dark:border-blue-800 flex justify-between items-center text-sm">
+                        <span className="font-extrabold text-slate-900 dark:text-white">Орієнтовно до сплати за місяць:</span>
+                        <span className="font-mono font-black text-blue-700 dark:text-blue-300 text-base">
+                          {((childDossier?.dietInfo.standardDailyRate || 65) * (childDossier?.dietInfo.parentPaymentSharePercent || 100) / 100 * (childDossier?.attendanceStats.presentDays || 18)).toFixed(2)} грн
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* TILE 6: QUICK ACTIONS (ABSENCE / VACATION) */}
+                  <div className="p-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                      <h3 className="font-black text-sm uppercase tracking-wider text-slate-900 dark:text-white flex items-center space-x-2">
+                        <Sparkles className="w-4 h-4 text-amber-500" />
+                        <span>Швидкі дії без дзвінків</span>
+                      </h3>
+                    </div>
+
+                    <div className="space-y-2 text-xs">
+                      <button
+                        onClick={() => {
+                          setAbsenceChild(authenticatedChild.FULL_NAME);
+                          setAbsenceGroup(authenticatedChild.GROUP_NAME);
+                          setActiveTab('services');
+                        }}
+                        className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 hover:from-amber-600 hover:to-rose-600 text-white font-bold transition flex items-center justify-between cursor-pointer shadow-sm"
+                      >
+                        <span>Повідомити про відсутність / хворобу дитини</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setChildName(authenticatedChild.FULL_NAME);
+                          setSelectedGroup(authenticatedChild.GROUP_NAME);
+                          setParentName(authenticatedChild.MOTHER_NAME || authenticatedChild.PARENT_NAME || '');
+                          setParentPhone(authenticatedChild.MOTHER_PHONE || authenticatedChild.PARENT_PHONE || '');
+                          setActiveTab('services');
+                        }}
+                        className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold transition flex items-center justify-between cursor-pointer shadow-sm"
+                      >
+                        <span>Сформувати заяву на збереження місця / відпустку</span>
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ========================================================================= */}
         {/* TAB 1: MENU & NUTRITION */}
