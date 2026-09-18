@@ -5567,3 +5567,13 @@ export function getArticulationExercises(): ArticulationExercise[] {
   return INITIAL_ARTICULATION_EXERCISES;
 }
 
+export {
+  PEDAGOGICAL_COLLECTIVE,
+  PEDAGOGICAL_DEPARTMENTS,
+  getStaffByDepartment,
+  searchStaff,
+  getStaffStats,
+  type PedagogicalDepartment,
+  type PedagogicalStaffMember
+} from '../domain/pedagogicalCollective';
+

@@ -37,8 +37,22 @@ import {
   LogOut,
   Volume2,
   HeartPulse,
-  Brain
+  Brain,
+  GraduationCap,
+  Search,
+  Briefcase,
+  Quote,
+  ExternalLink
 } from 'lucide-react';
+import {
+  PEDAGOGICAL_COLLECTIVE,
+  PEDAGOGICAL_DEPARTMENTS,
+  getStaffByDepartment,
+  searchStaff,
+  getStaffStats,
+  PedagogicalDepartment,
+  PedagogicalStaffMember
+} from '../../domain/pedagogicalCollective';
 import { 
   getMenuEntries, 
   getDishes, 
@@ -82,7 +96,10 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
   darkMode = false,
   onToggleDarkMode
 }) => {
-  const [activeTab, setActiveTab] = useState<'my_child' | 'menu' | 'schedule' | 'safety' | 'services' | 'advice' | 'contacts'>('menu');
+  const [activeTab, setActiveTab] = useState<'my_child' | 'menu' | 'schedule' | 'safety' | 'services' | 'advice' | 'team' | 'contacts'>('menu');
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState<PedagogicalDepartment | 'all'>('all');
+  const [staffSearchQuery, setStaffSearchQuery] = useState('');
+  const [selectedStaffMember, setSelectedStaffMember] = useState<PedagogicalStaffMember | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [menuEntries, setMenuEntries] = useState<MenuHeader[]>([]);
   const [dishes, setDishes] = useState<Dish[]>([]);
@@ -383,6 +400,15 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
     });
   }, [memos, memoCategoryFilter]);
 
+  // Filtered Pedagogical Collective
+  const filteredStaffList = useMemo(() => {
+    return searchStaff(staffSearchQuery, selectedDeptFilter);
+  }, [staffSearchQuery, selectedDeptFilter]);
+
+  const staffStats = useMemo(() => {
+    return getStaffStats();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50/40 via-slate-50 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-white pb-16">
       
@@ -456,9 +482,9 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
         </div>
       </div>
 
-      {/* NAVIGATION TABS (6 TABS) */}
+      {/* NAVIGATION TABS (8 TABS) */}
       <div className="max-w-5xl w-full mx-auto px-4 -mt-6 z-20">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-1.5 shadow-xl border border-slate-200 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-1.5 shadow-xl border border-slate-200 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1">
           <button
             onClick={() => setActiveTab('my_child')}
             className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
@@ -531,6 +557,18 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
           >
             <BookOpen className="w-4 h-4 shrink-0" />
             <span className="truncate">Поради фахівців</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('team')}
+            className={`py-2.5 px-3 rounded-xl text-xs font-extrabold transition flex items-center justify-center space-x-1.5 cursor-pointer ${
+              activeTab === 'team'
+                ? 'bg-gradient-to-r from-teal-600 via-emerald-600 to-cyan-600 text-white shadow-md'
+                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+          >
+            <GraduationCap className="w-4 h-4 shrink-0" />
+            <span className="truncate">Педагоги (28)</span>
           </button>
 
           <button
@@ -2035,7 +2073,271 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
         )}
 
         {/* ========================================================================= */}
-        {/* TAB 6: CONTACTS & FEEDBACK DIALOGUE */}
+        {/* TAB 7: PEDAGOGICAL COLLECTIVE (ПЕДАГОГІЧНИЙ КОЛЕКТИВ ЗДО №145) */}
+        {/* ========================================================================= */}
+        {activeTab === 'team' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            {/* HERO CARD & STATS */}
+            <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-cyan-500/10 border border-teal-200/80 dark:border-teal-900/40 shadow-sm space-y-5">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start space-x-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex items-center justify-center shadow-lg shrink-0">
+                    <GraduationCap className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-300 text-[10px] font-black uppercase tracking-wider mb-1">
+                      <Sparkles className="w-3 h-3 text-teal-600 dark:text-teal-400" />
+                      <span>Офіційний кадровий реєстр КЗДО №145 «Перлинка»</span>
+                    </div>
+                    <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
+                      Педагогічний колектив закладу
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                      Команда з 28 кваліфікованих вихователів, психологів, дефектологів, логопедів та музичних керівників, об’єднаних любов’ю до дітей та високими стандартами сучасної дошкільної освіти.
+                    </p>
+                  </div>
+                </div>
+
+                <a
+                  href="https://zdo145perlinka.wixsite.com/my-site/педагогічний-колектив"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="self-start md:self-center px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-700 hover:bg-teal-50 text-xs font-bold transition shadow-xs flex items-center space-x-2 cursor-pointer"
+                >
+                  <span>Оригінал сайту ЗДО</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+
+              {/* QUICK STATS CARDS */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-teal-100 dark:border-slate-800 shadow-xs">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Всього педагогів</div>
+                  <div className="text-2xl font-black text-teal-700 dark:text-teal-400 mt-0.5">{staffStats.total}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Вихователі та фахівці</div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 shadow-xs">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Вища та І категорія</div>
+                  <div className="text-2xl font-black text-blue-700 dark:text-blue-400 mt-0.5">{staffStats.higherCategory}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Високий рівень атестації</div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-amber-100 dark:border-slate-800 shadow-xs">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Середній стаж</div>
+                  <div className="text-2xl font-black text-amber-700 dark:text-amber-400 mt-0.5">{staffStats.avgExp} р.</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Багаторічний практичний досвід</div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-purple-100 dark:border-slate-800 shadow-xs">
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Спеціалісти</div>
+                  <div className="text-2xl font-black text-purple-700 dark:text-purple-400 mt-0.5">{staffStats.specialistsCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Логопеди, психологи, дефектологи</div>
+                </div>
+              </div>
+            </div>
+
+            {/* TOOLBAR: DEPT TABS + SEARCH INPUT */}
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                {/* Department filter pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 text-xs font-bold scrollbar-none">
+                  <button
+                    onClick={() => setSelectedDeptFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl transition cursor-pointer shrink-0 ${
+                      selectedDeptFilter === 'all'
+                        ? 'bg-slate-900 text-white dark:bg-teal-500 dark:text-slate-950 shadow-xs font-black'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    Всі фахівці ({staffStats.total})
+                  </button>
+                  {PEDAGOGICAL_DEPARTMENTS.map(dept => (
+                    <button
+                      key={dept.key}
+                      onClick={() => setSelectedDeptFilter(dept.key)}
+                      className={`px-3 py-1.5 rounded-xl transition cursor-pointer shrink-0 ${
+                        selectedDeptFilter === dept.key
+                          ? 'bg-teal-600 text-white shadow-xs font-black'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {dept.key === 'administration' && '🏛️ '}
+                      {dept.key === 'specialists' && '🧠 '}
+                      {dept.key === 'special_groups' && '🌟 '}
+                      {dept.key === 'general_groups' && '🌿 '}
+                      {dept.key === 'administration' ? 'Адміністрація (2)' :
+                       dept.key === 'specialists' ? 'Спеціалісти (11)' :
+                       dept.key === 'special_groups' ? 'Вихователі спецгруп (9)' :
+                       'Вихователі загальних (6)'}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Live Search input */}
+                <div className="relative w-full md:w-80">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={staffSearchQuery}
+                    onChange={(e) => setStaffSearchQuery(e.target.value)}
+                    placeholder="Пошук за прізвищем, посадою, кредо..."
+                    className="w-full pl-9 pr-8 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-teal-500 text-slate-900 dark:text-white"
+                  />
+                  {staffSearchQuery && (
+                    <button
+                      onClick={() => setStaffSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between px-1">
+                <span>Відображається: <strong className="text-slate-700 dark:text-slate-200">{filteredStaffList.length}</strong> з 28 педагогів</span>
+                {staffSearchQuery && (
+                  <span>Фільтр за запитом: «{staffSearchQuery}»</span>
+                )}
+              </div>
+            </div>
+
+            {/* STAFF GRID */}
+            {filteredStaffList.length === 0 ? (
+              <div className="p-12 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <Users className="w-10 h-10 text-slate-400 mx-auto" />
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">Педагогів за вашим запитом не знайдено</h3>
+                <p className="text-xs text-slate-500">Спробуйте змінити фільтр підрозділу або очистити пошуковий рядок.</p>
+                <button
+                  onClick={() => { setStaffSearchQuery(''); setSelectedDeptFilter('all'); }}
+                  className="px-4 py-2 rounded-xl bg-teal-600 text-white text-xs font-bold hover:bg-teal-700 cursor-pointer transition"
+                >
+                  Скинути фільтри
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredStaffList.map((member) => (
+                  <div
+                    key={member.id}
+                    className="bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col justify-between group"
+                  >
+                    <div className="space-y-3.5">
+                      {/* Top info: Avatar + Badges */}
+                      <div className="flex items-start space-x-3.5">
+                        <div className="relative shrink-0">
+                          <img
+                            src={member.photoUrl}
+                            alt={member.fullName}
+                            className="w-20 h-24 sm:w-22 sm:h-28 rounded-2xl object-cover border-2 border-slate-100 dark:border-slate-700 shadow-md group-hover:scale-102 transition-transform duration-200 bg-slate-100 dark:bg-slate-800"
+                            loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLElement).style.opacity = '0.7';
+                            }}
+                          />
+                          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-teal-500 text-white flex items-center justify-center shadow-xs text-[10px] font-black">
+                            ✓
+                          </div>
+                        </div>
+
+                        <div className="flex-1 min-w-0 space-y-1.5">
+                          {/* Department Badge */}
+                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            member.department === 'administration'
+                              ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800'
+                              : member.department === 'specialists'
+                              ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800'
+                              : member.department === 'special_groups'
+                              ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+                          }`}>
+                            {member.department === 'administration' ? 'Адміністрація' :
+                             member.department === 'specialists' ? 'Спеціаліст' :
+                             member.department === 'special_groups' ? 'Спецгрупа' :
+                             'Загальна група'}
+                          </span>
+
+                          <h3 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                            {member.fullName}
+                          </h3>
+
+                          <div className="text-xs font-bold text-teal-700 dark:text-teal-400 flex items-center space-x-1">
+                            <Briefcase className="w-3.5 h-3.5 shrink-0 text-teal-600" />
+                            <span className="truncate">{member.position}</span>
+                          </div>
+
+                          <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 flex items-center space-x-1">
+                            <Clock className="w-3 h-3 shrink-0" />
+                            <span>Стаж: {member.experience}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Badges: Category & Rank */}
+                      <div className="flex flex-wrap gap-1 text-[10px]">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold border border-slate-200 dark:border-slate-700 flex items-center space-x-1">
+                          <Award className="w-3 h-3 text-amber-500 shrink-0" />
+                          <span>{member.qualificationCategory}</span>
+                        </span>
+                        {member.pedagogicalRank && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 font-bold border border-amber-200 dark:border-amber-800 flex items-center space-x-1">
+                            <Star className="w-3 h-3 text-amber-500 fill-amber-400 shrink-0" />
+                            <span>{member.pedagogicalRank}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Education snippet */}
+                      <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                        <span className="font-bold text-slate-700 dark:text-slate-200 block text-[10px] uppercase tracking-wider mb-0.5">Освіта:</span>
+                        <span className="line-clamp-2">{member.education}</span>
+                      </div>
+
+                      {/* Inspiring Credo */}
+                      <div className="p-3 rounded-2xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/40 relative text-[11px] italic text-amber-950 dark:text-amber-200 leading-relaxed">
+                        <Quote className="w-3 h-3 text-amber-500 absolute -top-1.5 -left-1.5 bg-white dark:bg-slate-900 rounded-full p-0.5 border border-amber-300" />
+                        "{member.credo.replace(/^[«"'\s]+|[»"'\s]+$/g, '')}"
+                      </div>
+
+                      {/* Methodological topic snippet if available */}
+                      {member.methodologicalTopic && (
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2">
+                          <strong className="text-slate-600 dark:text-slate-300">Тема: </strong>
+                          {member.methodologicalTopic}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Footer action buttons */}
+                    <div className="pt-4 mt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                      <button
+                        onClick={() => setSelectedStaffMember(member)}
+                        className="flex-1 py-2 px-3 rounded-xl bg-teal-50 dark:bg-teal-950/40 hover:bg-teal-100 dark:hover:bg-teal-900/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-xs font-bold transition flex items-center justify-center space-x-1.5 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>Досьє педагога</span>
+                      </button>
+
+                      <a
+                        href={member.originalProfileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Відкрити офіційну сторінку на сайті"
+                        className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition cursor-pointer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 8: CONTACTS & FEEDBACK DIALOGUE */}
         {/* ========================================================================= */}
         {activeTab === 'contacts' && (
           <div className="space-y-6 animate-in fade-in duration-200">
@@ -2053,8 +2355,8 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
                     <div><strong>Повна назва:</strong> Комунальний заклад дошкільної освіти (ясла-садок) комбінованого типу №145 Криворізької міської ради</div>
                     <div><strong>Скорочено:</strong> Криворізький КЗДО КТ №145 КМР</div>
                     <div><strong>Код ЄДРПОУ:</strong> <span className="font-mono font-bold">26136748</span></div>
-                    <div><strong>Директор:</strong> Павлухіна Наталія Григорівна</div>
-                    <div><strong>Вихователь-методист:</strong> Суміна Наталія Євгенівна</div>
+                    <div><strong>Директор:</strong> Павлухіна Наталія Георгіївна</div>
+                    <div><strong>Вихователь-методист:</strong> Єфімова Олена Олексіївна</div>
                     <div><strong>Телефон гарячої лінії:</strong> <a href="tel:+380675694704" className="font-bold text-amber-600 hover:underline">+380 (67) 569-47-04</a></div>
                   </div>
                 </div>
@@ -2392,6 +2694,141 @@ export const ParentSpaceView: React.FC<ParentSpaceViewProps> = ({
                 className="px-4 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-bold transition cursor-pointer"
               >
                 Закрити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SELECTED PEDAGOGICAL STAFF MEMBER FULL DOSSIER */}
+      {selectedStaffMember && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-cyan-500/10">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-md shrink-0">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Картка педагогічного працівника
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    Криворізький КЗДО КТ №145 КМР • Персональне портфоліо
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedStaffMember(null)}
+                className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 text-xs sm:text-sm">
+              {/* Profile Top Bar */}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                <img
+                  src={selectedStaffMember.photoUrl}
+                  alt={selectedStaffMember.fullName}
+                  className="w-28 h-36 rounded-2xl object-cover shadow-md border-2 border-white dark:border-slate-700 shrink-0 bg-slate-100 dark:bg-slate-800"
+                />
+                <div className="space-y-2 text-center sm:text-left flex-1 min-w-0">
+                  <div className="flex flex-wrap gap-1.5 justify-center sm:justify-start">
+                    <span className="px-2.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/50 text-teal-800 dark:text-teal-300 font-bold text-xs">
+                      {selectedStaffMember.department === 'administration' ? 'Адміністрація закладу' :
+                       selectedStaffMember.department === 'specialists' ? 'Фахівець / Спеціаліст' :
+                       selectedStaffMember.department === 'special_groups' ? 'Спеціальна група' :
+                       'Група загального розвитку'}
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 font-bold text-xs">
+                      {selectedStaffMember.qualificationCategory}
+                    </span>
+                    {selectedStaffMember.pedagogicalRank && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300 font-bold text-xs">
+                        {selectedStaffMember.pedagogicalRank}
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                    {selectedStaffMember.fullName}
+                  </h2>
+                  <div className="text-sm font-bold text-teal-700 dark:text-teal-400">
+                    {selectedStaffMember.position}
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center justify-center sm:justify-start space-x-1.5">
+                    <Clock className="w-4 h-4 text-slate-400 shrink-0" />
+                    <span><strong>Педагогічний стаж:</strong> {selectedStaffMember.experience}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Credo Box */}
+              <div className="p-4 rounded-2xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 relative space-y-1">
+                <div className="flex items-center space-x-1.5 text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                  <Quote className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Педагогічне кредо:</span>
+                </div>
+                <p className="text-xs sm:text-sm italic text-amber-950 dark:text-amber-100 leading-relaxed font-medium">
+                  {selectedStaffMember.credo}
+                </p>
+              </div>
+
+              {/* Detailed Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="p-3.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
+                  <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px] block">Освіта та навчальний заклад:</span>
+                  <p className="text-slate-800 dark:text-slate-200 font-medium leading-relaxed">{selectedStaffMember.education}</p>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1">
+                  <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px] block">Кваліфікаційна категорія:</span>
+                  <p className="text-slate-800 dark:text-slate-200 font-medium leading-relaxed">{selectedStaffMember.qualificationCategory}</p>
+                  {selectedStaffMember.pedagogicalRank && (
+                    <p className="text-amber-600 dark:text-amber-400 font-bold text-[11px]">Звання: {selectedStaffMember.pedagogicalRank}</p>
+                  )}
+                </div>
+
+                {selectedStaffMember.methodologicalTopic && (
+                  <div className="p-3.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-1 sm:col-span-2">
+                    <span className="font-bold text-slate-500 uppercase tracking-wider text-[10px] block">Індивідуальна науково-методична проблема / тема:</span>
+                    <p className="text-slate-800 dark:text-slate-200 font-medium leading-relaxed">{selectedStaffMember.methodologicalTopic}</p>
+                  </div>
+                )}
+
+                {selectedStaffMember.receptionHours && (
+                  <div className="p-3.5 rounded-xl bg-teal-50/50 dark:bg-teal-950/30 border border-teal-100 dark:border-teal-900/50 space-y-1 sm:col-span-2">
+                    <span className="font-bold text-teal-800 dark:text-teal-300 uppercase tracking-wider text-[10px] block">Години прийому та консультацій для батьків:</span>
+                    <p className="text-slate-800 dark:text-slate-200 font-bold">{selectedStaffMember.receptionHours}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Verification & Official Link */}
+              <div className="p-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-600 dark:text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <span>Дані підтверджено атестаційною комісією ЗДО №145</span>
+                <a
+                  href={selectedStaffMember.originalProfileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-teal-700 dark:text-teal-300 hover:underline flex items-center space-x-1 cursor-pointer"
+                >
+                  <span>Офіційне портфоліо на сайті садка</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end space-x-2 bg-slate-50 dark:bg-slate-900">
+              <button
+                onClick={() => setSelectedStaffMember(null)}
+                className="px-5 py-2.5 rounded-xl bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 text-xs font-bold transition cursor-pointer"
+              >
+                Закрити картку
               </button>
             </div>
           </div>
